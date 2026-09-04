@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #050505;
+  --bg-elev: #0d0d0d;
+  --bg-card: #111111;
+  --border: #1f1f1f;
+  --border-strong: #2e2e2e;
+  --white: #ffffff;
+  --gray-100: #e7e7e7;
+  --gray-300: #b5b5b5;
+  --gray-500: #7a7a7a;
+
+  --font-display: "Bebas Neue", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-bg-card: var(--bg-card);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-white: var(--white);
+  --color-gray-100: var(--gray-100);
+  --color-gray-300: var(--gray-300);
+  --color-gray-500: var(--gray-500);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--bg);
+  color: var(--gray-100);
+  font-family: var(--font-body);
+}
