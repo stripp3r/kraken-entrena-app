@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { guardarPerfil } from "./actions";
 
 const fieldClass =
-  "rounded-lg border border-border bg-bg-card px-4 py-2.5 text-white outline-none focus:border-border-strong";
+  "w-full rounded-lg border border-border bg-bg-card px-4 py-2.5 text-white outline-none focus:border-border-strong";
 const labelClass = "text-sm text-gray-300";
 
 export default async function PerfilPage({
@@ -40,7 +40,7 @@ export default async function PerfilPage({
 
         <form className="flex flex-col gap-4">
           <div className="flex gap-3">
-            <div className="flex flex-1 flex-col gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <label htmlFor="nombre" className={labelClass}>
                 Nombre
               </label>
@@ -52,7 +52,7 @@ export default async function PerfilPage({
                 className={fieldClass}
               />
             </div>
-            <div className="flex flex-1 flex-col gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <label htmlFor="apellido" className={labelClass}>
                 Apellido
               </label>
@@ -66,7 +66,7 @@ export default async function PerfilPage({
           </div>
 
           <div className="flex gap-3">
-            <div className="flex flex-1 flex-col gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <label htmlFor="sexo" className={labelClass}>
                 Sexo
               </label>

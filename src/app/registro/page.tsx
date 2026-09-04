@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PasswordInput } from "@/components/password-input";
 import { signup } from "../login/actions";
 
 export default async function RegistroPage({
@@ -33,14 +34,7 @@ export default async function RegistroPage({
             <label htmlFor="password" className="text-sm text-gray-300">
               Contraseña
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={6}
-              className="rounded-lg border border-border bg-bg-card px-4 py-2.5 text-white outline-none focus:border-border-strong"
-            />
+            <PasswordInput id="password" name="password" required minLength={6} />
           </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
