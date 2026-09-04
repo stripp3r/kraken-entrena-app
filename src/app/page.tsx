@@ -31,12 +31,19 @@ export default async function Home() {
         HOLA, {profile.nombre.toUpperCase()}
       </h1>
       <p className="max-w-xs text-gray-300">
-        Tu rutina, tu progreso y tus técnicas llegan pronto acá.
+        Tu progreso y tus técnicas llegan pronto acá.
       </p>
 
       <Link
+        href="/entrenamiento"
+        className="mt-8 rounded-full bg-white px-6 py-3 font-medium text-black"
+      >
+        Entrenar hoy
+      </Link>
+
+      <Link
         href="/perfil"
-        className="mt-8 rounded-full border border-border-strong bg-bg-card px-5 py-2.5 text-sm text-gray-300"
+        className="rounded-full border border-border-strong bg-bg-card px-5 py-2.5 text-sm text-gray-300"
       >
         Editar mi perfil
       </Link>
