@@ -39,9 +39,7 @@ export default async function DiaEntrenamientoPage({
 
   const { data: exercises } = await supabase
     .from("exercises")
-    .select(
-      "id, nombre, video_url, imagen_url, orden, techniques(nombre, descripcion)"
-    )
+    .select("id, nombre, video_url, imagen_url, como_hacerlo, orden")
     .eq("dia", dia)
     .eq("routine_id", profile.routine_id)
     .order("orden", { ascending: true });
@@ -81,10 +79,6 @@ export default async function DiaEntrenamientoPage({
         ) : (
           <div className="flex flex-col gap-4">
             {exercises.map((ex) => {
-              const technique = Array.isArray(ex.techniques)
-                ? ex.techniques[0]
-                : ex.techniques;
-
               const logsDeHoy = (logsHoy ?? []).filter((l) => l.exercise_id === ex.id);
 
               return (
@@ -95,7 +89,7 @@ export default async function DiaEntrenamientoPage({
                     nombre: ex.nombre,
                     imagen_url: ex.imagen_url,
                     video_url: ex.video_url,
-                    technique: technique ?? null,
+                    como_hacerlo: ex.como_hacerlo,
                   }}
                   logsDeHoy={logsDeHoy}
                 />

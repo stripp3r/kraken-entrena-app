@@ -17,7 +17,7 @@ type Exercise = {
   nombre: string;
   imagen_url: string | null;
   video_url: string | null;
-  technique: { nombre: string; descripcion: string | null } | null;
+  como_hacerlo: string | null;
 };
 
 const emptyRow = { peso: "", reps: "", rir: "" };
@@ -42,6 +42,7 @@ export function ExerciseCard({
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editRow, setEditRow] = useState(emptyRow);
+  const [mostrarComoHacerlo, setMostrarComoHacerlo] = useState(false);
 
   function updateRow(i: number, field: keyof typeof emptyRow, value: string) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
@@ -126,23 +127,35 @@ export function ExerciseCard({
         )}
         <div>
           <h2 className="text-lg font-medium leading-tight text-white">{exercise.nombre}</h2>
-          {exercise.technique && (
-            <p className="text-xs text-gray-500">
-              Técnica: <span className="text-gray-300">{exercise.technique.nombre}</span>
-            </p>
-          )}
-          {exercise.video_url && (
-            <a
-              href={exercise.video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-gray-400 underline"
-            >
-              Ver video
-            </a>
-          )}
+          <div className="flex gap-3">
+            {exercise.como_hacerlo && (
+              <button
+                type="button"
+                onClick={() => setMostrarComoHacerlo((v) => !v)}
+                className="text-xs text-gray-400 underline"
+              >
+                {mostrarComoHacerlo ? "Ocultar" : "¿Cómo hacerlo?"}
+              </button>
+            )}
+            {exercise.video_url && (
+              <a
+                href={exercise.video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gray-400 underline"
+              >
+                Ver video
+              </a>
+            )}
+          </div>
         </div>
       </div>
+
+      {mostrarComoHacerlo && exercise.como_hacerlo && (
+        <p className="mt-3 whitespace-pre-line rounded-md bg-bg p-3 text-sm text-gray-300">
+          {exercise.como_hacerlo}
+        </p>
+      )}
 
       {logsDeHoy.length > 0 && (
         <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3">
