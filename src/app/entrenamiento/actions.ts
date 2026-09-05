@@ -1,10 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export async function registrarSet(formData: FormData) {
+export type SetInput = {
+  peso: number | null;
+  reps: number | null;
+  rir: number | null;
+};
+
+export async function registrarSets(exerciseId: number, sets: SetInput[]) {
   const supabase = await createClient();
 
   const {
@@ -12,27 +16,76 @@ export async function registrarSet(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    return { error: "Tenés que iniciar sesión de nuevo." };
   }
 
-  const exerciseId = Number(formData.get("exercise_id"));
-  const dia = formData.get("dia") as string;
-  const pesoRaw = formData.get("peso") as string;
-  const repsRaw = formData.get("reps") as string;
-  const rirRaw = formData.get("rir") as string;
+  const filas = sets
+    .filter((s) => s.peso !== null || s.reps !== null || s.rir !== null)
+    .map((s) => ({
+      user_id: user.id,
+      exercise_id: exerciseId,
+      peso: s.peso,
+      reps: s.reps,
+      rir: s.rir,
+    }));
 
-  const { error } = await supabase.from("workout_logs").insert({
-    user_id: user.id,
-    exercise_id: exerciseId,
-    peso: pesoRaw ? Number(pesoRaw) : null,
-    reps: repsRaw ? Number(repsRaw) : null,
-    rir: rirRaw ? Number(rirRaw) : null,
-  });
+  if (filas.length === 0) {
+    return { error: "Cargá al menos un dato en algún set." };
+  }
+
+  const { error } = await supabase.from("workout_logs").insert(filas);
 
   if (error) {
-    redirect(`/entrenamiento/${dia}?error=${encodeURIComponent(error.message)}`);
+    return { error: error.message };
   }
 
-  revalidatePath(`/entrenamiento/${dia}`);
-  redirect(`/entrenamiento/${dia}?ok=1`);
+  return { ok: true };
+}
+
+export async function editarSet(logId: number, set: SetInput) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Tenés que iniciar sesión de nuevo." };
+  }
+
+  const { error } = await supabase
+    .from("workout_logs")
+    .update({ peso: set.peso, reps: set.reps, rir: set.rir })
+    .eq("id", logId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { ok: true };
+}
+
+export async function borrarSet(logId: number) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Tenés que iniciar sesión de nuevo." };
+  }
+
+  const { error } = await supabase
+    .from("workout_logs")
+    .delete()
+    .eq("id", logId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { ok: true };
 }

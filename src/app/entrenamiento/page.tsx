@@ -1,28 +1,50 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
-const DIAS = [
-  { id: "A", label: "Día A" },
-  { id: "B", label: "Día B" },
-  { id: "C", label: "Día C" },
-  { id: "D", label: "Día D" },
-];
+const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
-export default function EntrenamientoPage() {
+export default async function EntrenamientoPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("routine_id, routines(nombre, dias)")
+    .eq("id", user.id)
+    .single();
+
+  const routine = Array.isArray(profile?.routines) ? profile.routines[0] : profile?.routines;
+
+  if (!profile?.routine_id || !routine) {
+    redirect("/perfil?error=" + encodeURIComponent("Elegí tu rutina para poder entrenar."));
+  }
+
+  const dias = LETRAS_DIA.slice(0, routine.dias);
+
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-8 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
           ENTRENAMIENTO
         </h1>
+        <p className="mb-8 text-center text-sm text-gray-500">{routine.nombre}</p>
 
         <div className="flex flex-col gap-3">
-          {DIAS.map((dia) => (
+          {dias.map((letra) => (
             <Link
-              key={dia.id}
-              href={`/entrenamiento/${dia.id}`}
+              key={letra}
+              href={`/entrenamiento/${letra}`}
               className="rounded-lg border border-border bg-bg-card px-5 py-4 text-center text-lg text-white transition-colors hover:border-border-strong"
             >
-              {dia.label}
+              Día {letra}
             </Link>
           ))}
         </div>

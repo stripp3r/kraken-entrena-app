@@ -28,6 +28,11 @@ export default async function PerfilPage({
     .eq("id", user.id)
     .single();
 
+  const { data: routines } = await supabase
+    .from("routines")
+    .select("id, nombre, dias")
+    .order("dias", { ascending: true });
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
@@ -140,6 +145,28 @@ export default async function PerfilPage({
               <option value="moderada">Moderada</option>
               <option value="muy_activo">Muy activo</option>
               <option value="extremo">Extremo</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="routine_id" className={labelClass}>
+              Tu rutina
+            </label>
+            <select
+              id="routine_id"
+              name="routine_id"
+              defaultValue={profile?.routine_id ?? ""}
+              required
+              className={fieldClass}
+            >
+              <option value="" disabled>
+                Elegí
+              </option>
+              {routines?.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nombre} ({r.dias} días)
+                </option>
+              ))}
             </select>
           </div>
 

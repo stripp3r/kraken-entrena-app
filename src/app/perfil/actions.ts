@@ -16,6 +16,7 @@ export async function guardarPerfil(formData: FormData) {
   }
 
   const edadRaw = formData.get("edad") as string;
+  const routineIdRaw = formData.get("routine_id") as string;
 
   const { error } = await supabase
     .from("profiles")
@@ -26,6 +27,7 @@ export async function guardarPerfil(formData: FormData) {
       edad: edadRaw ? Number(edadRaw) : null,
       objetivo: formData.get("objetivo") as string,
       actividad_fisica: formData.get("actividad_fisica") as string,
+      routine_id: routineIdRaw ? Number(routineIdRaw) : null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);
