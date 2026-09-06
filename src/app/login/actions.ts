@@ -33,7 +33,7 @@ export async function signup(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/perfil");
+  redirect("/perfil/datos");
 }
 
 export async function logout() {

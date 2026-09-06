@@ -33,7 +33,7 @@ export async function guardarPerfil(formData: FormData) {
     .eq("id", user.id);
 
   if (error) {
-    redirect(`/perfil?error=${encodeURIComponent(error.message)}`);
+    redirect(`/perfil/datos?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/");

@@ -23,13 +23,14 @@ const TABS = [
   {
     href: "/progreso",
     label: "Progreso",
-    match: (path: string) => path.startsWith("/progreso") || path.startsWith("/medidas") || path.startsWith("/evolucion"),
+    match: (path: string) => path.startsWith("/progreso"),
     icon: <path d="M4 19V9m6 10V4m6 15v-7m6 7v-3" />,
   },
   {
     href: "/perfil",
     label: "Perfil",
-    match: (path: string) => path.startsWith("/perfil"),
+    match: (path: string) =>
+      path.startsWith("/perfil") || path.startsWith("/medidas") || path.startsWith("/evolucion"),
     icon: (
       <>
         <circle cx="12" cy="8" r="3.5" />

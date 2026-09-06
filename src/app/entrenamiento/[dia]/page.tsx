@@ -34,7 +34,7 @@ export default async function DiaEntrenamientoPage({
     .single();
 
   if (!profile?.routine_id) {
-    redirect("/perfil?error=" + encodeURIComponent("Elegí tu rutina para poder entrenar."));
+    redirect("/perfil/datos?error=" + encodeURIComponent("Elegí tu rutina para poder entrenar."));
   }
 
   const { data: exercises } = await supabase

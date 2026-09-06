@@ -20,7 +20,7 @@ export default async function Home() {
     .single();
 
   if (!profile?.nombre) {
-    redirect("/perfil");
+    redirect("/perfil/datos");
   }
 
   return (

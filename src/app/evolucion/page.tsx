@@ -87,10 +87,10 @@ export default async function EvolucionPage() {
         </div>
 
         <Link
-          href="/progreso"
+          href="/perfil"
           className="mt-8 block text-center text-sm text-gray-500 underline"
         >
-          Volver a Progreso
+          Volver a Perfil
         </Link>
       </div>
     </main>

@@ -24,7 +24,7 @@ export default async function EntrenamientoPage() {
   const routine = Array.isArray(profile?.routines) ? profile.routines[0] : profile?.routines;
 
   if (!profile?.routine_id || !routine) {
-    redirect("/perfil?error=" + encodeURIComponent("Elegí tu rutina para poder entrenar."));
+    redirect("/perfil/datos?error=" + encodeURIComponent("Elegí tu rutina para poder entrenar."));
   }
 
   const dias = LETRAS_DIA.slice(0, routine.dias);
