@@ -3,6 +3,7 @@ import { Bebas_Neue, Inter } from "next/font/google";
 import "./globals.css";
 import { RegisterServiceWorker } from "./register-sw";
 import { BottomNav } from "@/components/bottom-nav";
+import { createClient } from "@/lib/supabase/server";
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-display",
@@ -31,12 +32,27 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let genero: "femenino" | "masculino" = "masculino";
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("sexo")
+      .eq("id", user.id)
+      .single();
+    if (profile?.sexo === "femenino") genero = "femenino";
+  }
+
   return (
     <html lang="es" className={`${bebasNeue.variable} ${inter.variable} h-full`}>
       <body className="min-h-full flex flex-col pb-16 antialiased">
         {children}
-        <BottomNav />
+        <BottomNav genero={genero} />
         <RegisterServiceWorker />
       </body>
     </html>
