@@ -39,14 +39,25 @@ export default async function DiaEntrenamientoPage({
 
   const { data: exercises } = await supabase
     .from("exercises")
-    .select(
-      "id, nombre, video_url, imagen_url, como_hacerlo, orden, alternativa:exercises!alternativa_id(id, nombre, imagen_url, como_hacerlo)"
-    )
+    .select("id, nombre, video_url, imagen_url, como_hacerlo, orden, alternativa_id")
     .eq("dia", dia)
     .eq("routine_id", profile.routine_id)
     .order("orden", { ascending: true });
 
   const exerciseIds = exercises?.map((e) => e.id) ?? [];
+
+  const alternativaIds = [
+    ...new Set((exercises ?? []).map((e) => e.alternativa_id).filter((id): id is number => id !== null)),
+  ];
+
+  const { data: alternativas } = alternativaIds.length
+    ? await supabase
+        .from("exercises")
+        .select("id, nombre, imagen_url, como_hacerlo")
+        .in("id", alternativaIds)
+    : { data: [] as { id: number; nombre: string; imagen_url: string | null; como_hacerlo: string | null }[] };
+
+  const alternativaPorId = new Map((alternativas ?? []).map((a) => [a.id, a]));
 
   const hoyInicio = new Date();
   hoyInicio.setHours(0, 0, 0, 0);
@@ -82,9 +93,9 @@ export default async function DiaEntrenamientoPage({
           <div className="flex flex-col gap-4">
             {exercises.map((ex) => {
               const logsDeHoy = (logsHoy ?? []).filter((l) => l.exercise_id === ex.id);
-              const alternativa = Array.isArray(ex.alternativa)
-                ? ex.alternativa[0]
-                : ex.alternativa;
+              const alternativa = ex.alternativa_id
+                ? alternativaPorId.get(ex.alternativa_id) ?? null
+                : null;
 
               return (
                 <ExerciseCard
