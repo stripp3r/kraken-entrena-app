@@ -149,20 +149,30 @@ export function MedicionForm({ historial }: { historial: Medicion[] }) {
             {historial.map((m) =>
               editingId === m.id ? (
                 <div key={m.id} className="rounded-md bg-bg p-3">
+                  <div className="mb-2 flex flex-col gap-1">
+                    <label className="text-[11px] text-gray-500">Fecha</label>
+                    <input
+                      type="date"
+                      value={editForm.fecha}
+                      onChange={(e) => setEditForm((f) => ({ ...f, fecha: e.target.value }))}
+                      className="w-full rounded-md border border-border bg-bg-card px-2 py-1.5 text-sm text-white outline-none"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {CAMPOS.map((c) => (
-                      <input
-                        key={c.key}
-                        value={editForm[c.key]}
-                        onChange={(e) =>
-                          setEditForm((f) => ({ ...f, [c.key]: e.target.value }))
-                        }
-                        placeholder={c.label}
-                        type="number"
-                        step="0.1"
-                        inputMode="decimal"
-                        className="w-full rounded-md border border-border bg-bg-card px-2 py-1.5 text-sm text-white outline-none"
-                      />
+                      <div key={c.key} className="flex flex-col gap-1">
+                        <label className="text-[11px] text-gray-500">{c.label}</label>
+                        <input
+                          value={editForm[c.key]}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, [c.key]: e.target.value }))
+                          }
+                          type="number"
+                          step="0.1"
+                          inputMode="decimal"
+                          className="w-full rounded-md border border-border bg-bg-card px-2 py-1.5 text-sm text-white outline-none"
+                        />
+                      </div>
                     ))}
                   </div>
                   <div className="mt-2 flex gap-3">
