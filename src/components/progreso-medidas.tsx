@@ -63,11 +63,18 @@ export function ProgresoMedidas({ historial }: { historial: Medicion[] }) {
   return (
     <div className="rounded-lg border border-border bg-bg-card p-4">
       <h3 className="mb-3 text-white">Comparar mediciones</h3>
-      <div className="h-72 w-full">
+      <div className="h-80 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={datos} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+          <BarChart data={datos} margin={{ top: 5, right: 5, bottom: 24, left: -20 }}>
             <CartesianGrid stroke="#1f1f1f" vertical={false} />
-            <XAxis dataKey="medida" tick={{ fill: "#7a7a7a", fontSize: 10 }} />
+            <XAxis
+              dataKey="medida"
+              tick={{ fill: "#7a7a7a", fontSize: 10 }}
+              interval={0}
+              angle={-35}
+              textAnchor="end"
+              height={50}
+            />
             <YAxis tick={{ fill: "#7a7a7a", fontSize: 10 }} />
             <Tooltip
               contentStyle={{
