@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { calcularEstadisticasEjercicio, type SetLog } from "@/lib/analytics";
+import { calcularEstadisticasEjercicio, serieDeUnaRM, type SetLog } from "@/lib/analytics";
 import { GraficoVolumenEjercicios } from "./grafico-volumen-ejercicios";
+import {
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 type Exercise = { id: number; nombre: string; dia: string };
 
@@ -11,8 +19,39 @@ function num(n: number | null, decimales = 1) {
   return n.toFixed(decimales);
 }
 
+function GraficoLinea({ datos }: { datos: { fecha: string; valor: number }[] }) {
+  if (datos.length < 2) {
+    return (
+      <p className="py-6 text-center text-xs text-gray-600">
+        Cargá al menos 2 registros para ver el gráfico.
+      </p>
+    );
+  }
+  return (
+    <div className="h-32 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={datos} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+          <XAxis dataKey="fecha" tick={{ fill: "#7a7a7a", fontSize: 10 }} />
+          <YAxis tick={{ fill: "#7a7a7a", fontSize: 10 }} />
+          <Tooltip
+            contentStyle={{
+              background: "#111111",
+              border: "1px solid #2e2e2e",
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+            labelStyle={{ color: "#e7e7e7" }}
+          />
+          <Line type="monotone" dataKey="valor" stroke="#ffffff" strokeWidth={2} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 function TarjetaEjercicio({ nombre, logs }: { nombre: string; logs: SetLog[] }) {
   const stats = calcularEstadisticasEjercicio(logs);
+  const serie = serieDeUnaRM(logs);
 
   if (stats.cantidadDias === 0) {
     return (
@@ -27,7 +66,12 @@ function TarjetaEjercicio({ nombre, logs }: { nombre: string; logs: SetLog[] }) 
     <div className="rounded-lg border border-border bg-bg-card p-4">
       <h3 className="mb-3 text-white">{nombre}</h3>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">
+        Evolución del 1RM estimado
+      </p>
+      <GraficoLinea datos={serie} />
+
+      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3 text-sm">
         <Stat label="1RM est." valor={num(stats.rm1)} />
         <Stat label="IRP" valor={stats.irp !== null ? `${num(stats.irp * 100, 0)}%` : "-"} />
         <Stat label="6RM" valor={num(stats.rm6)} />
@@ -63,7 +107,7 @@ export function ProgresoAnalitica({
 }) {
   const [vista, setVista] = useState<string>("GLOBAL");
 
-  const ejerciciosVista = vista === "GLOBAL" ? exercises : exercises.filter((e) => e.dia === vista);
+  const ejerciciosVista = exercises.filter((e) => e.dia === vista);
 
   return (
     <div className="flex flex-col gap-4">
@@ -94,27 +138,44 @@ export function ProgresoAnalitica({
         ))}
       </div>
 
-      <div className="rounded-lg border border-border bg-bg-card p-4">
-        <h3 className="mb-1 text-white">Volumen por ejercicio</h3>
-        <p className="mb-3 text-xs text-gray-500">
-          Suma de peso × reps del top set, por fecha — comparás de un vistazo qué
-          ejercicios vienen sumando más.
-        </p>
-        <GraficoVolumenEjercicios exercises={ejerciciosVista} logsByExercise={logsByExercise} />
-      </div>
-
-      {vista !== "GLOBAL" && (
+      {vista === "GLOBAL" ? (
         <div className="flex flex-col gap-4">
-          {ejerciciosVista.length === 0 ? (
-            <p className="text-center text-sm text-gray-500">
-              No hay ejercicios cargados para este día.
-            </p>
-          ) : (
-            ejerciciosVista.map((ex) => (
-              <TarjetaEjercicio key={ex.id} nombre={ex.nombre} logs={logsByExercise[ex.id] ?? []} />
-            ))
-          )}
+          {dias.map((d) => {
+            const ejerciciosDia = exercises.filter((e) => e.dia === d);
+            return (
+              <div key={d} className="rounded-lg border border-border bg-bg-card p-4">
+                <h3 className="mb-1 text-white">Entrenamiento {d}</h3>
+                <p className="mb-3 text-xs text-gray-500">
+                  Suma de peso × reps del top set, por fecha.
+                </p>
+                <GraficoVolumenEjercicios exercises={ejerciciosDia} logsByExercise={logsByExercise} />
+              </div>
+            );
+          })}
         </div>
+      ) : (
+        <>
+          <div className="rounded-lg border border-border bg-bg-card p-4">
+            <h3 className="mb-1 text-white">Volumen por ejercicio</h3>
+            <p className="mb-3 text-xs text-gray-500">
+              Suma de peso × reps del top set, por fecha — comparás de un vistazo qué
+              ejercicios vienen sumando más.
+            </p>
+            <GraficoVolumenEjercicios exercises={ejerciciosVista} logsByExercise={logsByExercise} />
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {ejerciciosVista.length === 0 ? (
+              <p className="text-center text-sm text-gray-500">
+                No hay ejercicios cargados para este día.
+              </p>
+            ) : (
+              ejerciciosVista.map((ex) => (
+                <TarjetaEjercicio key={ex.id} nombre={ex.nombre} logs={logsByExercise[ex.id] ?? []} />
+              ))
+            )}
+          </div>
+        </>
       )}
     </div>
   );
