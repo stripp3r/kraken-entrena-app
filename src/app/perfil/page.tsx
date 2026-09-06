@@ -14,6 +14,14 @@ export default async function PerfilPage() {
     redirect("/login");
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("sexo")
+    .eq("id", user.id)
+    .single();
+
+  const genero = profile?.sexo === "femenino" ? "femenino" : "masculino";
+
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
@@ -24,20 +32,31 @@ export default async function PerfilPage() {
         <div className="flex flex-col gap-3">
           <Link
             href="/perfil/datos"
-            className="rounded-lg border border-border bg-bg-card px-5 py-4 text-center text-lg text-white transition-colors hover:border-border-strong"
+            className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
           >
+            <img
+              src={`/section-icons/datos-${genero}.png`}
+              alt=""
+              className="h-14 w-14 rounded-xl"
+            />
             Datos personales
           </Link>
           <Link
             href="/medidas"
-            className="rounded-lg border border-border bg-bg-card px-5 py-4 text-center text-lg text-white transition-colors hover:border-border-strong"
+            className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
           >
+            <img
+              src={`/section-icons/medidas-${genero}.png`}
+              alt=""
+              className="h-14 w-14 rounded-xl"
+            />
             Mis medidas
           </Link>
           <Link
             href="/evolucion"
-            className="rounded-lg border border-border bg-bg-card px-5 py-4 text-center text-lg text-white transition-colors hover:border-border-strong"
+            className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
           >
+            <img src="/section-icons/evolucion.png" alt="" className="h-14 w-14 rounded-xl" />
             Mi evolución
           </Link>
         </div>
