@@ -8,6 +8,7 @@ import {
   guardarMedicion,
   type MedicionInput,
 } from "@/app/medidas/actions";
+import { hoyISO } from "@/lib/fecha";
 
 type Medicion = MedicionInput & { id: number };
 
@@ -22,10 +23,6 @@ const CAMPOS: { key: keyof MedicionInput; label: string }[] = [
   { key: "caderas", label: "Caderas (cm)" },
   { key: "muslos", label: "Muslos (cm)" },
 ];
-
-function hoyISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formVacio(): Record<string, string> {
   const base: Record<string, string> = { fecha: hoyISO() };

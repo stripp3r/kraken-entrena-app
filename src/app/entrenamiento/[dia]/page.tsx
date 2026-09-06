@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ExerciseCard } from "@/components/exercise-card";
+import { inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -59,8 +60,7 @@ export default async function DiaEntrenamientoPage({
 
   const alternativaPorId = new Map((alternativas ?? []).map((a) => [a.id, a]));
 
-  const hoyInicio = new Date();
-  hoyInicio.setHours(0, 0, 0, 0);
+  const hoyInicio = inicioDelDiaArgentinaUTC();
 
   const { data: logsHoy } = exerciseIds.length
     ? await supabase

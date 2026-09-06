@@ -63,7 +63,7 @@ function TarjetaEjercicio({
   const stats = useMemo(() => calcularEstadisticasEjercicio(logs), [logs]);
   const serie = useMemo(() => serieDeUnaRM(logs), [logs]);
 
-  if (stats.cantidadSets === 0) {
+  if (stats.cantidadDias === 0) {
     return (
       <div className="rounded-lg border border-border bg-bg-card p-4">
         <h3 className="mb-1 text-white">{nombre}</h3>
@@ -127,16 +127,16 @@ export function ProgresoAnalitica({
       .map(([fecha, valor]) => ({ fecha, valor }));
   }, [exercises, logsByExercise]);
 
-  const totalSets = exercises.reduce(
-    (acc, ex) => acc + (logsByExercise[ex.id]?.filter((l) => l.peso && l.reps).length ?? 0),
-    0
-  );
-
   const ejerciciosVista =
     vista === "GLOBAL" ? [] : exercises.filter((e) => e.dia === vista);
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-xs text-gray-500">
+        Estos gráficos y estadísticas toman el <strong className="text-gray-300">top set</strong>{" "}
+        (la serie más exigente) de cada día — si cargaste varios sets, se usa solo el más pesado.
+      </p>
+
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setVista("GLOBAL")}
@@ -163,7 +163,8 @@ export function ProgresoAnalitica({
         <div className="rounded-lg border border-border bg-bg-card p-4">
           <h3 className="mb-1 text-white">Volumen total por día</h3>
           <p className="mb-3 text-xs text-gray-500">
-            {totalSets} sets registrados en total.
+            Suma de (peso × reps del top set) de todos los ejercicios, día por día —
+            para ver de un vistazo si en general estás cargando más o menos que antes.
           </p>
           <GraficoLinea datos={serieGlobal} />
         </div>

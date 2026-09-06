@@ -3,10 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { subirFotoProgreso } from "@/app/evolucion/actions";
-
-function hoyISO() {
-  return new Date().toISOString().slice(0, 10);
-}
+import { hoyISO } from "@/lib/fecha";
 
 export function EvolucionUploader() {
   const router = useRouter();
