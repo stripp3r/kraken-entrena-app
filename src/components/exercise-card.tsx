@@ -152,9 +152,17 @@ export function ExerciseCard({
       </div>
 
       {mostrarComoHacerlo && exercise.como_hacerlo && (
-        <p className="mt-3 whitespace-pre-line rounded-md bg-bg p-3 text-sm text-gray-300">
-          {exercise.como_hacerlo}
-        </p>
+        <div className="mt-3 rounded-md bg-bg p-3">
+          {exercise.imagen_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={exercise.imagen_url}
+              alt={exercise.nombre}
+              className="mb-3 h-56 w-full rounded-md bg-white object-contain"
+            />
+          )}
+          <p className="whitespace-pre-line text-sm text-gray-300">{exercise.como_hacerlo}</p>
+        </div>
       )}
 
       {logsDeHoy.length > 0 && (
