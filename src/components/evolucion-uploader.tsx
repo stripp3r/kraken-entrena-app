@@ -55,7 +55,6 @@ export function EvolucionUploader() {
           <input
             type="file"
             accept="image/*"
-            capture="user"
             disabled={subiendo === "frontal"}
             onChange={(e) => subir("frontal", e.target.files?.[0])}
             className="text-xs text-gray-400 file:mr-2 file:rounded-md file:border-0 file:bg-white file:px-2 file:py-1.5 file:text-xs file:font-medium file:text-black"
@@ -66,7 +65,6 @@ export function EvolucionUploader() {
           <input
             type="file"
             accept="image/*"
-            capture="user"
             disabled={subiendo === "lateral"}
             onChange={(e) => subir("lateral", e.target.files?.[0])}
             className="text-xs text-gray-400 file:mr-2 file:rounded-md file:border-0 file:bg-white file:px-2 file:py-1.5 file:text-xs file:font-medium file:text-black"
