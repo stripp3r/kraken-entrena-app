@@ -50,6 +50,16 @@ export function ProgresoMedidas({ historial }: { historial: Medicion[] }) {
 
   if (datos.length === 0) return null;
 
+  // diferencia entre la primera y la última medición cargada de cada campo
+  const diferencias = CAMPOS.map((campo) => {
+    const valores = ordenado
+      .filter((m) => m[campo.key] !== null)
+      .map((m) => m[campo.key] as number);
+    if (valores.length < 2) return null;
+    const diferencia = Math.round((valores[valores.length - 1] - valores[0]) * 10) / 10;
+    return { label: campo.label, diferencia };
+  }).filter((d): d is { label: string; diferencia: number } => d !== null);
+
   return (
     <div className="rounded-lg border border-border bg-bg-card p-4">
       <h3 className="mb-3 text-white">Comparar mediciones</h3>
@@ -80,6 +90,30 @@ export function ProgresoMedidas({ historial }: { historial: Medicion[] }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      {diferencias.length > 0 && (
+        <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-border pt-3 text-sm">
+          {diferencias.map((d) => (
+            <div key={d.label} className="flex justify-between">
+              <span className="text-gray-500">{d.label}</span>
+              <span className={d.diferencia === 0 ? "text-gray-400" : "text-white"}>
+                {d.diferencia > 0 ? "+" : ""}
+                {d.diferencia} cm
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-4 border-t border-border pt-3 text-xs text-gray-500">
+        <strong className="text-gray-400">Importante:</strong> no obsesionarse
+        con "las medidas perfectas"; todos somos diferentes y tenemos nuestras
+        propias proporciones perfectas. Recordá que la salud y el bienestar no
+        se definen únicamente por medidas corporales. Lo más importante es
+        cómo te sentís en tu propio cuerpo y tu progreso hacia un estilo de
+        vida más saludable. Enfocate en tus propios objetivos y disfrutá el
+        camino hacia una mejor versión de vos mismo.
+      </p>
     </div>
   );
 }

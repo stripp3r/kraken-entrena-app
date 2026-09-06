@@ -1,20 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  calcularEstadisticasEjercicio,
-  serieDeUnaRM,
-  serieDeVolumen,
-  type SetLog,
-} from "@/lib/analytics";
+import { useState } from "react";
+import { calcularEstadisticasEjercicio, type SetLog } from "@/lib/analytics";
+import { GraficoVolumenEjercicios } from "./grafico-volumen-ejercicios";
 
 type Exercise = { id: number; nombre: string; dia: string };
 
@@ -23,45 +11,8 @@ function num(n: number | null, decimales = 1) {
   return n.toFixed(decimales);
 }
 
-function GraficoLinea({ datos }: { datos: { fecha: string; valor: number }[] }) {
-  if (datos.length < 2) {
-    return (
-      <p className="py-6 text-center text-xs text-gray-600">
-        Cargá al menos 2 registros para ver el gráfico.
-      </p>
-    );
-  }
-  return (
-    <div className="h-32 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={datos} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-          <XAxis dataKey="fecha" tick={{ fill: "#7a7a7a", fontSize: 10 }} />
-          <YAxis tick={{ fill: "#7a7a7a", fontSize: 10 }} />
-          <Tooltip
-            contentStyle={{
-              background: "#111111",
-              border: "1px solid #2e2e2e",
-              borderRadius: 8,
-              fontSize: 12,
-            }}
-            labelStyle={{ color: "#e7e7e7" }}
-          />
-          <Line type="monotone" dataKey="valor" stroke="#ffffff" strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function TarjetaEjercicio({
-  nombre,
-  logs,
-}: {
-  nombre: string;
-  logs: SetLog[];
-}) {
-  const stats = useMemo(() => calcularEstadisticasEjercicio(logs), [logs]);
-  const serie = useMemo(() => serieDeUnaRM(logs), [logs]);
+function TarjetaEjercicio({ nombre, logs }: { nombre: string; logs: SetLog[] }) {
+  const stats = calcularEstadisticasEjercicio(logs);
 
   if (stats.cantidadDias === 0) {
     return (
@@ -76,9 +27,7 @@ function TarjetaEjercicio({
     <div className="rounded-lg border border-border bg-bg-card p-4">
       <h3 className="mb-3 text-white">{nombre}</h3>
 
-      <GraficoLinea datos={serie} />
-
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3 text-sm">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <Stat label="1RM est." valor={num(stats.rm1)} />
         <Stat label="IRP" valor={stats.irp !== null ? `${num(stats.irp * 100, 0)}%` : "-"} />
         <Stat label="6RM" valor={num(stats.rm6)} />
@@ -114,21 +63,7 @@ export function ProgresoAnalitica({
 }) {
   const [vista, setVista] = useState<string>("GLOBAL");
 
-  const serieGlobal = useMemo(() => {
-    const porFecha = new Map<string, number>();
-    for (const ex of exercises) {
-      const puntos = serieDeVolumen(logsByExercise[ex.id] ?? []);
-      for (const p of puntos) {
-        porFecha.set(p.fecha, (porFecha.get(p.fecha) ?? 0) + p.valor);
-      }
-    }
-    return [...porFecha.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([fecha, valor]) => ({ fecha, valor }));
-  }, [exercises, logsByExercise]);
-
-  const ejerciciosVista =
-    vista === "GLOBAL" ? [] : exercises.filter((e) => e.dia === vista);
+  const ejerciciosVista = vista === "GLOBAL" ? exercises : exercises.filter((e) => e.dia === vista);
 
   return (
     <div className="flex flex-col gap-4">
@@ -159,16 +94,16 @@ export function ProgresoAnalitica({
         ))}
       </div>
 
-      {vista === "GLOBAL" ? (
-        <div className="rounded-lg border border-border bg-bg-card p-4">
-          <h3 className="mb-1 text-white">Volumen total por día</h3>
-          <p className="mb-3 text-xs text-gray-500">
-            Suma de (peso × reps del top set) de todos los ejercicios, día por día —
-            para ver de un vistazo si en general estás cargando más o menos que antes.
-          </p>
-          <GraficoLinea datos={serieGlobal} />
-        </div>
-      ) : (
+      <div className="rounded-lg border border-border bg-bg-card p-4">
+        <h3 className="mb-1 text-white">Volumen por ejercicio</h3>
+        <p className="mb-3 text-xs text-gray-500">
+          Suma de peso × reps del top set, por fecha — comparás de un vistazo qué
+          ejercicios vienen sumando más.
+        </p>
+        <GraficoVolumenEjercicios exercises={ejerciciosVista} logsByExercise={logsByExercise} />
+      </div>
+
+      {vista !== "GLOBAL" && (
         <div className="flex flex-col gap-4">
           {ejerciciosVista.length === 0 ? (
             <p className="text-center text-sm text-gray-500">
@@ -176,11 +111,7 @@ export function ProgresoAnalitica({
             </p>
           ) : (
             ejerciciosVista.map((ex) => (
-              <TarjetaEjercicio
-                key={ex.id}
-                nombre={ex.nombre}
-                logs={logsByExercise[ex.id] ?? []}
-              />
+              <TarjetaEjercicio key={ex.id} nombre={ex.nombre} logs={logsByExercise[ex.id] ?? []} />
             ))
           )}
         </div>

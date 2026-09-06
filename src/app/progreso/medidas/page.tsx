@@ -23,14 +23,9 @@ export default async function ProgresoMedidasPage() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+        <h1 className="mb-6 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
           MEDIDAS
         </h1>
-        <p className="mb-6 text-center text-sm text-gray-500">
-          No te obsesiones con "la medida perfecta" — la salud y el bienestar
-          no se definen únicamente por medidas corporales. Enfocate en tu
-          propio progreso, no en un ideal.
-        </p>
 
         {!historial || historial.length === 0 ? (
           <p className="text-center text-sm text-gray-500">
