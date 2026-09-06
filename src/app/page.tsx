@@ -31,7 +31,7 @@ export default async function Home() {
         HOLA, {profile.nombre.toUpperCase()}
       </h1>
       <p className="max-w-xs text-gray-300">
-        Tu progreso y tus técnicas llegan pronto acá.
+        Tu progreso llega pronto acá.
       </p>
 
       <Link
@@ -39,6 +39,20 @@ export default async function Home() {
         className="mt-8 rounded-full bg-white px-6 py-3 font-medium text-black"
       >
         Entrenar hoy
+      </Link>
+
+      <Link
+        href="/medidas"
+        className="rounded-full border border-border-strong bg-bg-card px-5 py-2.5 text-sm text-gray-300"
+      >
+        Mis medidas
+      </Link>
+
+      <Link
+        href="/evolucion"
+        className="rounded-full border border-border-strong bg-bg-card px-5 py-2.5 text-sm text-gray-300"
+      >
+        Fotos de evolución
       </Link>
 
       <Link

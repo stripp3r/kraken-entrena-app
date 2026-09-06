@@ -39,7 +39,9 @@ export default async function DiaEntrenamientoPage({
 
   const { data: exercises } = await supabase
     .from("exercises")
-    .select("id, nombre, video_url, imagen_url, como_hacerlo, orden")
+    .select(
+      "id, nombre, video_url, imagen_url, como_hacerlo, orden, alternativa:exercises!alternativa_id(id, nombre, imagen_url, como_hacerlo)"
+    )
     .eq("dia", dia)
     .eq("routine_id", profile.routine_id)
     .order("orden", { ascending: true });
@@ -80,6 +82,9 @@ export default async function DiaEntrenamientoPage({
           <div className="flex flex-col gap-4">
             {exercises.map((ex) => {
               const logsDeHoy = (logsHoy ?? []).filter((l) => l.exercise_id === ex.id);
+              const alternativa = Array.isArray(ex.alternativa)
+                ? ex.alternativa[0]
+                : ex.alternativa;
 
               return (
                 <ExerciseCard
@@ -90,6 +95,7 @@ export default async function DiaEntrenamientoPage({
                     imagen_url: ex.imagen_url,
                     video_url: ex.video_url,
                     como_hacerlo: ex.como_hacerlo,
+                    alternativa: alternativa ?? null,
                   }}
                   logsDeHoy={logsDeHoy}
                 />

@@ -12,12 +12,20 @@ type WorkoutLog = {
   created_at: string;
 };
 
+type ExerciseAlternativa = {
+  id: number;
+  nombre: string;
+  imagen_url: string | null;
+  como_hacerlo: string | null;
+};
+
 type Exercise = {
   id: number;
   nombre: string;
   imagen_url: string | null;
   video_url: string | null;
   como_hacerlo: string | null;
+  alternativa: ExerciseAlternativa | null;
 };
 
 const emptyRow = { peso: "", reps: "", rir: "" };
@@ -43,6 +51,7 @@ export function ExerciseCard({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editRow, setEditRow] = useState(emptyRow);
   const [mostrarComoHacerlo, setMostrarComoHacerlo] = useState(false);
+  const [mostrarAlternativa, setMostrarAlternativa] = useState(false);
 
   function updateRow(i: number, field: keyof typeof emptyRow, value: string) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
@@ -147,6 +156,15 @@ export function ExerciseCard({
                 Ver video
               </a>
             )}
+            {exercise.alternativa && (
+              <button
+                type="button"
+                onClick={() => setMostrarAlternativa((v) => !v)}
+                className="text-xs text-gray-400 underline"
+              >
+                {mostrarAlternativa ? "Ocultar" : "Alternativa"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -162,6 +180,30 @@ export function ExerciseCard({
             />
           )}
           <p className="whitespace-pre-line text-sm text-gray-300">{exercise.como_hacerlo}</p>
+        </div>
+      )}
+
+      {mostrarAlternativa && exercise.alternativa && (
+        <div className="mt-3 rounded-md border border-border-strong bg-bg p-3">
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-gray-500">
+            Alternativa
+          </p>
+          <h3 className="mb-2 text-sm font-medium text-white">
+            {exercise.alternativa.nombre}
+          </h3>
+          {exercise.alternativa.imagen_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={exercise.alternativa.imagen_url}
+              alt={exercise.alternativa.nombre}
+              className="mb-3 h-56 w-full rounded-md bg-white object-contain"
+            />
+          )}
+          {exercise.alternativa.como_hacerlo && (
+            <p className="whitespace-pre-line text-sm text-gray-300">
+              {exercise.alternativa.como_hacerlo}
+            </p>
+          )}
         </div>
       )}
 
