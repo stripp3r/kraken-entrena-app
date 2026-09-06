@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Inter } from "next/font/google";
 import "./globals.css";
 import { RegisterServiceWorker } from "./register-sw";
+import { BottomNav } from "@/components/bottom-nav";
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-display",
@@ -33,8 +34,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${bebasNeue.variable} ${inter.variable} h-full`}>
-      <body className="min-h-full flex flex-col antialiased">
+      <body className="min-h-full flex flex-col pb-16 antialiased">
         {children}
+        <BottomNav />
         <RegisterServiceWorker />
       </body>
     </html>

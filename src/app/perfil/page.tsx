@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { guardarPerfil } from "./actions";
+import { logout } from "../login/actions";
 
 const fieldClass =
   "w-full rounded-lg border border-border bg-bg-card px-4 py-2.5 text-white outline-none focus:border-border-strong";
@@ -177,6 +178,15 @@ export default async function PerfilPage({
             className="mt-2 rounded-full bg-white px-5 py-3 font-medium text-black transition-opacity hover:opacity-90"
           >
             Guardar
+          </button>
+        </form>
+
+        <form>
+          <button
+            formAction={logout}
+            className="mt-6 block w-full text-center text-sm text-gray-500 underline"
+          >
+            Cerrar sesión
           </button>
         </form>
       </div>

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { logout } from "./login/actions";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -30,43 +29,14 @@ export default async function Home() {
       <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
         HOLA, {profile.nombre.toUpperCase()}
       </h1>
-      <p className="max-w-xs text-gray-300">
-        Tu progreso llega pronto acá.
-      </p>
+      <p className="max-w-xs text-gray-300">Listo para entrenar hoy.</p>
 
       <Link
         href="/entrenamiento"
-        className="mt-8 rounded-full bg-white px-6 py-3 font-medium text-black"
+        className="mt-4 rounded-full bg-white px-8 py-3.5 font-medium text-black"
       >
         Entrenar hoy
       </Link>
-
-      <Link
-        href="/medidas"
-        className="rounded-full border border-border-strong bg-bg-card px-5 py-2.5 text-sm text-gray-300"
-      >
-        Mis medidas
-      </Link>
-
-      <Link
-        href="/evolucion"
-        className="rounded-full border border-border-strong bg-bg-card px-5 py-2.5 text-sm text-gray-300"
-      >
-        Fotos de evolución
-      </Link>
-
-      <Link
-        href="/perfil"
-        className="rounded-full border border-border-strong bg-bg-card px-5 py-2.5 text-sm text-gray-300"
-      >
-        Editar mi perfil
-      </Link>
-
-      <form>
-        <button formAction={logout} className="mt-2 text-sm text-gray-500 underline">
-          Cerrar sesión
-        </button>
-      </form>
     </main>
   );
 }
