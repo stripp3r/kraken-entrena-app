@@ -1,31 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-function sonarYVibrar() {
-  try {
-    const AudioCtx =
-      window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (AudioCtx) {
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.4);
-    }
-  } catch {
-    // audio no disponible, seguimos sin sonido
-  }
-  if (typeof navigator !== "undefined" && navigator.vibrate) {
-    navigator.vibrate([200, 100, 200]);
-  }
-}
+import { prepararAlertas, reproducirAlerta } from "@/lib/sonido";
 
 function formatoMMSS(segundos: number) {
   const s = Math.max(0, Math.ceil(segundos));
@@ -55,7 +31,7 @@ export function DescansoTimer({
       setRestante(rest);
       if (rest <= 0 && !terminadoRef.current) {
         terminadoRef.current = true;
-        sonarYVibrar();
+        reproducirAlerta();
         clearInterval(id);
         onTerminar();
       }
@@ -70,7 +46,10 @@ export function DescansoTimer({
       <p className="text-3xl font-medium tabular-nums text-white">{formatoMMSS(restante)}</p>
       <button
         type="button"
-        onClick={onSaltar}
+        onClick={() => {
+          prepararAlertas();
+          onSaltar();
+        }}
         className="text-xs text-gray-400 underline"
       >
         Saltar descanso

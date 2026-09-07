@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { ExerciseCard } from "./exercise-card";
 import { segundosEntreLados, segundosEntreSeries, type Lado, type TipoEsfuerzo } from "@/lib/descanso";
+import { prepararAlertas } from "@/lib/sonido";
+
+const OBJETIVO_SERIES = 3;
 
 type ExerciseAlternativa = {
   id: number;
@@ -31,6 +34,13 @@ export type ExerciseFull = {
   tipoEsfuerzo: TipoEsfuerzo;
 };
 
+function contarSeriesCompletas(ex: ExerciseFull, logs: WorkoutLog[]): number {
+  if (!ex.unilateral) return logs.length;
+  const derecho = logs.filter((l) => l.lado === "derecho").length;
+  const izquierdo = logs.filter((l) => l.lado === "izquierdo").length;
+  return Math.min(derecho, izquierdo);
+}
+
 export function EntrenamientoDiaCliente({
   exercises,
   logsPorEjercicio,
@@ -45,8 +55,11 @@ export function EntrenamientoDiaCliente({
   const [etiquetaDescanso, setEtiquetaDescanso] = useState("");
 
   const activo = exercises[activoIdx];
+  const seriesCompletas = activo ? contarSeriesCompletas(activo, logsPorEjercicio[activo.id] ?? []) : 0;
+  const listoParaSiguiente = seriesCompletas >= OBJETIVO_SERIES;
 
   function iniciar() {
+    prepararAlertas();
     setSesionActiva(true);
     setActivoIdx(0);
     setLado(exercises[0]?.unilateral ? "derecho" : null);
@@ -96,11 +109,20 @@ export function EntrenamientoDiaCliente({
             <div className="min-w-0">
               <p className="text-[11px] uppercase tracking-wide text-emerald-400">Entrenando</p>
               <p className="truncate text-sm font-medium text-white">{activo?.nombre}</p>
+              {listoParaSiguiente && (
+                <p className="text-xs text-emerald-300">
+                  ✓ {seriesCompletas} series completas — ¿pasamos al siguiente?
+                </p>
+              )}
             </div>
             <div className="flex shrink-0 gap-2">
               <button
                 onClick={siguienteEjercicio}
-                className="rounded-md border border-border-strong px-3 py-1.5 text-xs text-white"
+                className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
+                  listoParaSiguiente
+                    ? "bg-emerald-500 font-medium text-black"
+                    : "border border-border-strong text-white"
+                }`}
               >
                 Siguiente →
               </button>

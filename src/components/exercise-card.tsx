@@ -5,6 +5,7 @@ import { useState } from "react";
 import { borrarSet, editarSet, registrarSets, type SetInput } from "@/app/entrenamiento/actions";
 import { DescansoTimer } from "./descanso-timer";
 import type { Lado } from "@/lib/descanso";
+import { prepararAlertas } from "@/lib/sonido";
 
 type WorkoutLog = {
   id: number;
@@ -104,6 +105,7 @@ export function ExerciseCard({
 
   async function registrarSetDeSesion() {
     if (!sesion) return;
+    prepararAlertas();
     setSaving(true);
     setError(null);
 
