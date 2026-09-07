@@ -14,7 +14,7 @@ export async function subirFotoProgreso(formData: FormData) {
   }
 
   const fecha = formData.get("fecha") as string;
-  const tipo = formData.get("tipo") as "frontal" | "lateral";
+  const tipo = formData.get("tipo") as "frontal" | "lateral" | "trasera";
   const file = formData.get("file") as File | null;
 
   if (!file || file.size === 0) {

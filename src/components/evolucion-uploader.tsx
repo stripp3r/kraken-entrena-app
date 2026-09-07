@@ -8,10 +8,10 @@ import { hoyISO } from "@/lib/fecha";
 export function EvolucionUploader() {
   const router = useRouter();
   const [fecha, setFecha] = useState(hoyISO());
-  const [subiendo, setSubiendo] = useState<"frontal" | "lateral" | null>(null);
+  const [subiendo, setSubiendo] = useState<"frontal" | "lateral" | "trasera" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function subir(tipo: "frontal" | "lateral", file: File | undefined) {
+  async function subir(tipo: "frontal" | "lateral" | "trasera", file: File | undefined) {
     if (!file) return;
     setSubiendo(tipo);
     setError(null);
@@ -46,7 +46,7 @@ export function EvolucionUploader() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] text-gray-500">Frontal</label>
           <input
@@ -54,7 +54,7 @@ export function EvolucionUploader() {
             accept="image/*"
             disabled={subiendo === "frontal"}
             onChange={(e) => subir("frontal", e.target.files?.[0])}
-            className="text-xs text-gray-400 file:mr-2 file:rounded-md file:border-0 file:bg-white file:px-2 file:py-1.5 file:text-xs file:font-medium file:text-black"
+            className="w-full text-xs text-gray-400 file:mr-1 file:rounded-md file:border-0 file:bg-white file:px-1.5 file:py-1.5 file:text-xs file:font-medium file:text-black"
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -64,7 +64,17 @@ export function EvolucionUploader() {
             accept="image/*"
             disabled={subiendo === "lateral"}
             onChange={(e) => subir("lateral", e.target.files?.[0])}
-            className="text-xs text-gray-400 file:mr-2 file:rounded-md file:border-0 file:bg-white file:px-2 file:py-1.5 file:text-xs file:font-medium file:text-black"
+            className="w-full text-xs text-gray-400 file:mr-1 file:rounded-md file:border-0 file:bg-white file:px-1.5 file:py-1.5 file:text-xs file:font-medium file:text-black"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] text-gray-500">Trasera</label>
+          <input
+            type="file"
+            accept="image/*"
+            disabled={subiendo === "trasera"}
+            onChange={(e) => subir("trasera", e.target.files?.[0])}
+            className="w-full text-xs text-gray-400 file:mr-1 file:rounded-md file:border-0 file:bg-white file:px-1.5 file:py-1.5 file:text-xs file:font-medium file:text-black"
           />
         </div>
       </div>

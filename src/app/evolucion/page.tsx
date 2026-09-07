@@ -45,8 +45,8 @@ export default async function EvolucionPage() {
           EVOLUCIÓN
         </h1>
         <p className="mb-6 text-center text-sm text-gray-500">
-          Fotos de antes/después, frontal y lateral. Es opcional y privado —
-          solo vos las ves.
+          Fotos de antes/después, frontal, lateral y trasera. Es opcional y
+          privado — solo vos las ves.
         </p>
 
         <div className="flex flex-col gap-4">
@@ -55,8 +55,8 @@ export default async function EvolucionPage() {
           {[...porFecha.entries()].map(([fecha, fotosDia]) => (
             <div key={fecha} className="rounded-lg border border-border bg-bg-card p-4">
               <p className="mb-3 text-sm text-white">{fecha}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {["frontal", "lateral"].map((tipo) => {
+              <div className="grid grid-cols-3 gap-2">
+                {["frontal", "lateral", "trasera"].map((tipo) => {
                   const foto = fotosDia.find((f) => f.tipo === tipo);
                   return (
                     <div key={tipo} className="flex flex-col gap-1.5">
