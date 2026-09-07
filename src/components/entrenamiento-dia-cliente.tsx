@@ -49,37 +49,35 @@ export function EntrenamientoDiaCliente({
   logsPorEjercicio: Record<number, WorkoutLog[]>;
 }) {
   const [sesionActiva, setSesionActiva] = useState(false);
-  const [activoIdx, setActivoIdx] = useState(0);
+  const [activoId, setActivoId] = useState<number | null>(null);
   const [lado, setLado] = useState<Lado | null>(null);
   const [descansoHasta, setDescansoHasta] = useState<number | null>(null);
   const [etiquetaDescanso, setEtiquetaDescanso] = useState("");
 
-  const activo = exercises[activoIdx];
+  const activo = exercises.find((e) => e.id === activoId);
   const seriesCompletas = activo ? contarSeriesCompletas(activo, logsPorEjercicio[activo.id] ?? []) : 0;
-  const listoParaSiguiente = seriesCompletas >= OBJETIVO_SERIES;
+  const listoParaOtro = seriesCompletas >= OBJETIVO_SERIES;
 
   function iniciar() {
     prepararAlertas();
     setSesionActiva(true);
-    setActivoIdx(0);
+    setActivoId(exercises[0]?.id ?? null);
     setLado(exercises[0]?.unilateral ? "derecho" : null);
     setDescansoHasta(null);
   }
 
   function finalizar() {
     setSesionActiva(false);
+    setActivoId(null);
     setDescansoHasta(null);
     setLado(null);
   }
 
-  function siguienteEjercicio() {
-    const next = activoIdx + 1;
-    if (next >= exercises.length) {
-      finalizar();
-      return;
-    }
-    setActivoIdx(next);
-    setLado(exercises[next]?.unilateral ? "derecho" : null);
+  function seleccionar(id: number) {
+    if (id === activoId) return;
+    const ex = exercises.find((e) => e.id === id);
+    setActivoId(id);
+    setLado(ex?.unilateral ? "derecho" : null);
     setDescansoHasta(null);
   }
 
@@ -105,32 +103,12 @@ export function EntrenamientoDiaCliente({
     <div className="flex flex-col gap-4">
       {exercises.length > 0 &&
         (sesionActiva ? (
-          <div className="sticky top-2 z-10 flex items-center justify-between rounded-lg border border-emerald-500/40 bg-bg-elev p-3 shadow-lg">
-            <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-wide text-emerald-400">Entrenando</p>
-              <p className="truncate text-sm font-medium text-white">{activo?.nombre}</p>
-              {listoParaSiguiente && (
-                <p className="text-xs text-emerald-300">
-                  ✓ {seriesCompletas} series completas — ¿pasamos al siguiente?
-                </p>
-              )}
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <button
-                onClick={siguienteEjercicio}
-                className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-                  listoParaSiguiente
-                    ? "bg-emerald-500 font-medium text-black"
-                    : "border border-border-strong text-white"
-                }`}
-              >
-                Siguiente →
-              </button>
-              <button onClick={finalizar} className="px-2 py-1.5 text-xs text-gray-400 underline">
-                Finalizar
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={finalizar}
+            className="self-start text-sm text-gray-400 underline"
+          >
+            Finalizar entrenamiento
+          </button>
         ) : (
           <button
             onClick={iniciar}
@@ -140,20 +118,30 @@ export function EntrenamientoDiaCliente({
           </button>
         ))}
 
-      {exercises.map((ex, idx) => {
-        const esActivo = sesionActiva && idx === activoIdx;
+      {sesionActiva && (
+        <p className="-mt-2 text-xs text-gray-500">
+          Tocá &quot;Empezar acá&quot; en cualquier ejercicio para elegir por dónde seguir — no hace
+          falta respetar el orden si una máquina está ocupada, rota, o preferís cambiar.
+        </p>
+      )}
+
+      {exercises.map((ex) => {
+        const esActivo = sesionActiva && ex.id === activoId;
         return (
           <ExerciseCard
             key={ex.id}
             exercise={ex}
             logsDeHoy={logsPorEjercicio[ex.id] ?? []}
             activo={esActivo}
+            onSeleccionar={sesionActiva && !esActivo ? () => seleccionar(ex.id) : undefined}
             sesion={
               esActivo
                 ? {
                     lado,
                     descansoHasta,
                     etiquetaDescanso,
+                    seriesCompletas,
+                    listoParaOtro,
                     onSetGuardado,
                     onDescansoTerminado: avanzarLado,
                     onSaltarDescanso: avanzarLado,
