@@ -79,6 +79,8 @@ function TarjetaEjercicio({ nombre, logs }: { nombre: string; logs: SetLog[] }) 
         <Stat label="8RM" valor={num(stats.rm8)} />
         <Stat label="10RM" valor={num(stats.rm10)} />
         <Stat label="12RM" valor={num(stats.rm12)} />
+        <Stat label="1% + (10RM)" valor={num(stats.meta10)} destacado />
+        <Stat label="1% + (12RM)" valor={num(stats.meta12)} destacado />
         <Stat label="PR +" valor={num(stats.prMax)} />
         <Stat label="PR -" valor={num(stats.prMin)} />
         <Stat label="Volumen máx" valor={num(stats.volMax, 0)} />
@@ -88,11 +90,23 @@ function TarjetaEjercicio({ nombre, logs }: { nombre: string; logs: SetLog[] }) 
   );
 }
 
-function Stat({ label, valor }: { label: string; valor: string }) {
+function Stat({
+  label,
+  valor,
+  destacado,
+}: {
+  label: string;
+  valor: string;
+  destacado?: boolean;
+}) {
   return (
-    <div className="flex justify-between">
-      <span className="text-gray-500">{label}</span>
-      <span className="text-white">{valor}</span>
+    <div
+      className={`flex justify-between ${
+        destacado ? "-mx-1 rounded-md bg-orange-500/15 px-1" : ""
+      }`}
+    >
+      <span className={destacado ? "text-orange-300" : "text-gray-500"}>{label}</span>
+      <span className={destacado ? "text-orange-300" : "text-white"}>{valor}</span>
     </div>
   );
 }
