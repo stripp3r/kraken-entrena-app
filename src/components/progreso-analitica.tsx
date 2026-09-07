@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { GlosarioEstadisticas } from "./glosario-estadisticas";
 import { calcularEstadisticasEjercicio, serieDeUnaRM, type SetLog } from "@/lib/analytics";
 import { GraficoVolumenEjercicios } from "./grafico-volumen-ejercicios";
 import {
@@ -155,14 +156,7 @@ export function ProgresoAnalitica({
         </div>
       ) : (
         <>
-          <div className="rounded-lg border border-border bg-bg-card p-4">
-            <h3 className="mb-1 text-white">Volumen por ejercicio</h3>
-            <p className="mb-3 text-xs text-gray-500">
-              Suma de peso × reps del top set, por fecha — comparás de un vistazo qué
-              ejercicios vienen sumando más.
-            </p>
-            <GraficoVolumenEjercicios exercises={ejerciciosVista} logsByExercise={logsByExercise} />
-          </div>
+          <GlosarioEstadisticas />
 
           <div className="flex flex-col gap-4">
             {ejerciciosVista.length === 0 ? (
