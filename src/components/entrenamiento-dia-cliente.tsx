@@ -99,6 +99,12 @@ export function EntrenamientoDiaCliente({
     }
   }
 
+  function finalizarEjercicio() {
+    setActivoId(null);
+    setDescansoHasta(null);
+    setLado(null);
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {exercises.length > 0 &&
@@ -145,6 +151,7 @@ export function EntrenamientoDiaCliente({
                     onSetGuardado,
                     onDescansoTerminado: avanzarLado,
                     onSaltarDescanso: avanzarLado,
+                    onFinalizarEjercicio: finalizarEjercicio,
                   }
                 : undefined
             }

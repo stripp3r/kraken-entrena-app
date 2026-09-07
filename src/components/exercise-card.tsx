@@ -41,6 +41,7 @@ export type SesionActiva = {
   onSetGuardado: () => void;
   onDescansoTerminado: () => void;
   onSaltarDescanso: () => void;
+  onFinalizarEjercicio: () => void;
 };
 
 const emptyRow = { peso: "", reps: "", rir: "" };
@@ -426,6 +427,13 @@ export function ExerciseCard({
               </button>
             </>
           )}
+          <button
+            type="button"
+            onClick={sesion.onFinalizarEjercicio}
+            className="rounded-md border border-border-strong py-2 text-sm text-gray-300"
+          >
+            Finalizar ejercicio
+          </button>
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
@@ -477,7 +485,7 @@ export function ExerciseCard({
           {error && <p className="text-xs text-red-400">{error}</p>}
 
           <button
-            disabled={saving}
+            disabled={saving || rows.every((r) => !r.peso && !r.reps && !r.rir)}
             onClick={guardarSets}
             className="mt-1 rounded-md bg-white px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
           >
