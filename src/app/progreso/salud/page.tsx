@@ -14,15 +14,13 @@ export default async function ProgresoSaludPage() {
     redirect("/login");
   }
 
-  const [{ data: profile }, { data: ultimaMedicion }] = await Promise.all([
+  const [{ data: profile }, { data: historial }] = await Promise.all([
     supabase.from("profiles").select("sexo").eq("id", user.id).single(),
     supabase
       .from("body_measurements")
-      .select("peso, altura, cuello, cintura, caderas")
+      .select("fecha, peso, altura, cuello, cintura, caderas")
       .eq("user_id", user.id)
-      .order("fecha", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order("fecha", { ascending: true }),
   ]);
 
   const genero = profile?.sexo === "femenino" ? "femenino" : "masculino";
@@ -34,19 +32,10 @@ export default async function ProgresoSaludPage() {
           SALUD
         </h1>
         <p className="mb-6 text-center text-sm text-gray-500">
-          Valores estimados a partir de tu última medición cargada.
+          Evolución de tus valores de salud a partir de tus medidas cargadas.
         </p>
 
-        <ProgresoSalud
-          medicion={{
-            peso: ultimaMedicion?.peso ?? null,
-            altura: ultimaMedicion?.altura ?? null,
-            cuello: ultimaMedicion?.cuello ?? null,
-            cintura: ultimaMedicion?.cintura ?? null,
-            caderas: ultimaMedicion?.caderas ?? null,
-          }}
-          genero={genero}
-        />
+        <ProgresoSalud historial={historial ?? []} genero={genero} />
 
         <Link
           href="/progreso"

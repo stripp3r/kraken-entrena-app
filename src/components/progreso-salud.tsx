@@ -1,73 +1,124 @@
 "use client";
 
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   calcularEstadisticasSalud,
   tieneDatosSuficientes,
   type Genero,
   type MedicionSalud,
 } from "@/lib/salud";
 
-function num(n: number, decimales = 1) {
-  return n.toFixed(decimales);
-}
+type Medicion = MedicionSalud & { fecha: string };
 
-const COLOR_BUENO = "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
-const COLOR_MEDIO = "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
-const COLOR_MALO = "border-red-500/30 bg-red-500/10 text-red-300";
+const HEX_BUENO = "#34d399";
+const HEX_MEDIO = "#eab308";
+const HEX_MALO = "#ef4444";
+const HEX_NEUTRO = "#7a7a7a";
 
 function colorIMC(c: string) {
-  if (c === "Peso Normal") return COLOR_BUENO;
-  if (c === "Bajo Peso" || c === "Sobrepeso") return COLOR_MEDIO;
-  return COLOR_MALO;
+  if (c === "Peso Normal") return HEX_BUENO;
+  if (c === "Bajo Peso" || c === "Sobrepeso") return HEX_MEDIO;
+  return HEX_MALO;
 }
 
 function colorGrasa(c: string) {
-  if (c === "Fitness" || c === "Atletas") return COLOR_BUENO;
-  if (c === "Promedio" || c === "Grasa Esencial") return COLOR_MEDIO;
-  return COLOR_MALO;
+  if (c === "Fitness" || c === "Atletas") return HEX_BUENO;
+  if (c === "Promedio" || c === "Grasa Esencial") return HEX_MEDIO;
+  return HEX_MALO;
 }
 
 function colorEstandar(c: string) {
-  if (c === "Estándar") return COLOR_BUENO;
-  if (c === "Alto" || c === "Bajo") return COLOR_MEDIO;
-  return COLOR_MALO;
+  if (c === "Estándar") return HEX_BUENO;
+  if (c === "Alto" || c === "Bajo") return HEX_MEDIO;
+  return HEX_MALO;
 }
 
-function Metrica({
+function fechaCorta(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y.slice(2)}`;
+}
+
+type Punto = { fecha: string; valor: number; clasificacion?: string; color: string };
+
+function PanelMetrica({
   titulo,
-  valor,
-  clasificacion,
-  color,
-  explicacion,
+  puntos,
+  sufijo = "",
+  decimales = 1,
 }: {
   titulo: string;
-  valor: string;
-  clasificacion: string;
-  color: string;
-  explicacion: string;
+  puntos: Punto[];
+  sufijo?: string;
+  decimales?: number;
 }) {
+  if (puntos.length === 0) return null;
+
   return (
     <div className="rounded-lg border border-border bg-bg-card p-4">
-      <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">{titulo}</p>
-      <div className="mb-2 flex items-baseline justify-between">
-        <span className="text-2xl text-white">{valor}</span>
-        <span className={`rounded-full border px-2.5 py-1 text-xs ${color}`}>
-          {clasificacion}
-        </span>
+      <h3 className="mb-3 text-white">{titulo}</h3>
+      <div className="h-40 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={puntos} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+            <CartesianGrid stroke="#1f1f1f" vertical={false} />
+            <XAxis dataKey="fecha" tick={{ fill: "#7a7a7a", fontSize: 10 }} />
+            <YAxis tick={{ fill: "#7a7a7a", fontSize: 10 }} />
+            <Tooltip
+              contentStyle={{
+                background: "#111111",
+                border: "1px solid #2e2e2e",
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+              labelStyle={{ color: "#e7e7e7" }}
+              formatter={
+                ((valor: number, _n: unknown, item: { payload?: Punto }) => {
+                  const clas = item?.payload?.clasificacion;
+                  return [`${valor}${sufijo}${clas ? ` — ${clas}` : ""}`, titulo];
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                }) as any
+              }
+            />
+            <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+              {puntos.map((p) => (
+                <Cell key={p.fecha} fill={p.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
-      <p className="text-xs text-gray-500">{explicacion}</p>
+
+      {puntos.some((p) => p.clasificacion) && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2 text-xs text-gray-500">
+          {puntos.map((p) => (
+            <span key={p.fecha}>
+              {p.fecha}: <span style={{ color: p.color }}>{p.clasificacion}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 export function ProgresoSalud({
-  medicion,
+  historial,
   genero,
 }: {
-  medicion: MedicionSalud;
+  historial: Medicion[];
   genero: Genero;
 }) {
-  if (!tieneDatosSuficientes(medicion)) {
+  const conDatos = historial.filter(tieneDatosSuficientes);
+
+  if (conDatos.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-bg-card p-4 text-center">
         <p className="text-sm text-gray-500">
@@ -79,39 +130,57 @@ export function ProgresoSalud({
     );
   }
 
-  const stats = calcularEstadisticasSalud(medicion, genero);
-  if (!stats) return null;
+  const filas = conDatos.map((m) => ({
+    fecha: fechaCorta(m.fecha),
+    peso: m.peso as number,
+    stats: calcularEstadisticasSalud(m, genero)!,
+  }));
+
+  const pesoPuntos: Punto[] = filas.map((f) => ({
+    fecha: f.fecha,
+    valor: f.peso,
+    color: HEX_NEUTRO,
+  }));
+  const imcPuntos: Punto[] = filas.map((f) => ({
+    fecha: f.fecha,
+    valor: Number(f.stats.imc.toFixed(1)),
+    clasificacion: f.stats.imcClasificacion,
+    color: colorIMC(f.stats.imcClasificacion),
+  }));
+  const grasaPuntos: Punto[] = filas.map((f) => ({
+    fecha: f.fecha,
+    valor: Number(f.stats.grasaCorporal.toFixed(1)),
+    clasificacion: f.stats.grasaClasificacion,
+    color: colorGrasa(f.stats.grasaClasificacion),
+  }));
+  const masaMagraPuntos: Punto[] = filas.map((f) => ({
+    fecha: f.fecha,
+    valor: Number(f.stats.masaMagraKg.toFixed(1)),
+    clasificacion: f.stats.masaMagraClasificacion,
+    color: colorEstandar(f.stats.masaMagraClasificacion),
+  }));
+  const indicePuntos: Punto[] = filas.map((f) => ({
+    fecha: f.fecha,
+    valor: Number(f.stats.indiceGrasaVisceral.toFixed(2)),
+    clasificacion: f.stats.grasaVisceralClasificacion,
+    color: colorEstandar(f.stats.grasaVisceralClasificacion),
+  }));
 
   return (
     <div className="flex flex-col gap-4">
-      <Metrica
-        titulo="IMC (Índice de masa corporal)"
-        valor={num(stats.imc)}
-        clasificacion={stats.imcClasificacion}
-        color={colorIMC(stats.imcClasificacion)}
-        explicacion="Relaciona tu peso con tu altura. Es una referencia general y rápida, no distingue entre masa muscular y grasa."
-      />
-      <Metrica
-        titulo="Grasa corporal (%)"
-        valor={`${num(stats.grasaCorporal)}%`}
-        clasificacion={stats.grasaClasificacion}
-        color={colorGrasa(stats.grasaClasificacion)}
-        explicacion="Estimado a partir de tu cintura, cuello (y caderas si sos mujer). Te ayuda a ver la composición corporal más allá del peso en la balanza."
-      />
-      <Metrica
-        titulo="Masa magra"
-        valor={`${num(stats.masaMagraKg)} kg`}
-        clasificacion={stats.masaMagraClasificacion}
-        color={colorEstandar(stats.masaMagraClasificacion)}
-        explicacion="Es tu peso sin contar la grasa corporal (músculo, huesos, órganos, agua). Ver que se mantenga o crezca es una buena señal en un proceso de pérdida de grasa."
-      />
-      <Metrica
-        titulo="Índice de grasa visceral"
-        valor={num(stats.indiceGrasaVisceral, 2)}
-        clasificacion={stats.grasaVisceralClasificacion}
-        color={colorEstandar(stats.grasaVisceralClasificacion)}
-        explicacion="Relación cintura/cadera. Un valor alto se asocia a más grasa acumulada alrededor de los órganos, un factor de riesgo cardiovascular."
-      />
+      <p className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs text-yellow-300">
+        ⚠️ Valores aproximados: estos cálculos se realizan mediante métodos
+        indirectos y no cuentan con la precisión de las herramientas y
+        equipos utilizados en entornos profesionales de salud y fitness. Son
+        aproximaciones estimadas basadas en fórmulas matemáticas y las
+        medidas corporales que vos cargaste.
+      </p>
+
+      <PanelMetrica titulo="Peso" puntos={pesoPuntos} sufijo=" kg" />
+      <PanelMetrica titulo="IMC (Índice de masa corporal)" puntos={imcPuntos} />
+      <PanelMetrica titulo="Grasa corporal (%)" puntos={grasaPuntos} sufijo="%" />
+      <PanelMetrica titulo="Masa magra" puntos={masaMagraPuntos} sufijo=" kg" />
+      <PanelMetrica titulo="Índice de grasa visceral" puntos={indicePuntos} decimales={2} />
 
       <p className="rounded-lg border border-border bg-bg-card p-4 text-xs text-gray-500">
         <strong className="text-gray-400">Importante:</strong> estos valores
