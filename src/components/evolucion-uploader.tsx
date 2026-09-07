@@ -5,13 +5,47 @@ import { useState } from "react";
 import { subirFotoProgreso } from "@/app/evolucion/actions";
 import { hoyISO } from "@/lib/fecha";
 
+type Tipo = "frontal" | "lateral" | "trasera";
+
+function BotonFoto({
+  label,
+  tipo,
+  subiendo,
+  onElegir,
+}: {
+  label: string;
+  tipo: Tipo;
+  subiendo: boolean;
+  onElegir: (tipo: Tipo, file: File | undefined) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] text-gray-500">{label}</label>
+      <label
+        className={`flex w-full items-center justify-center rounded-md px-2 py-2 text-xs font-medium text-black ${
+          subiendo ? "bg-gray-500" : "cursor-pointer bg-white"
+        }`}
+      >
+        {subiendo ? "Subiendo..." : "Elegir foto"}
+        <input
+          type="file"
+          accept="image/*"
+          disabled={subiendo}
+          onChange={(e) => onElegir(tipo, e.target.files?.[0])}
+          className="hidden"
+        />
+      </label>
+    </div>
+  );
+}
+
 export function EvolucionUploader() {
   const router = useRouter();
   const [fecha, setFecha] = useState(hoyISO());
-  const [subiendo, setSubiendo] = useState<"frontal" | "lateral" | "trasera" | null>(null);
+  const [subiendo, setSubiendo] = useState<Tipo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function subir(tipo: "frontal" | "lateral" | "trasera", file: File | undefined) {
+  async function subir(tipo: Tipo, file: File | undefined) {
     if (!file) return;
     setSubiendo(tipo);
     setError(null);
@@ -47,39 +81,11 @@ export function EvolucionUploader() {
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] text-gray-500">Frontal</label>
-          <input
-            type="file"
-            accept="image/*"
-            disabled={subiendo === "frontal"}
-            onChange={(e) => subir("frontal", e.target.files?.[0])}
-            className="w-full text-xs text-gray-400 file:mr-1 file:rounded-md file:border-0 file:bg-white file:px-1.5 file:py-1.5 file:text-xs file:font-medium file:text-black"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] text-gray-500">Lateral</label>
-          <input
-            type="file"
-            accept="image/*"
-            disabled={subiendo === "lateral"}
-            onChange={(e) => subir("lateral", e.target.files?.[0])}
-            className="w-full text-xs text-gray-400 file:mr-1 file:rounded-md file:border-0 file:bg-white file:px-1.5 file:py-1.5 file:text-xs file:font-medium file:text-black"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] text-gray-500">Trasera</label>
-          <input
-            type="file"
-            accept="image/*"
-            disabled={subiendo === "trasera"}
-            onChange={(e) => subir("trasera", e.target.files?.[0])}
-            className="w-full text-xs text-gray-400 file:mr-1 file:rounded-md file:border-0 file:bg-white file:px-1.5 file:py-1.5 file:text-xs file:font-medium file:text-black"
-          />
-        </div>
+        <BotonFoto label="Frontal" tipo="frontal" subiendo={subiendo === "frontal"} onElegir={subir} />
+        <BotonFoto label="Lateral" tipo="lateral" subiendo={subiendo === "lateral"} onElegir={subir} />
+        <BotonFoto label="Trasera" tipo="trasera" subiendo={subiendo === "trasera"} onElegir={subir} />
       </div>
 
-      {subiendo && <p className="mt-3 text-xs text-gray-500">Subiendo...</p>}
       {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
     </div>
   );
