@@ -75,6 +75,7 @@ export function ExerciseCard({
   const [rows, setRows] = useState([{ ...emptyRow }, { ...emptyRow }, { ...emptyRow }]);
   const [setActivo, setSetActivo] = useState(emptyRow);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editRow, setEditRow] = useState(emptyRow);
@@ -93,6 +94,8 @@ export function ExerciseCard({
   useEffect(() => {
     setRows([{ ...emptyRow }, { ...emptyRow }, { ...emptyRow }]);
     setSetActivo(emptyRow);
+    setJustSaved(false);
+    setError(null);
   }, [activo]);
 
   async function guardarSets() {
@@ -119,6 +122,8 @@ export function ExerciseCard({
 
   async function registrarSetDeSesion() {
     if (!sesion) return;
+    if (!setActivo.peso && !setActivo.reps && !setActivo.rir) return;
+
     prepararAlertas();
     setSaving(true);
     setError(null);
@@ -139,6 +144,8 @@ export function ExerciseCard({
     }
 
     setSetActivo(emptyRow);
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 1800);
     router.refresh();
     sesion.onSetGuardado();
   }
@@ -245,7 +252,7 @@ export function ExerciseCard({
           onClick={onSeleccionar}
           className="mt-3 w-full rounded-md border border-emerald-500/50 py-2 text-sm font-medium text-emerald-300"
         >
-          ▶ {logsDeHoy.length > 0 ? "Continuar acá" : "Empezar acá"}
+          ▶ Iniciar
         </button>
       )}
 
@@ -409,8 +416,9 @@ export function ExerciseCard({
                 </div>
               </div>
               {error && <p className="text-xs text-red-400">{error}</p>}
+              {justSaved && <p className="text-xs text-emerald-400">✓ Serie registrada</p>}
               <button
-                disabled={saving}
+                disabled={saving || (!setActivo.peso && !setActivo.reps && !setActivo.rir)}
                 onClick={registrarSetDeSesion}
                 className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
               >
