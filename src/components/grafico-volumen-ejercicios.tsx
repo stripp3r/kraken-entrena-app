@@ -39,7 +39,7 @@ export function GraficoVolumenEjercicios({
     return fila;
   });
 
-  const alto = Math.max(120, datos.length * 50);
+  const alto = Math.max(120, datos.length * Math.max(50, fechas.length * 16));
 
   return (
     <div style={{ height: alto }} className="w-full">
@@ -68,12 +68,7 @@ export function GraficoVolumenEjercicios({
           />
           <Legend wrapperStyle={{ fontSize: 11, color: "#b5b5b5" }} />
           {fechas.map((f, i) => (
-            <Bar
-              key={f}
-              dataKey={fechaCorta(f)}
-              stackId="volumen"
-              fill={COLORES[i % COLORES.length]}
-            />
+            <Bar key={f} dataKey={fechaCorta(f)} fill={COLORES[i % COLORES.length]} />
           ))}
         </BarChart>
       </ResponsiveContainer>
