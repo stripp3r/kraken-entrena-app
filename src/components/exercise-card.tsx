@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { borrarSet, editarSet, registrarSets, type SetInput } from "@/app/entrenamiento/actions";
 import { DescansoTimer } from "./descanso-timer";
 import type { Lado } from "@/lib/descanso";
@@ -84,6 +84,16 @@ export function ExerciseCard({
   function updateRow(i: number, field: keyof typeof emptyRow, value: string) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   }
+
+  // El formulario por lote y el de serie única quedan montados todo el
+  // tiempo (la tarjeta nunca se desmonta durante la sesión), así que si no
+  // se limpian al cambiar de "activo" queda texto sin guardar de una
+  // sesión anterior tipeado por error, y reaparece cuando la tarjeta vuelve
+  // a mostrarse inactiva.
+  useEffect(() => {
+    setRows([{ ...emptyRow }, { ...emptyRow }, { ...emptyRow }]);
+    setSetActivo(emptyRow);
+  }, [activo]);
 
   async function guardarSets() {
     setSaving(true);
@@ -235,7 +245,7 @@ export function ExerciseCard({
           onClick={onSeleccionar}
           className="mt-3 w-full rounded-md border border-emerald-500/50 py-2 text-sm font-medium text-emerald-300"
         >
-          ▶ Empezar acá
+          ▶ {logsDeHoy.length > 0 ? "Continuar acá" : "Empezar acá"}
         </button>
       )}
 
@@ -349,8 +359,8 @@ export function ExerciseCard({
         <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
           {sesion.listoParaOtro && (
             <p className="text-sm font-medium text-emerald-300">
-              ✓ Completaste {sesion.seriesCompletas} series. Podés seguir acá o tocar
-              &quot;Empezar acá&quot; en otro ejercicio cuando quieras.
+              ✓ Completaste {sesion.seriesCompletas} series. Podés seguir acá o pasar a otro
+              ejercicio cuando quieras.
             </p>
           )}
           {sesion.descansoHasta ? (

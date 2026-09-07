@@ -120,8 +120,8 @@ export function EntrenamientoDiaCliente({
 
       {sesionActiva && (
         <p className="-mt-2 text-xs text-gray-500">
-          Tocá &quot;Empezar acá&quot; en cualquier ejercicio para elegir por dónde seguir — no hace
-          falta respetar el orden si una máquina está ocupada, rota, o preferís cambiar.
+          Tocá el botón verde de cualquier ejercicio para elegir por dónde seguir — no hace falta
+          respetar el orden si una máquina está ocupada, rota, o preferís cambiar.
         </p>
       )}
 
