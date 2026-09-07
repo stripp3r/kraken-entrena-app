@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ProgresoSalud } from "@/components/progreso-salud";
 
 export default async function ProgresoSaludPage() {
   const supabase = await createClient();
@@ -13,19 +14,47 @@ export default async function ProgresoSaludPage() {
     redirect("/login");
   }
 
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
-      <h1 className="mb-3 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-        SALUD
-      </h1>
-      <p className="max-w-xs text-sm text-gray-500">
-        IMC, % de grasa y demás valores estimados llegan pronto acá — todavía
-        tengo que revisar esas fórmulas puntuales del Excel.
-      </p>
+  const [{ data: profile }, { data: ultimaMedicion }] = await Promise.all([
+    supabase.from("profiles").select("sexo").eq("id", user.id).single(),
+    supabase
+      .from("body_measurements")
+      .select("peso, altura, cuello, cintura, caderas")
+      .eq("user_id", user.id)
+      .order("fecha", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-      <Link href="/progreso" className="mt-8 text-sm text-gray-500 underline">
-        Volver a Progreso
-      </Link>
+  const genero = profile?.sexo === "femenino" ? "femenino" : "masculino";
+
+  return (
+    <main className="flex flex-1 flex-col items-center px-6 py-12">
+      <div className="w-full max-w-sm">
+        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+          SALUD
+        </h1>
+        <p className="mb-6 text-center text-sm text-gray-500">
+          Valores estimados a partir de tu última medición cargada.
+        </p>
+
+        <ProgresoSalud
+          medicion={{
+            peso: ultimaMedicion?.peso ?? null,
+            altura: ultimaMedicion?.altura ?? null,
+            cuello: ultimaMedicion?.cuello ?? null,
+            cintura: ultimaMedicion?.cintura ?? null,
+            caderas: ultimaMedicion?.caderas ?? null,
+          }}
+          genero={genero}
+        />
+
+        <Link
+          href="/progreso"
+          className="mt-8 block text-center text-sm text-gray-500 underline"
+        >
+          Volver a Progreso
+        </Link>
+      </div>
     </main>
   );
 }
