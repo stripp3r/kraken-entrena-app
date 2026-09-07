@@ -6,6 +6,7 @@ export type SetInput = {
   peso: number | null;
   reps: number | null;
   rir: number | null;
+  lado?: "derecho" | "izquierdo" | null;
 };
 
 export async function registrarSets(exerciseId: number, sets: SetInput[]) {
@@ -27,6 +28,7 @@ export async function registrarSets(exerciseId: number, sets: SetInput[]) {
       peso: s.peso,
       reps: s.reps,
       rir: s.rir,
+      lado: s.lado ?? null,
     }));
 
   if (filas.length === 0) {

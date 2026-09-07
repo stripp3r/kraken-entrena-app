@@ -3,12 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { borrarSet, editarSet, registrarSets, type SetInput } from "@/app/entrenamiento/actions";
+import { DescansoTimer } from "./descanso-timer";
+import type { Lado } from "@/lib/descanso";
 
 type WorkoutLog = {
   id: number;
   peso: number | null;
   reps: number | null;
   rir: number | null;
+  lado: Lado | null;
   created_at: string;
 };
 
@@ -28,6 +31,15 @@ type Exercise = {
   alternativa: ExerciseAlternativa | null;
 };
 
+export type SesionActiva = {
+  lado: Lado | null;
+  descansoHasta: number | null;
+  etiquetaDescanso: string;
+  onSetGuardado: () => void;
+  onDescansoTerminado: () => void;
+  onSaltarDescanso: () => void;
+};
+
 const emptyRow = { peso: "", reps: "", rir: "" };
 
 function horaDe(fechaIso: string) {
@@ -37,15 +49,26 @@ function horaDe(fechaIso: string) {
   });
 }
 
+function labelLado(lado: Lado | null) {
+  if (lado === "derecho") return "Lado derecho";
+  if (lado === "izquierdo") return "Lado izquierdo";
+  return null;
+}
+
 export function ExerciseCard({
   exercise,
   logsDeHoy,
+  activo = false,
+  sesion,
 }: {
   exercise: Exercise;
   logsDeHoy: WorkoutLog[];
+  activo?: boolean;
+  sesion?: SesionActiva;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState([{ ...emptyRow }, { ...emptyRow }, { ...emptyRow }]);
+  const [setActivo, setSetActivo] = useState(emptyRow);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -77,6 +100,31 @@ export function ExerciseCard({
 
     setRows([{ ...emptyRow }, { ...emptyRow }, { ...emptyRow }]);
     router.refresh();
+  }
+
+  async function registrarSetDeSesion() {
+    if (!sesion) return;
+    setSaving(true);
+    setError(null);
+
+    const result = await registrarSets(exercise.id, [
+      {
+        peso: setActivo.peso ? Number(setActivo.peso) : null,
+        reps: setActivo.reps ? Number(setActivo.reps) : null,
+        rir: setActivo.rir ? Number(setActivo.rir) : null,
+        lado: sesion.lado,
+      },
+    ]);
+    setSaving(false);
+
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+
+    setSetActivo(emptyRow);
+    router.refresh();
+    sesion.onSetGuardado();
   }
 
   function empezarEdicion(log: WorkoutLog) {
@@ -124,7 +172,13 @@ export function ExerciseCard({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-bg-card p-4">
+    <div
+      className={`rounded-lg border p-4 transition-colors ${
+        activo
+          ? "border-emerald-500 bg-emerald-500/10"
+          : "border-border bg-bg-card"
+      }`}
+    >
       <div className="flex items-center gap-3">
         {exercise.imagen_url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -253,6 +307,9 @@ export function ExerciseCard({
                 <span>
                   {horaDe(log.created_at)} — {log.peso ?? "-"}kg × {log.reps ?? "-"} (RIR{" "}
                   {log.rir ?? "-"})
+                  {log.lado && (
+                    <span className="text-gray-500"> · {labelLado(log.lado)}</span>
+                  )}
                 </span>
                 <span className="flex gap-3 text-xs">
                   <button onClick={() => empezarEdicion(log)} className="text-gray-400 underline">
@@ -272,62 +329,122 @@ export function ExerciseCard({
         </div>
       )}
 
-      <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
-        {rows.map((row, i) => (
-          <div key={i} className="flex items-end gap-2">
-            <div className="flex flex-1 flex-col gap-1">
-              {i === 0 && <label className="text-[11px] text-gray-500">Peso</label>}
-              <input
-                value={row.peso}
-                onChange={(e) => updateRow(i, "peso", e.target.value)}
-                type="number"
-                step="0.5"
-                inputMode="decimal"
-                className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
-              />
+      {sesion ? (
+        <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
+          {sesion.descansoHasta ? (
+            <DescansoTimer
+              hasta={sesion.descansoHasta}
+              etiqueta={sesion.etiquetaDescanso}
+              onTerminar={sesion.onDescansoTerminado}
+              onSaltar={sesion.onSaltarDescanso}
+            />
+          ) : (
+            <>
+              {sesion.lado && (
+                <p className="text-sm font-medium text-emerald-300">{labelLado(sesion.lado)}</p>
+              )}
+              <div className="flex items-end gap-2">
+                <div className="flex flex-1 flex-col gap-1">
+                  <label className="text-[11px] text-gray-500">Peso</label>
+                  <input
+                    value={setActivo.peso}
+                    onChange={(e) => setSetActivo((r) => ({ ...r, peso: e.target.value }))}
+                    type="number"
+                    step="0.5"
+                    inputMode="decimal"
+                    className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-1">
+                  <label className="text-[11px] text-gray-500">Reps</label>
+                  <input
+                    value={setActivo.reps}
+                    onChange={(e) => setSetActivo((r) => ({ ...r, reps: e.target.value }))}
+                    type="number"
+                    inputMode="numeric"
+                    className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-1">
+                  <label className="text-[11px] text-gray-500">RIR</label>
+                  <input
+                    value={setActivo.rir}
+                    onChange={(e) => setSetActivo((r) => ({ ...r, rir: e.target.value }))}
+                    type="number"
+                    inputMode="numeric"
+                    className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                  />
+                </div>
+              </div>
+              {error && <p className="text-xs text-red-400">{error}</p>}
+              <button
+                disabled={saving}
+                onClick={registrarSetDeSesion}
+                className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
+              >
+                {saving ? "Guardando..." : "Registrar serie"}
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
+          {rows.map((row, i) => (
+            <div key={i} className="flex items-end gap-2">
+              <div className="flex flex-1 flex-col gap-1">
+                {i === 0 && <label className="text-[11px] text-gray-500">Peso</label>}
+                <input
+                  value={row.peso}
+                  onChange={(e) => updateRow(i, "peso", e.target.value)}
+                  type="number"
+                  step="0.5"
+                  inputMode="decimal"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                />
+              </div>
+              <div className="flex flex-1 flex-col gap-1">
+                {i === 0 && <label className="text-[11px] text-gray-500">Reps</label>}
+                <input
+                  value={row.reps}
+                  onChange={(e) => updateRow(i, "reps", e.target.value)}
+                  type="number"
+                  inputMode="numeric"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                />
+              </div>
+              <div className="flex flex-1 flex-col gap-1">
+                {i === 0 && <label className="text-[11px] text-gray-500">RIR</label>}
+                <input
+                  value={row.rir}
+                  onChange={(e) => updateRow(i, "rir", e.target.value)}
+                  type="number"
+                  inputMode="numeric"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                />
+              </div>
+              <span className="pb-1.5 text-[11px] text-gray-600">Set {i + 1}</span>
             </div>
-            <div className="flex flex-1 flex-col gap-1">
-              {i === 0 && <label className="text-[11px] text-gray-500">Reps</label>}
-              <input
-                value={row.reps}
-                onChange={(e) => updateRow(i, "reps", e.target.value)}
-                type="number"
-                inputMode="numeric"
-                className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
-              />
-            </div>
-            <div className="flex flex-1 flex-col gap-1">
-              {i === 0 && <label className="text-[11px] text-gray-500">RIR</label>}
-              <input
-                value={row.rir}
-                onChange={(e) => updateRow(i, "rir", e.target.value)}
-                type="number"
-                inputMode="numeric"
-                className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
-              />
-            </div>
-            <span className="pb-1.5 text-[11px] text-gray-600">Set {i + 1}</span>
-          </div>
-        ))}
+          ))}
 
-        <button
-          type="button"
-          onClick={() => setRows((prev) => [...prev, { ...emptyRow }])}
-          className="self-start text-xs text-gray-400 underline"
-        >
-          + Agregar otro set
-        </button>
+          <button
+            type="button"
+            onClick={() => setRows((prev) => [...prev, { ...emptyRow }])}
+            className="self-start text-xs text-gray-400 underline"
+          >
+            + Agregar otro set
+          </button>
 
-        {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-red-400">{error}</p>}
 
-        <button
-          disabled={saving}
-          onClick={guardarSets}
-          className="mt-1 rounded-md bg-white px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
-        >
-          {saving ? "Guardando..." : "Guardar sets"}
-        </button>
-      </div>
+          <button
+            disabled={saving}
+            onClick={guardarSets}
+            className="mt-1 rounded-md bg-white px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
+          >
+            {saving ? "Guardando..." : "Guardar sets"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

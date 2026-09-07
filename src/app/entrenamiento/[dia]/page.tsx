@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ExerciseCard } from "@/components/exercise-card";
+import { EntrenamientoDiaCliente } from "@/components/entrenamiento-dia-cliente";
 import { inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
@@ -40,7 +40,9 @@ export default async function DiaEntrenamientoPage({
 
   const { data: exercises } = await supabase
     .from("exercises")
-    .select("id, nombre, video_url, imagen_url, como_hacerlo, orden, alternativa_id")
+    .select(
+      "id, nombre, video_url, imagen_url, como_hacerlo, orden, alternativa_id, unilateral, tipo_esfuerzo"
+    )
     .eq("dia", dia)
     .eq("routine_id", profile.routine_id)
     .order("orden", { ascending: true });
@@ -65,12 +67,22 @@ export default async function DiaEntrenamientoPage({
   const { data: logsHoy } = exerciseIds.length
     ? await supabase
         .from("workout_logs")
-        .select("id, exercise_id, peso, reps, rir, created_at")
+        .select("id, exercise_id, peso, reps, rir, lado, created_at")
         .eq("user_id", user.id)
         .in("exercise_id", exerciseIds)
         .gte("created_at", hoyInicio.toISOString())
         .order("created_at", { ascending: true })
-    : { data: [] as { id: number; exercise_id: number; peso: number | null; reps: number | null; rir: number | null; created_at: string }[] };
+    : {
+        data: [] as {
+          id: number;
+          exercise_id: number;
+          peso: number | null;
+          reps: number | null;
+          rir: number | null;
+          lado: "derecho" | "izquierdo" | null;
+          created_at: string;
+        }[],
+      };
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -90,29 +102,24 @@ export default async function DiaEntrenamientoPage({
             Todavía no hay ejercicios cargados para este día.
           </p>
         ) : (
-          <div className="flex flex-col gap-4">
-            {exercises.map((ex) => {
-              const logsDeHoy = (logsHoy ?? []).filter((l) => l.exercise_id === ex.id);
-              const alternativa = ex.alternativa_id
-                ? alternativaPorId.get(ex.alternativa_id) ?? null
-                : null;
-
-              return (
-                <ExerciseCard
-                  key={ex.id}
-                  exercise={{
-                    id: ex.id,
-                    nombre: ex.nombre,
-                    imagen_url: ex.imagen_url,
-                    video_url: ex.video_url,
-                    como_hacerlo: ex.como_hacerlo,
-                    alternativa: alternativa ?? null,
-                  }}
-                  logsDeHoy={logsDeHoy}
-                />
-              );
-            })}
-          </div>
+          <EntrenamientoDiaCliente
+            exercises={exercises.map((ex) => ({
+              id: ex.id,
+              nombre: ex.nombre,
+              imagen_url: ex.imagen_url,
+              video_url: ex.video_url,
+              como_hacerlo: ex.como_hacerlo,
+              alternativa: ex.alternativa_id ? alternativaPorId.get(ex.alternativa_id) ?? null : null,
+              unilateral: ex.unilateral,
+              tipoEsfuerzo: ex.tipo_esfuerzo as "compuesto" | "aislado",
+            }))}
+            logsPorEjercicio={Object.fromEntries(
+              exercises.map((ex) => [
+                ex.id,
+                (logsHoy ?? []).filter((l) => l.exercise_id === ex.id),
+              ])
+            )}
+          />
         )}
       </div>
     </main>
