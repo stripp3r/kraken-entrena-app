@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProgresoSalud } from "@/components/progreso-salud";
+import { BackLink } from "@/components/back-link";
 
 export default async function ProgresoSaludPage() {
   const supabase = await createClient();
@@ -28,21 +28,17 @@ export default async function ProgresoSaludPage() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          SALUD
-        </h1>
+        <div className="relative mb-2">
+          <BackLink href="/progreso" />
+          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            SALUD
+          </h1>
+        </div>
         <p className="mb-6 text-center text-sm text-gray-500">
           Evolución de tus valores de salud a partir de tus medidas cargadas.
         </p>
 
         <ProgresoSalud historial={historial ?? []} genero={genero} />
-
-        <Link
-          href="/progreso"
-          className="mt-8 block text-center text-sm text-gray-500 underline"
-        >
-          Volver a Progreso
-        </Link>
       </div>
     </main>
   );

@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProgresoAnalitica } from "@/components/progreso-analitica";
+import { BackLink } from "@/components/back-link";
 import type { SetLog } from "@/lib/analytics";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
@@ -28,9 +28,12 @@ export default async function ProgresoPage() {
   if (!profile?.routine_id || !routine) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
-        <h1 className="mb-3 font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          ENTRENAMIENTO
-        </h1>
+        <div className="relative mb-3 w-full max-w-sm">
+          <BackLink href="/progreso" />
+          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            ENTRENAMIENTO
+          </h1>
+        </div>
         <p className="max-w-xs text-sm text-gray-500">
           Todavía no tenés una rutina activa. Elegila en Entrenar para ver tu progreso acá.
         </p>
@@ -86,9 +89,12 @@ export default async function ProgresoPage() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          ENTRENAMIENTO
-        </h1>
+        <div className="relative mb-2">
+          <BackLink href="/progreso" />
+          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            ENTRENAMIENTO
+          </h1>
+        </div>
         <p className="mb-6 text-center text-sm text-gray-500">
           Fuerza y volumen a partir de lo que vas registrando en Entrenamiento.
         </p>
@@ -98,13 +104,6 @@ export default async function ProgresoPage() {
           exercises={exercises}
           logsByExercise={logsByExercise}
         />
-
-        <Link
-          href="/progreso"
-          className="mt-8 block text-center text-sm text-gray-500 underline"
-        >
-          Volver a Progreso
-        </Link>
       </div>
     </main>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { BackLink } from "@/components/back-link";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -33,13 +34,7 @@ export default async function DiasEntrenamientoPage() {
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
         <div className="relative mb-2">
-          <Link
-            href="/entrenamiento"
-            aria-label="Volver a rutinas"
-            className="absolute left-0 top-1/2 -translate-y-1/2 text-2xl text-gray-400"
-          >
-            ←
-          </Link>
+          <BackLink href="/entrenamiento" />
           <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
             ENTRENAMIENTO
           </h1>
@@ -57,13 +52,6 @@ export default async function DiasEntrenamientoPage() {
             </Link>
           ))}
         </div>
-
-        <Link
-          href="/"
-          className="mt-8 block text-center text-sm text-gray-500 underline"
-        >
-          Volver al inicio
-        </Link>
       </div>
     </main>
   );

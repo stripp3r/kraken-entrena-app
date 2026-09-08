@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { BackLink } from "@/components/back-link";
 
 function fechaLegible(iso: string) {
   const [y, m, d] = iso.split("-");
@@ -43,9 +43,12 @@ export default async function HistorialPage() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          HISTORIAL
-        </h1>
+        <div className="relative mb-2">
+          <BackLink href="/progreso" />
+          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            HISTORIAL
+          </h1>
+        </div>
         <p className="mb-6 text-center text-sm text-gray-500">
           Las rutinas que tuviste activas a lo largo del tiempo.
         </p>
@@ -85,13 +88,6 @@ export default async function HistorialPage() {
             })}
           </div>
         )}
-
-        <Link
-          href="/progreso"
-          className="mt-8 block text-center text-sm text-gray-500 underline"
-        >
-          Volver a Progreso
-        </Link>
       </div>
     </main>
   );

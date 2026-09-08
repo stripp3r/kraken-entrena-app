@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProgresoMedidas } from "@/components/progreso-medidas";
+import { BackLink } from "@/components/back-link";
 
 export default async function ProgresoMedidasPage() {
   const supabase = await createClient();
@@ -23,9 +23,12 @@ export default async function ProgresoMedidasPage() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-6 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          MEDIDAS
-        </h1>
+        <div className="relative mb-6">
+          <BackLink href="/progreso" />
+          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            MEDIDAS
+          </h1>
+        </div>
 
         {!historial || historial.length === 0 ? (
           <p className="text-center text-sm text-gray-500">
@@ -35,13 +38,6 @@ export default async function ProgresoMedidasPage() {
         ) : (
           <ProgresoMedidas historial={historial} />
         )}
-
-        <Link
-          href="/progreso"
-          className="mt-8 block text-center text-sm text-gray-500 underline"
-        >
-          Volver a Progreso
-        </Link>
       </div>
     </main>
   );

@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EvolucionUploader } from "@/components/evolucion-uploader";
 import { BorrarFotoBoton } from "@/components/borrar-foto-boton";
+import { BackLink } from "@/components/back-link";
 
 export default async function EvolucionPage() {
   const supabase = await createClient();
@@ -41,9 +41,12 @@ export default async function EvolucionPage() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          EVOLUCIÓN
-        </h1>
+        <div className="relative mb-2">
+          <BackLink href="/perfil" />
+          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            EVOLUCIÓN
+          </h1>
+        </div>
         <p className="mb-6 text-center text-sm text-gray-500">
           Fotos de antes/después, frontal, lateral y trasera. Es opcional y
           privado — solo vos las ves.
@@ -85,13 +88,6 @@ export default async function EvolucionPage() {
             </div>
           ))}
         </div>
-
-        <Link
-          href="/perfil"
-          className="mt-8 block text-center text-sm text-gray-500 underline"
-        >
-          Volver a Perfil
-        </Link>
       </div>
     </main>
   );

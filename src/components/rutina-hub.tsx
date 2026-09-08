@@ -159,10 +159,6 @@ export function RutinaHub({
           </div>
         </div>
       )}
-
-      <Link href="/" className="block text-center text-sm text-gray-500 underline">
-        Volver al inicio
-      </Link>
     </div>
   );
 }

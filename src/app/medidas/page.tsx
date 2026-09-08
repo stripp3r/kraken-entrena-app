@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MedicionForm } from "@/components/medicion-form";
 import { GuiaMedidas } from "@/components/guia-medidas";
+import { BackLink } from "@/components/back-link";
 
 export default async function MedidasPage() {
   const supabase = await createClient();
@@ -24,9 +24,12 @@ export default async function MedidasPage() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          TUS MEDIDAS
-        </h1>
+        <div className="relative mb-2">
+          <BackLink href="/perfil" />
+          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            TUS MEDIDAS
+          </h1>
+        </div>
         <p className="mb-6 text-center text-sm text-gray-500">
           No te obsesiones con "la medida perfecta" — la salud y el bienestar
           no se definen únicamente por medidas corporales. Enfocate en tu
@@ -37,13 +40,6 @@ export default async function MedidasPage() {
           <MedicionForm historial={historial ?? []} />
           <GuiaMedidas />
         </div>
-
-        <Link
-          href="/perfil"
-          className="mt-8 block text-center text-sm text-gray-500 underline"
-        >
-          Volver a Perfil
-        </Link>
       </div>
     </main>
   );

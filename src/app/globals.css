@@ -34,3 +34,21 @@ body {
   color: var(--gray-100);
   font-family: var(--font-body);
 }
+
+/* La app tiene que sentirse nativa, no como una página de Chrome: sin
+   selección de texto, sin el menú "Traducir/Copiar/Compartir", sin el
+   buscador de Google al mantener presionado, sin el flash gris al tocar. */
+html,
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  user-select: text;
+}
