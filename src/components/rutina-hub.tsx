@@ -27,6 +27,8 @@ export function RutinaHub({
 
   const desbloqueadas = new Set(idsDesbloqueados);
   const otras = routines.filter((r) => r.id !== routineIdActual);
+  const adquiridas = otras.filter((r) => desbloqueadas.has(r.id));
+  const paraAdquirir = otras.filter((r) => !desbloqueadas.has(r.id));
 
   async function confirmar() {
     if (!candidata) return;
@@ -65,54 +67,61 @@ export function RutinaHub({
         </div>
       )}
 
-      {otras.length > 0 && (
+      {adquiridas.length > 0 && (
         <div>
-          <p className="mb-3 text-sm text-gray-500">Otras rutinas</p>
+          <p className="mb-3 text-sm text-gray-500">Rutinas adquiridas</p>
           <div className="flex flex-col gap-3">
-            {otras.map((r) =>
-              desbloqueadas.has(r.id) ? (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => {
-                    setCandidata(r);
-                    setError(null);
-                  }}
-                  className="flex items-center justify-between rounded-lg border border-border bg-bg-card px-4 py-3 text-left transition-colors hover:border-border-strong active:bg-bg"
+            {adquiridas.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  setCandidata(r);
+                  setError(null);
+                }}
+                className="flex items-center justify-between rounded-lg border border-border bg-bg-card px-4 py-3 text-left transition-colors hover:border-border-strong active:bg-bg"
+              >
+                <span className="text-sm text-white">
+                  {r.nombre} ({r.dias} días)
+                </span>
+                <span className="text-xs text-gray-500">Cambiar →</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {paraAdquirir.length > 0 && (
+        <div>
+          <p className="mb-3 text-sm text-gray-500">Adquirir otras rutinas</p>
+          <div className="flex flex-col gap-3">
+            {paraAdquirir.map((r) => (
+              <div
+                key={r.id}
+                className="relative overflow-hidden rounded-lg border border-border bg-bg-card px-4 py-3"
+              >
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -right-2 -top-2 text-5xl opacity-10"
                 >
-                  <span className="text-sm text-white">
-                    {r.nombre} ({r.dias} días)
-                  </span>
-                  <span className="text-xs text-gray-500">Cambiar →</span>
-                </button>
-              ) : (
-                <div
-                  key={r.id}
-                  className="relative overflow-hidden rounded-lg border border-border bg-bg-card px-4 py-3"
+                  🔒
+                </span>
+                <p className="text-sm font-medium text-gray-300">
+                  {r.nombre} ({r.dias} días)
+                </p>
+                {r.descripcion && (
+                  <p className="mt-0.5 text-xs text-gray-500">{r.descripcion}</p>
+                )}
+                <a
+                  href={URL_PLANES}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block rounded-full bg-white px-4 py-1.5 text-xs font-medium text-black transition-opacity hover:opacity-90"
                 >
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute -right-2 -top-2 text-5xl opacity-10"
-                  >
-                    🔒
-                  </span>
-                  <p className="text-sm font-medium text-gray-300">
-                    {r.nombre} ({r.dias} días)
-                  </p>
-                  {r.descripcion && (
-                    <p className="mt-0.5 text-xs text-gray-500">{r.descripcion}</p>
-                  )}
-                  <a
-                    href={URL_PLANES}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-block rounded-full bg-white px-4 py-1.5 text-xs font-medium text-black transition-opacity hover:opacity-90"
-                  >
-                    Adquirir
-                  </a>
-                </div>
-              )
-            )}
+                  Adquirir
+                </a>
+              </div>
+            ))}
           </div>
         </div>
       )}
