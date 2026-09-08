@@ -7,6 +7,22 @@ function fechaLegible(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
+function duracionLegible(fechaInicio: string, fechaFin: string | null) {
+  const desde = new Date(`${fechaInicio}T00:00:00`);
+  const hasta = fechaFin ? new Date(`${fechaFin}T00:00:00`) : new Date();
+  const dias = Math.max(1, Math.round((hasta.getTime() - desde.getTime()) / 86_400_000) + 1);
+
+  if (dias < 14) {
+    return `${dias} día${dias === 1 ? "" : "s"}`;
+  }
+  if (dias < 60) {
+    const semanas = Math.round(dias / 7);
+    return `${semanas} semana${semanas === 1 ? "" : "s"}`;
+  }
+  const meses = Math.round(dias / 30);
+  return `${meses} mes${meses === 1 ? "" : "es"}`;
+}
+
 export default async function HistorialPage() {
   const supabase = await createClient();
 
@@ -60,6 +76,9 @@ export default async function HistorialPage() {
                   <p className="mt-1 text-xs text-gray-500">
                     Desde el {fechaLegible(h.fecha_inicio)}
                     {h.fecha_fin ? ` hasta el ${fechaLegible(h.fecha_fin)}` : ""}
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-600">
+                    {duracionLegible(h.fecha_inicio, h.fecha_fin)} de uso
                   </p>
                 </div>
               );

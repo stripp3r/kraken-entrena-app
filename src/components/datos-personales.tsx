@@ -12,6 +12,8 @@ type Profile = {
   actividad_fisica: string | null;
 };
 
+type Rutina = { nombre: string; dias: number } | null;
+
 const fieldClass =
   "w-full rounded-lg border border-border bg-bg-card px-4 py-2.5 text-white outline-none focus:border-border-strong";
 const labelClass = "text-sm text-gray-300";
@@ -32,9 +34,11 @@ const ACTIVIDAD_LABEL: Record<string, string> = {
 
 export function DatosPersonales({
   profile,
+  rutina,
   error,
 }: {
   profile: Profile | null;
+  rutina: Rutina;
   error?: string;
 }) {
   const [editando, setEditando] = useState(!profile?.nombre);
@@ -51,7 +55,11 @@ export function DatosPersonales({
             label="Actividad física"
             valor={profile.actividad_fisica ? ACTIVIDAD_LABEL[profile.actividad_fisica] : "-"}
           />
+          <Fila label="Rutina" valor={rutina ? `${rutina.nombre} (${rutina.dias} días)` : "-"} />
         </dl>
+        <p className="mt-3 text-xs text-gray-500">
+          Para cambiar de rutina, andá a Entrenar.
+        </p>
 
         <button
           onClick={() => setEditando(true)}

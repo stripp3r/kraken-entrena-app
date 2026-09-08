@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { CambiarRutinaEntrenamiento } from "@/components/cambiar-rutina-entrenamiento";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -29,13 +30,23 @@ export default async function EntrenamientoPage() {
 
   const dias = LETRAS_DIA.slice(0, routine.dias);
 
+  const { data: routines } = await supabase
+    .from("routines")
+    .select("id, nombre, dias")
+    .order("dias", { ascending: true });
+
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+        <h1 className="mb-6 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
           ENTRENAMIENTO
         </h1>
-        <p className="mb-8 text-center text-sm text-gray-500">{routine.nombre}</p>
+
+        <CambiarRutinaEntrenamiento
+          routineIdActual={profile.routine_id}
+          rutinaActual={{ nombre: routine.nombre, dias: routine.dias }}
+          routines={routines ?? []}
+        />
 
         <div className="flex flex-col gap-3">
           {dias.map((letra) => (

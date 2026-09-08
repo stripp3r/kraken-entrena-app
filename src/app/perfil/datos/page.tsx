@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DatosPersonales } from "@/components/datos-personales";
-import { CambiarRutina } from "@/components/cambiar-rutina";
 
 export default async function PerfilDatosPage({
   searchParams,
@@ -22,14 +21,15 @@ export default async function PerfilDatosPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select("*, routines(nombre, dias)")
     .eq("id", user.id)
     .single();
 
-  const { data: routines } = await supabase
-    .from("routines")
-    .select("id, nombre, dias")
-    .order("dias", { ascending: true });
+  const rutina = profile
+    ? Array.isArray(profile.routines)
+      ? profile.routines[0]
+      : profile.routines
+    : null;
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-12">
@@ -41,11 +41,7 @@ export default async function PerfilDatosPage({
           Completá tus datos para armar tu programa.
         </p>
 
-        <DatosPersonales profile={profile ?? null} error={error} />
-
-        <div className="mt-4">
-          <CambiarRutina routineIdActual={profile?.routine_id ?? null} routines={routines ?? []} />
-        </div>
+        <DatosPersonales profile={profile ?? null} rutina={rutina ?? null} error={error} />
 
         <Link
           href="/perfil"

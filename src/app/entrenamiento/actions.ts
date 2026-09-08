@@ -97,6 +97,64 @@ export async function finalizarEntrenamientoDia(dia: string, routineId: number |
   return { ok: true };
 }
 
+// Separado de guardarPerfil (perfil/datos/actions.ts) a propósito: cambiar de
+// rutina activa deja un registro en profile_routine_history (para el
+// Historial en Progreso), algo que no debe pasar cada vez que el usuario
+// solo edita nombre/edad/etc. Vive acá porque conceptualmente es una acción
+// de Entrenamiento, no de Perfil.
+export async function cambiarRutinaActiva(routineId: number) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Tenés que iniciar sesión de nuevo." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("routine_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.routine_id === routineId) {
+    return { ok: true };
+  }
+
+  const hoy = hoyISO();
+
+  const { error: cierreError } = await supabase
+    .from("profile_routine_history")
+    .update({ fecha_fin: hoy })
+    .eq("user_id", user.id)
+    .is("fecha_fin", null);
+
+  if (cierreError) {
+    return { error: cierreError.message };
+  }
+
+  const { error: aperturaError } = await supabase
+    .from("profile_routine_history")
+    .insert({ user_id: user.id, routine_id: routineId, fecha_inicio: hoy });
+
+  if (aperturaError) {
+    return { error: aperturaError.message };
+  }
+
+  const { error: perfilError } = await supabase
+    .from("profiles")
+    .update({ routine_id: routineId, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  if (perfilError) {
+    return { error: perfilError.message };
+  }
+
+  return { ok: true };
+}
+
 export async function borrarSet(logId: number) {
   const supabase = await createClient();
 
