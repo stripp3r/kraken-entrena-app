@@ -5,9 +5,9 @@ import { signup } from "../login/actions";
 export default async function RegistroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; email?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, email } = await searchParams;
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6">
@@ -25,6 +25,7 @@ export default async function RegistroPage({
               id="email"
               name="email"
               type="email"
+              defaultValue={email ?? ""}
               required
               className="rounded-lg border border-border bg-bg-card px-4 py-2.5 text-white outline-none focus:border-border-strong"
             />
