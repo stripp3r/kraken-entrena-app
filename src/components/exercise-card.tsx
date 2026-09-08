@@ -219,13 +219,28 @@ export function ExerciseCard({
       </div>
 
       {onSeleccionar && (
-        <button
-          type="button"
-          onClick={onSeleccionar}
-          className="mt-3 w-full rounded-md border border-emerald-500/50 py-2 text-sm font-medium text-emerald-300"
-        >
-          ▶ Iniciar
-        </button>
+        logsDeHoy.length > 0 ? (
+          <div className="mt-3 flex flex-col gap-1.5">
+            <span className="self-start rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+              ✓ Registrado
+            </span>
+            <button
+              type="button"
+              onClick={onSeleccionar}
+              className="w-full rounded-md border border-orange-500/50 py-2 text-sm font-medium text-orange-300"
+            >
+              ↩ Volver
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onSeleccionar}
+            className="mt-3 w-full rounded-md border border-emerald-500/50 py-2 text-sm font-medium text-emerald-300"
+          >
+            ▶ Iniciar
+          </button>
+        )
       )}
 
       {mostrarComoHacerlo && exercise.como_hacerlo && (
@@ -401,7 +416,10 @@ export function ExerciseCard({
             )}
             <button
               type="button"
-              onClick={sesion.onFinalizarEjercicio}
+              onClick={() => {
+                prepararAlertas();
+                sesion.onFinalizarEjercicio();
+              }}
               className="rounded-md border border-border-strong py-2 text-sm text-gray-300"
             >
               Finalizar ejercicio

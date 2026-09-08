@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EntrenamientoDiaCliente } from "@/components/entrenamiento-dia-cliente";
-import { inicioDelDiaArgentinaUTC } from "@/lib/fecha";
+import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -62,6 +62,14 @@ export default async function DiaEntrenamientoPage({
 
   const alternativaPorId = new Map((alternativas ?? []).map((a) => [a.id, a]));
 
+  const { data: finalizacion } = await supabase
+    .from("entrenamientos_finalizados")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("dia", dia)
+    .eq("fecha", hoyISO())
+    .maybeSingle();
+
   const hoyInicio = inicioDelDiaArgentinaUTC();
 
   const { data: logsHoy } = exerciseIds.length
@@ -103,6 +111,9 @@ export default async function DiaEntrenamientoPage({
           </p>
         ) : (
           <EntrenamientoDiaCliente
+            dia={dia}
+            routineId={profile.routine_id}
+            finalizadoHoy={Boolean(finalizacion)}
             exercises={exercises.map((ex) => ({
               id: ex.id,
               nombre: ex.nombre,
