@@ -27,9 +27,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ignorado: payload.type });
   }
 
-  const productId = payload.items?.[0]?.product_id ? String(payload.items[0].product_id) : null;
+  // product_key es el código corto que aparece en el link de venta
+  // (payhip.com/b/<product_key>) -- más fácil de encontrar a mano que el
+  // product_id interno.
+  const productKey = payload.items?.[0]?.product_key ?? null;
 
-  if (!productId || !payload.email || !payload.id) {
+  if (!productKey || !payload.email || !payload.id) {
     return NextResponse.json({ error: "Payload incompleto" }, { status: 400 });
   }
 
@@ -38,12 +41,12 @@ export async function POST(request: NextRequest) {
   const { data: producto } = await supabase
     .from("productos")
     .select("slug")
-    .eq("payhip_product_id", productId)
+    .eq("payhip_product_key", productKey)
     .single();
 
   if (!producto) {
     return NextResponse.json(
-      { error: `Producto de PayHip sin mapear en productos.payhip_product_id: ${productId}` },
+      { error: `Producto de PayHip sin mapear en productos.payhip_product_key: ${productKey}` },
       { status: 400 }
     );
   }
