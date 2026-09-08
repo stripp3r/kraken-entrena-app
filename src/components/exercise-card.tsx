@@ -63,12 +63,14 @@ export function ExerciseCard({
   exercise,
   logsDeHoy,
   activo = false,
+  compacto = false,
   onSeleccionar,
   sesion,
 }: {
   exercise: Exercise;
   logsDeHoy: WorkoutLog[];
   activo?: boolean;
+  compacto?: boolean;
   onSeleccionar?: () => void;
   sesion?: SesionActiva;
 }) {
@@ -183,9 +185,9 @@ export function ExerciseCard({
             src={exercise.imagen_url}
             alt={exercise.nombre}
             className={
-              activo
-                ? "h-44 w-full rounded-md bg-white object-contain"
-                : "aspect-square w-full rounded-md bg-white object-contain"
+              compacto
+                ? "aspect-square w-full rounded-md bg-white object-contain"
+                : "h-44 w-full rounded-md bg-white object-contain"
             }
           />
         )}

@@ -154,7 +154,7 @@ export function EntrenamientoDiaCliente({
         </div>
         <div className="grid grid-cols-2 gap-3">
           {exercises.map((ex) => (
-            <ExerciseCard key={ex.id} exercise={ex} logsDeHoy={[]} />
+            <ExerciseCard key={ex.id} exercise={ex} logsDeHoy={[]} compacto />
           ))}
         </div>
       </div>
@@ -179,33 +179,33 @@ export function EntrenamientoDiaCliente({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={sesionActiva ? "flex flex-col gap-3" : "grid grid-cols-2 gap-3"}>
         {exercises.map((ex) => {
           const esActivo = sesionActiva && ex.id === activoId;
           return (
-            <div key={ex.id} className={esActivo ? "col-span-2" : ""}>
-              <ExerciseCard
-                exercise={ex}
-                logsDeHoy={logsPorEjercicio[ex.id] ?? []}
-                activo={esActivo}
-                onSeleccionar={sesionActiva && !esActivo ? () => seleccionar(ex.id) : undefined}
-                sesion={
-                  esActivo
-                    ? {
-                        lado,
-                        descansoHasta,
-                        etiquetaDescanso,
-                        seriesCompletas,
-                        listoParaOtro,
-                        onSetGuardado,
-                        onDescansoTerminado: avanzarLado,
-                        onSaltarDescanso: avanzarLado,
-                        onFinalizarEjercicio: finalizarEjercicio,
-                      }
-                    : undefined
-                }
-              />
-            </div>
+            <ExerciseCard
+              key={ex.id}
+              exercise={ex}
+              logsDeHoy={logsPorEjercicio[ex.id] ?? []}
+              activo={esActivo}
+              compacto={!sesionActiva}
+              onSeleccionar={sesionActiva && !esActivo ? () => seleccionar(ex.id) : undefined}
+              sesion={
+                esActivo
+                  ? {
+                      lado,
+                      descansoHasta,
+                      etiquetaDescanso,
+                      seriesCompletas,
+                      listoParaOtro,
+                      onSetGuardado,
+                      onDescansoTerminado: avanzarLado,
+                      onSaltarDescanso: avanzarLado,
+                      onFinalizarEjercicio: finalizarEjercicio,
+                    }
+                  : undefined
+              }
+            />
           );
         })}
       </div>
