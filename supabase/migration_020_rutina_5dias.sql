@@ -23,6 +23,32 @@
 --
 -- Correr en el SQL Editor de Supabase después de la migración 019.
 
+-- Ajuste a la migración 019: 'nombre' seguía siendo NOT NULL en la tabla
+-- legada routine_exercises. Esta rutina ya no completa esa columna (los
+-- datos del ejercicio viven en exercise_definitions), así que hace falta
+-- relajar la restricción para poder insertar filas de scheduling puras.
+alter table public.routine_exercises alter column nombre drop not null;
+
+-- Otro ajuste heredado: 'dia' tenía un check limitado a A-D (de cuando solo
+-- existía la rutina de 4 días) -- esta rutina necesita hasta E, y de paso se
+-- amplía a F/G para no repetir este arreglo con la próxima rutina de más días.
+do $$
+declare
+  con_name text;
+begin
+  select conname into con_name
+  from pg_constraint
+  where conrelid = 'public.routine_exercises'::regclass
+    and contype = 'c'
+    and pg_get_constraintdef(oid) ilike '%dia = any%';
+  if con_name is not null then
+    execute format('alter table public.routine_exercises drop constraint %I', con_name);
+  end if;
+end $$;
+
+alter table public.routine_exercises
+  add constraint routine_exercises_dia_check check (dia in ('A', 'B', 'C', 'D', 'E', 'F', 'G'));
+
 insert into public.routines (nombre, descripcion, dias)
 select '5 días - hipertrofia', 'Split de 5 días enfocado en hipertrofia', 5
 where not exists (select 1 from public.routines where nombre = '5 días - hipertrofia');
