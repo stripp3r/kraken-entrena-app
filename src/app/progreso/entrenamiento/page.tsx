@@ -40,27 +40,46 @@ export default async function ProgresoPage() {
 
   const dias = LETRAS_DIA.slice(0, routine.dias);
 
-  const { data: exercises } = await supabase
-    .from("exercises")
-    .select("id, nombre, dia, orden")
+  const { data: routineExercises } = await supabase
+    .from("routine_exercises")
+    .select("dia, orden, exercise_definition_id, exercise_definitions(nombre)")
     .eq("routine_id", profile.routine_id)
     .order("orden", { ascending: true });
 
-  const exerciseIds = (exercises ?? []).map((e) => e.id);
+  // "id" es el exercise_definition_id (canónico): si el mismo ejercicio
+  // sigue estando en la rutina activa, su historial de otras rutinas
+  // anteriores se suma acá también, en vez de cortarse.
+  const exercises = (routineExercises ?? [])
+    .filter((re) => re.exercise_definition_id !== null)
+    .map((re) => {
+      const def = Array.isArray(re.exercise_definitions)
+        ? re.exercise_definitions[0]
+        : re.exercise_definitions;
+      return { id: re.exercise_definition_id as number, nombre: def?.nombre ?? "", dia: re.dia };
+    });
+
+  const exerciseIds = exercises.map((e) => e.id);
 
   const { data: logs } = exerciseIds.length
     ? await supabase
         .from("workout_logs")
-        .select("exercise_id, peso, reps, created_at")
+        .select("exercise_definition_id, peso, reps, created_at")
         .eq("user_id", user.id)
-        .in("exercise_id", exerciseIds)
+        .in("exercise_definition_id", exerciseIds)
         .order("created_at", { ascending: true })
-    : { data: [] as { exercise_id: number; peso: number | null; reps: number | null; created_at: string }[] };
+    : {
+        data: [] as {
+          exercise_definition_id: number | null;
+          peso: number | null;
+          reps: number | null;
+          created_at: string;
+        }[],
+      };
 
   const logsByExercise: Record<number, SetLog[]> = {};
-  for (const ex of exercises ?? []) {
+  for (const ex of exercises) {
     logsByExercise[ex.id] = (logs ?? [])
-      .filter((l) => l.exercise_id === ex.id)
+      .filter((l) => l.exercise_definition_id === ex.id)
       .map((l) => ({ peso: l.peso, reps: l.reps, created_at: l.created_at }));
   }
 
@@ -76,7 +95,7 @@ export default async function ProgresoPage() {
 
         <ProgresoAnalitica
           dias={dias}
-          exercises={(exercises ?? []).map((e) => ({ id: e.id, nombre: e.nombre, dia: e.dia }))}
+          exercises={exercises}
           logsByExercise={logsByExercise}
         />
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DatosPersonales } from "@/components/datos-personales";
+import { CambiarRutina } from "@/components/cambiar-rutina";
 
 export default async function PerfilDatosPage({
   searchParams,
@@ -40,7 +41,11 @@ export default async function PerfilDatosPage({
           Completá tus datos para armar tu programa.
         </p>
 
-        <DatosPersonales profile={profile ?? null} routines={routines ?? []} error={error} />
+        <DatosPersonales profile={profile ?? null} error={error} />
+
+        <div className="mt-4">
+          <CambiarRutina routineIdActual={profile?.routine_id ?? null} routines={routines ?? []} />
+        </div>
 
         <Link
           href="/perfil"

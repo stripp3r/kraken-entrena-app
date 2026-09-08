@@ -10,7 +10,7 @@ export type SetInput = {
   lado?: "derecho" | "izquierdo" | null;
 };
 
-export async function registrarSets(exerciseId: number, sets: SetInput[]) {
+export async function registrarSets(exerciseDefinitionId: number, sets: SetInput[]) {
   const supabase = await createClient();
 
   const {
@@ -25,7 +25,7 @@ export async function registrarSets(exerciseId: number, sets: SetInput[]) {
     .filter((s) => s.peso !== null || s.reps !== null || s.rir !== null)
     .map((s) => ({
       user_id: user.id,
-      exercise_id: exerciseId,
+      exercise_definition_id: exerciseDefinitionId,
       peso: s.peso,
       reps: s.reps,
       rir: s.rir,

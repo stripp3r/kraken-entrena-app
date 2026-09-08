@@ -38,24 +38,44 @@ export default async function DiaEntrenamientoPage({
     redirect("/perfil/datos?error=" + encodeURIComponent("Elegí tu rutina para poder entrenar."));
   }
 
-  const { data: exercises } = await supabase
-    .from("exercises")
+  const { data: routineExercises } = await supabase
+    .from("routine_exercises")
     .select(
-      "id, nombre, video_url, imagen_url, como_hacerlo, orden, alternativa_id, unilateral, tipo_esfuerzo"
+      "orden, exercise_definition_id, exercise_definitions(nombre, video_url, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo)"
     )
     .eq("dia", dia)
     .eq("routine_id", profile.routine_id)
     .order("orden", { ascending: true });
 
-  const exerciseIds = exercises?.map((e) => e.id) ?? [];
+  // "id" de acá en más es el exercise_definition_id (canónico) -- es lo que
+  // identifica al ejercicio en workout_logs, no la fila de scheduling.
+  const exercises = (routineExercises ?? [])
+    .filter((re) => re.exercise_definition_id !== null)
+    .map((re) => {
+      const def = Array.isArray(re.exercise_definitions)
+        ? re.exercise_definitions[0]
+        : re.exercise_definitions;
+      return {
+        id: re.exercise_definition_id as number,
+        nombre: def?.nombre ?? "",
+        video_url: def?.video_url ?? null,
+        imagen_url: def?.imagen_url ?? null,
+        como_hacerlo: def?.como_hacerlo ?? null,
+        alternativa_id: def?.alternativa_id ?? null,
+        unilateral: def?.unilateral ?? false,
+        tipo_esfuerzo: def?.tipo_esfuerzo ?? "compuesto",
+      };
+    });
+
+  const exerciseIds = exercises.map((e) => e.id);
 
   const alternativaIds = [
-    ...new Set((exercises ?? []).map((e) => e.alternativa_id).filter((id): id is number => id !== null)),
+    ...new Set(exercises.map((e) => e.alternativa_id).filter((id): id is number => id !== null)),
   ];
 
   const { data: alternativas } = alternativaIds.length
     ? await supabase
-        .from("exercises")
+        .from("exercise_definitions")
         .select("id, nombre, imagen_url, como_hacerlo")
         .in("id", alternativaIds)
     : { data: [] as { id: number; nombre: string; imagen_url: string | null; como_hacerlo: string | null }[] };
@@ -75,15 +95,15 @@ export default async function DiaEntrenamientoPage({
   const { data: logsHoy } = exerciseIds.length
     ? await supabase
         .from("workout_logs")
-        .select("id, exercise_id, peso, reps, rir, lado, created_at")
+        .select("id, exercise_definition_id, peso, reps, rir, lado, created_at")
         .eq("user_id", user.id)
-        .in("exercise_id", exerciseIds)
+        .in("exercise_definition_id", exerciseIds)
         .gte("created_at", hoyInicio.toISOString())
         .order("created_at", { ascending: true })
     : {
         data: [] as {
           id: number;
-          exercise_id: number;
+          exercise_definition_id: number;
           peso: number | null;
           reps: number | null;
           rir: number | null;
@@ -130,7 +150,7 @@ export default async function DiaEntrenamientoPage({
             logsPorEjercicio={Object.fromEntries(
               exercises.map((ex) => [
                 ex.id,
-                (logsHoy ?? []).filter((l) => l.exercise_id === ex.id),
+                (logsHoy ?? []).filter((l) => l.exercise_definition_id === ex.id),
               ])
             )}
           />

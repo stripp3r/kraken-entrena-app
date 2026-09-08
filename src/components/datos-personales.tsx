@@ -10,10 +10,7 @@ type Profile = {
   edad: number | null;
   objetivo: string | null;
   actividad_fisica: string | null;
-  routine_id: number | null;
 };
-
-type Routine = { id: number; nombre: string; dias: number };
 
 const fieldClass =
   "w-full rounded-lg border border-border bg-bg-card px-4 py-2.5 text-white outline-none focus:border-border-strong";
@@ -35,15 +32,12 @@ const ACTIVIDAD_LABEL: Record<string, string> = {
 
 export function DatosPersonales({
   profile,
-  routines,
   error,
 }: {
   profile: Profile | null;
-  routines: Routine[];
   error?: string;
 }) {
   const [editando, setEditando] = useState(!profile?.nombre);
-  const rutina = routines.find((r) => r.id === profile?.routine_id);
 
   if (!editando && profile?.nombre) {
     return (
@@ -57,7 +51,6 @@ export function DatosPersonales({
             label="Actividad física"
             valor={profile.actividad_fisica ? ACTIVIDAD_LABEL[profile.actividad_fisica] : "-"}
           />
-          <Fila label="Rutina" valor={rutina ? `${rutina.nombre} (${rutina.dias} días)` : "-"} />
         </dl>
 
         <button
@@ -173,28 +166,6 @@ export function DatosPersonales({
           <option value="moderada">Moderada</option>
           <option value="muy_activo">Muy activo</option>
           <option value="extremo">Extremo</option>
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="routine_id" className={labelClass}>
-          Tu rutina
-        </label>
-        <select
-          id="routine_id"
-          name="routine_id"
-          defaultValue={profile?.routine_id ?? ""}
-          required
-          className={fieldClass}
-        >
-          <option value="" disabled>
-            Elegí
-          </option>
-          {routines.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.nombre} ({r.dias} días)
-            </option>
-          ))}
         </select>
       </div>
 
