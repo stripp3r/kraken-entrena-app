@@ -90,12 +90,21 @@ export async function procesarCompraAprobada({
     pdfUrl = signed?.signedUrl ?? null;
   }
 
-  await enviarEntregaProducto({
-    email,
-    nombreProducto: producto.nombre,
-    pdfUrl,
-    cuentaExistente: Boolean(userId),
-  });
+  // La compra y el desbloqueo ya están confirmados en este punto -- un mail
+  // que falla (ej. Resend sin configurar todavía) no debe hacer parecer que
+  // la venta entera falló.
+  let emailEnviado = true;
+  try {
+    await enviarEntregaProducto({
+      email,
+      nombreProducto: producto.nombre,
+      pdfUrl,
+      cuentaExistente: Boolean(userId),
+    });
+  } catch (e) {
+    emailEnviado = false;
+    console.error("No se pudo enviar el mail de entrega:", e);
+  }
 
-  return { ok: true, compraId: compra.id, desbloqueado: Boolean(userId) };
+  return { ok: true, compraId: compra.id, desbloqueado: Boolean(userId), emailEnviado };
 }
