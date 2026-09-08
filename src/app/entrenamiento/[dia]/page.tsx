@@ -38,14 +38,25 @@ export default async function DiaEntrenamientoPage({
     redirect("/entrenamiento");
   }
 
-  const { data: routineExercises } = await supabase
-    .from("routine_exercises")
-    .select(
-      "orden, exercise_definition_id, exercise_definitions(nombre, video_url, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo)"
-    )
-    .eq("dia", dia)
-    .eq("routine_id", profile.routine_id)
-    .order("orden", { ascending: true });
+  const hoyInicio = inicioDelDiaArgentinaUTC();
+
+  const [{ data: routineExercises }, { data: finalizacion }] = await Promise.all([
+    supabase
+      .from("routine_exercises")
+      .select(
+        "orden, exercise_definition_id, exercise_definitions(nombre, video_url, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo)"
+      )
+      .eq("dia", dia)
+      .eq("routine_id", profile.routine_id)
+      .order("orden", { ascending: true }),
+    supabase
+      .from("entrenamientos_finalizados")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("dia", dia)
+      .eq("fecha", hoyISO())
+      .maybeSingle(),
+  ]);
 
   // "id" de acá en más es el exercise_definition_id (canónico) -- es lo que
   // identifica al ejercicio en workout_logs, no la fila de scheduling.
@@ -73,44 +84,37 @@ export default async function DiaEntrenamientoPage({
     ...new Set(exercises.map((e) => e.alternativa_id).filter((id): id is number => id !== null)),
   ];
 
-  const { data: alternativas } = alternativaIds.length
-    ? await supabase
-        .from("exercise_definitions")
-        .select("id, nombre, imagen_url, como_hacerlo")
-        .in("id", alternativaIds)
-    : { data: [] as { id: number; nombre: string; imagen_url: string | null; como_hacerlo: string | null }[] };
+  const [{ data: alternativas }, { data: logsHoy }] = await Promise.all([
+    alternativaIds.length
+      ? supabase
+          .from("exercise_definitions")
+          .select("id, nombre, imagen_url, como_hacerlo")
+          .in("id", alternativaIds)
+      : Promise.resolve({
+          data: [] as { id: number; nombre: string; imagen_url: string | null; como_hacerlo: string | null }[],
+        }),
+    exerciseIds.length
+      ? supabase
+          .from("workout_logs")
+          .select("id, exercise_definition_id, peso, reps, rir, lado, created_at")
+          .eq("user_id", user.id)
+          .in("exercise_definition_id", exerciseIds)
+          .gte("created_at", hoyInicio.toISOString())
+          .order("created_at", { ascending: true })
+      : Promise.resolve({
+          data: [] as {
+            id: number;
+            exercise_definition_id: number;
+            peso: number | null;
+            reps: number | null;
+            rir: number | null;
+            lado: "derecho" | "izquierdo" | null;
+            created_at: string;
+          }[],
+        }),
+  ]);
 
   const alternativaPorId = new Map((alternativas ?? []).map((a) => [a.id, a]));
-
-  const { data: finalizacion } = await supabase
-    .from("entrenamientos_finalizados")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("dia", dia)
-    .eq("fecha", hoyISO())
-    .maybeSingle();
-
-  const hoyInicio = inicioDelDiaArgentinaUTC();
-
-  const { data: logsHoy } = exerciseIds.length
-    ? await supabase
-        .from("workout_logs")
-        .select("id, exercise_definition_id, peso, reps, rir, lado, created_at")
-        .eq("user_id", user.id)
-        .in("exercise_definition_id", exerciseIds)
-        .gte("created_at", hoyInicio.toISOString())
-        .order("created_at", { ascending: true })
-    : {
-        data: [] as {
-          id: number;
-          exercise_definition_id: number;
-          peso: number | null;
-          reps: number | null;
-          rir: number | null;
-          lado: "derecho" | "izquierdo" | null;
-          created_at: string;
-        }[],
-      };
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">

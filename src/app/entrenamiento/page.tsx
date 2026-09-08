@@ -13,24 +13,20 @@ export default async function EntrenamientoPage() {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("routine_id, routines(nombre, dias)")
-    .eq("id", user.id)
-    .single();
+  const [{ data: profile }, { data: routines }, { data: acceso }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("routine_id, routines(nombre, dias)")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("routines")
+      .select("id, nombre, dias, descripcion")
+      .order("dias", { ascending: true }),
+    supabase.from("profile_routine_access").select("routine_id").eq("user_id", user.id),
+  ]);
 
   const rutinaActiva = Array.isArray(profile?.routines) ? profile.routines[0] : profile?.routines;
-
-  const { data: routines } = await supabase
-    .from("routines")
-    .select("id, nombre, dias, descripcion")
-    .order("dias", { ascending: true });
-
-  const { data: acceso } = await supabase
-    .from("profile_routine_access")
-    .select("routine_id")
-    .eq("user_id", user.id);
-
   const idsDesbloqueados = new Set((acceso ?? []).map((a) => a.routine_id));
 
   return (

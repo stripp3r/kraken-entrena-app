@@ -21,22 +21,24 @@ export default async function EvolucionPage() {
     .eq("user_id", user.id)
     .order("fecha", { ascending: false });
 
+  const signedUrls = await Promise.all(
+    (fotos ?? []).map((foto) =>
+      supabase.storage.from("progress-photos").createSignedUrl(foto.storage_path, 3600)
+    )
+  );
+
   const porFecha = new Map<string, { id: number; tipo: string; url: string | null; storage_path: string }[]>();
 
-  for (const foto of fotos ?? []) {
-    const { data: signed } = await supabase.storage
-      .from("progress-photos")
-      .createSignedUrl(foto.storage_path, 3600);
-
+  (fotos ?? []).forEach((foto, i) => {
     const lista = porFecha.get(foto.fecha) ?? [];
     lista.push({
       id: foto.id,
       tipo: foto.tipo,
-      url: signed?.signedUrl ?? null,
+      url: signedUrls[i].data?.signedUrl ?? null,
       storage_path: foto.storage_path,
     });
     porFecha.set(foto.fecha, lista);
-  }
+  });
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
