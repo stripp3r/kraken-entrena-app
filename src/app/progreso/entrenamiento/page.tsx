@@ -32,7 +32,7 @@ export default async function ProgresoPage() {
           ENTRENAMIENTO
         </h1>
         <p className="max-w-xs text-sm text-gray-500">
-          Elegí tu rutina en Perfil → Datos personales para ver tu progreso.
+          Todavía no tenés una rutina activa. Elegila en Entrenar para ver tu progreso acá.
         </p>
       </main>
     );

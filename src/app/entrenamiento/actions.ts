@@ -123,6 +123,17 @@ export async function cambiarRutinaActiva(routineId: number) {
     return { ok: true };
   }
 
+  const { data: acceso } = await supabase
+    .from("profile_routine_access")
+    .select("routine_id")
+    .eq("user_id", user.id)
+    .eq("routine_id", routineId)
+    .maybeSingle();
+
+  if (!acceso) {
+    return { error: "Todavía no tenés esa rutina desbloqueada." };
+  }
+
   const hoy = hoyISO();
 
   const { error: cierreError } = await supabase

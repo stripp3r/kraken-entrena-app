@@ -57,9 +57,6 @@ export function DatosPersonales({
           />
           <Fila label="Rutina" valor={rutina ? `${rutina.nombre} (${rutina.dias} días)` : "-"} />
         </dl>
-        <p className="mt-3 text-xs text-gray-500">
-          Para cambiar de rutina, andá a Entrenar.
-        </p>
 
         <button
           onClick={() => setEditando(true)}

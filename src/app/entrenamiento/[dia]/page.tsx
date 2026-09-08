@@ -35,7 +35,7 @@ export default async function DiaEntrenamientoPage({
     .single();
 
   if (!profile?.routine_id) {
-    redirect("/perfil/datos?error=" + encodeURIComponent("Elegí tu rutina para poder entrenar."));
+    redirect("/entrenamiento");
   }
 
   const { data: routineExercises } = await supabase
@@ -117,7 +117,7 @@ export default async function DiaEntrenamientoPage({
       <div className="w-full max-w-sm">
         <div className="relative mb-8">
           <Link
-            href="/entrenamiento"
+            href="/entrenamiento/dias"
             aria-label="Volver"
             className="absolute left-0 top-1/2 -translate-y-1/2 text-2xl text-gray-400"
           >
