@@ -166,9 +166,11 @@ export function ExerciseCard({
     router.refresh();
   }
 
+  const sesionEnCurso = activo || Boolean(onSeleccionar);
+
   return (
     <div
-      className={`rounded-lg border p-4 transition-colors ${
+      className={`rounded-lg border p-3 transition-colors ${
         activo
           ? "border-emerald-500 bg-emerald-500/10"
           : "border-border bg-bg-card"
@@ -180,41 +182,47 @@ export function ExerciseCard({
           <img
             src={exercise.imagen_url}
             alt={exercise.nombre}
-            className="h-44 w-full rounded-md bg-white object-contain"
+            className={
+              activo
+                ? "h-44 w-full rounded-md bg-white object-contain"
+                : "aspect-square w-full rounded-md bg-white object-contain"
+            }
           />
         )}
         <div>
-          <h2 className="text-lg font-medium leading-tight text-white">{exercise.nombre}</h2>
-          <div className="flex gap-3">
-            {exercise.como_hacerlo && (
-              <button
-                type="button"
-                onClick={() => setMostrarComoHacerlo((v) => !v)}
-                className="text-xs text-gray-400 underline"
-              >
-                {mostrarComoHacerlo ? "Ocultar" : "¿Cómo hacerlo?"}
-              </button>
-            )}
-            {exercise.video_url && (
-              <a
-                href={exercise.video_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-gray-400 underline"
-              >
-                Ver video
-              </a>
-            )}
-            {exercise.alternativa && (
-              <button
-                type="button"
-                onClick={() => setMostrarAlternativa((v) => !v)}
-                className="text-xs text-gray-400 underline"
-              >
-                {mostrarAlternativa ? "Ocultar" : "Alternativa"}
-              </button>
-            )}
-          </div>
+          <h2 className="text-sm font-medium leading-tight text-white">{exercise.nombre}</h2>
+          {sesionEnCurso && (
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              {exercise.como_hacerlo && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarComoHacerlo((v) => !v)}
+                  className="text-xs text-gray-400 underline"
+                >
+                  {mostrarComoHacerlo ? "Ocultar" : "¿Cómo hacerlo?"}
+                </button>
+              )}
+              {exercise.video_url && (
+                <a
+                  href={exercise.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-gray-400 underline"
+                >
+                  Ver video
+                </a>
+              )}
+              {exercise.alternativa && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarAlternativa((v) => !v)}
+                  className="text-xs text-gray-400 underline"
+                >
+                  {mostrarAlternativa ? "Ocultar" : "Alternativa"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

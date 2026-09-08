@@ -95,15 +95,18 @@ export default async function DiaEntrenamientoPage({
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          DÍA {dia}
-        </h1>
-        <Link
-          href="/entrenamiento"
-          className="mb-8 block text-center text-sm text-gray-500 underline"
-        >
-          Cambiar de día
-        </Link>
+        <div className="relative mb-8">
+          <Link
+            href="/entrenamiento"
+            aria-label="Volver"
+            className="absolute left-0 top-1/2 -translate-y-1/2 text-2xl text-gray-400"
+          >
+            ←
+          </Link>
+          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            DÍA {dia}
+          </h1>
+        </div>
 
         {!exercises || exercises.length === 0 ? (
           <p className="text-center text-sm text-gray-500">
