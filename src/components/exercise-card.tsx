@@ -174,13 +174,13 @@ export function ExerciseCard({
           : "border-border bg-bg-card"
       }`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-2">
         {exercise.imagen_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={exercise.imagen_url}
             alt={exercise.nombre}
-            className="h-14 w-14 shrink-0 rounded-md object-cover"
+            className="h-44 w-full rounded-md bg-white object-contain"
           />
         )}
         <div>
@@ -245,14 +245,6 @@ export function ExerciseCard({
 
       {mostrarComoHacerlo && exercise.como_hacerlo && (
         <div className="mt-3 rounded-md bg-bg p-3">
-          {exercise.imagen_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={exercise.imagen_url}
-              alt={exercise.nombre}
-              className="mb-3 h-56 w-full rounded-md bg-white object-contain"
-            />
-          )}
           <p className="whitespace-pre-line text-sm text-gray-300">{exercise.como_hacerlo}</p>
         </div>
       )}

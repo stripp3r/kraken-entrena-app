@@ -218,9 +218,9 @@ export function EntrenamientoDiaCliente({
             <p className="text-center text-xs text-red-400">{errorFinalizar}</p>
           )}
           <p className="text-center text-xs text-gray-500">
-            El entrenamiento de hoy ({fechaLegible(hoyISO())}) queda registrado con la fecha y
-            hora exacta de cada serie que cargaste. Al finalizar, este registro se cierra y no se
-            puede volver a modificar.
+            No hace falta que finalices — cada serie que cargás ya queda registrada con su fecha y
+            hora, se toque este botón o no. Finalizar es solo una formalidad opcional, por si
+            querés cerrar el registro de hoy ({fechaLegible(hoyISO())}) para no volver a tocarlo.
           </p>
         </div>
       )}
