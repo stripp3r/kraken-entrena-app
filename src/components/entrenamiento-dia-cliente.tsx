@@ -69,6 +69,8 @@ export function EntrenamientoDiaCliente({
   const [descansoHasta, setDescansoHasta] = useState<number | null>(null);
   const [etiquetaDescanso, setEtiquetaDescanso] = useState("");
   const [finalizando, setFinalizando] = useState(false);
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  const [errorFinalizar, setErrorFinalizar] = useState<string | null>(null);
 
   const activo = exercises.find((e) => e.id === activoId);
   const seriesCompletas = activo ? contarSeriesCompletas(activo, logsPorEjercicio[activo.id] ?? []) : 0;
@@ -82,20 +84,20 @@ export function EntrenamientoDiaCliente({
     setDescansoHasta(null);
   }
 
-  async function finalizarEntrenamiento() {
+  function pedirFinalizar() {
     prepararAlertas();
-    const confirmado = window.confirm(
-      "¿Estás seguro de que querés finalizar el entrenamiento de hoy?\n\n" +
-        "Una vez finalizado, el registro de hoy queda cerrado y no vas a poder volver a entrar a este día para modificarlo."
-    );
-    if (!confirmado) return;
+    setErrorFinalizar(null);
+    setMostrarConfirmacion(true);
+  }
 
+  async function confirmarFinalizar() {
+    setMostrarConfirmacion(false);
     setFinalizando(true);
     const result = await finalizarEntrenamientoDia(dia, routineId);
     setFinalizando(false);
 
     if (result.error) {
-      window.alert("No se pudo finalizar: " + result.error);
+      setErrorFinalizar(result.error);
       return;
     }
 
@@ -207,16 +209,45 @@ export function EntrenamientoDiaCliente({
         <div className="flex flex-col gap-2 border-t border-border pt-4">
           <button
             disabled={finalizando}
-            onClick={finalizarEntrenamiento}
+            onClick={pedirFinalizar}
             className="rounded-md bg-red-500/90 px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
           >
             {finalizando ? "Finalizando..." : "Finalizar entrenamiento"}
           </button>
+          {errorFinalizar && (
+            <p className="text-center text-xs text-red-400">{errorFinalizar}</p>
+          )}
           <p className="text-center text-xs text-gray-500">
             El entrenamiento de hoy ({fechaLegible(hoyISO())}) queda registrado con la fecha y
             hora exacta de cada serie que cargaste. Al finalizar, este registro se cierra y no se
             puede volver a modificar.
           </p>
+        </div>
+      )}
+
+      {mostrarConfirmacion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="w-full max-w-sm rounded-lg border border-border-strong bg-bg-elev p-5">
+            <h2 className="mb-2 text-lg font-medium text-white">¿Finalizar entrenamiento?</h2>
+            <p className="mb-5 text-sm text-gray-400">
+              El registro de hoy ({fechaLegible(hoyISO())}) va a quedar cerrado — no vas a poder
+              volver a entrar a este día para editarlo o agregar algo más.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMostrarConfirmacion(false)}
+                className="flex-1 rounded-md border border-border-strong py-2 text-sm text-gray-300"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarFinalizar}
+                className="flex-1 rounded-md bg-red-500/90 py-2 text-sm font-medium text-white"
+              >
+                Sí, finalizar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
