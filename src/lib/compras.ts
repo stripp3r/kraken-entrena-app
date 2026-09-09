@@ -14,7 +14,7 @@ export async function procesarCompraAprobada({
   monto,
   moneda,
 }: {
-  proveedor: "mercadopago" | "payhip";
+  proveedor: "mercadopago" | "payhip" | "paypal";
   proveedorPaymentId: string;
   productoSlug: string;
   email: string;
