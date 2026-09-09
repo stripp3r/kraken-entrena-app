@@ -73,7 +73,11 @@ export async function crearOrdenPaypal({
     prefer: "return=representation",
   });
 
-  const aprobarUrl = result.links?.find((l) => l.rel === "approve")?.href ?? null;
+  // Cuando la request incluye payment_source (como acá, para poder mandar
+  // returnUrl/cancelUrl propios), PayPal nombra el link de redirección
+  // "payer-action" en vez de "approve" -- buscamos ambos por las dudas.
+  const aprobarUrl =
+    result.links?.find((l) => l.rel === "payer-action" || l.rel === "approve")?.href ?? null;
   return { orderId: result.id ?? null, aprobarUrl };
 }
 
