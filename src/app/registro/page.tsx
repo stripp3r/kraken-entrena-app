@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
+import { InstalarApp } from "@/components/instalar-app";
 import { signup } from "../login/actions";
 
 export default async function RegistroPage({
@@ -15,6 +16,8 @@ export default async function RegistroPage({
         <h1 className="mb-8 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
           CREAR CUENTA
         </h1>
+
+        <InstalarApp />
 
         <form className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
