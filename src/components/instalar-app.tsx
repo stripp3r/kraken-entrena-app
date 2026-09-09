@@ -7,10 +7,19 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
+function detectarNavegadorEmbebido(ua: string): string | null {
+  if (/Instagram/i.test(ua)) return "Instagram";
+  if (/FBAN|FBAV/i.test(ua)) return "Facebook";
+  if (/Twitter/i.test(ua)) return "Twitter/X";
+  if (/musical_ly|TikTok/i.test(ua)) return "TikTok";
+  return null;
+}
+
 export function InstalarApp() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [instalada, setInstalada] = useState(false);
   const [esIOS, setEsIOS] = useState(false);
+  const [navegadorEmbebido, setNavegadorEmbebido] = useState<string | null>(null);
 
   useEffect(() => {
     const yaInstalada =
@@ -18,6 +27,7 @@ export function InstalarApp() {
       (window.navigator as { standalone?: boolean }).standalone === true;
     setInstalada(yaInstalada);
     setEsIOS(/iphone|ipad|ipod/i.test(window.navigator.userAgent));
+    setNavegadorEmbebido(detectarNavegadorEmbebido(window.navigator.userAgent));
 
     function onBeforeInstallPrompt(e: Event) {
       e.preventDefault();
@@ -34,6 +44,20 @@ export function InstalarApp() {
     if (!promptEvent) return;
     await promptEvent.prompt();
     setPromptEvent(null);
+  }
+
+  // Instagram/Facebook/etc. abren los links en un navegador embebido que
+  // bloquea la instalación de apps a propósito -- no hay forma de instalar
+  // desde ahí, sin importar el sistema operativo. Hay que salir a Chrome o
+  // Safari primero.
+  if (navegadorEmbebido) {
+    return (
+      <div className="mb-6 rounded-lg border border-border bg-bg-card px-4 py-3 text-center text-xs text-gray-400">
+        Estás viendo esto desde {navegadorEmbebido} — para instalar la app, tocá los{" "}
+        <strong className="text-gray-300">⋮</strong> (tres puntos, arriba a la derecha) y elegí{" "}
+        <strong className="text-gray-300">&quot;Abrir en el navegador&quot;</strong>.
+      </div>
+    );
   }
 
   if (promptEvent) {
