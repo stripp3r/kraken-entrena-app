@@ -31,13 +31,11 @@ export function InstalarApp() {
 
     function onBeforeInstallPrompt(e: Event) {
       e.preventDefault();
-      const evt = e as BeforeInstallPromptEvent;
-      setPromptEvent(evt);
-      // Dispara el cartel nativo apenas está disponible, sin esperar un
-      // segundo toque -- así alguien que llega desde un link (ej. el botón
-      // "Instalar app" del sitio web) lo ve directo en cuanto carga esta
-      // página, en vez de tener que tocar este botón de nuevo.
-      evt.prompt();
+      // Guardamos el evento nada más -- Chrome exige que prompt() se llame
+      // desde un click real del usuario (probado: llamarlo acá directamente,
+      // sin un click de por medio, falla en silencio). Por eso el botón de
+      // abajo es imprescindible, no un paso de más.
+      setPromptEvent(e as BeforeInstallPromptEvent);
     }
 
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
