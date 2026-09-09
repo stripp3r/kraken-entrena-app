@@ -52,10 +52,14 @@ export function InstalarApp() {
   // Safari primero.
   if (navegadorEmbebido) {
     return (
-      <div className="mb-6 rounded-lg border border-border bg-bg-card px-4 py-3 text-center text-xs text-gray-400">
-        Estás viendo esto desde {navegadorEmbebido} — para instalar la app, tocá los{" "}
-        <strong className="text-gray-300">⋮</strong> (tres puntos, arriba a la derecha) y elegí{" "}
-        <strong className="text-gray-300">&quot;Abrir en el navegador&quot;</strong>.
+      <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 text-left">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/alerta-navegador.png" alt="" className="mt-0.5 h-8 w-8 shrink-0" />
+        <p className="text-xs text-red-200">
+          Estás viendo esto desde {navegadorEmbebido} — para instalar la app, tocá los{" "}
+          <strong className="text-red-100">⋮</strong> (tres puntos, arriba a la derecha) y elegí{" "}
+          <strong className="text-red-100">&quot;Abrir en el navegador&quot;</strong>.
+        </p>
       </div>
     );
   }
