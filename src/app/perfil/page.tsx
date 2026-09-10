@@ -63,9 +63,7 @@ export default async function PerfilPage() {
             href="/perfil/recursos"
             className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
           >
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-bg text-2xl">
-              📄
-            </span>
+            <img src="/section-icons/pdfs.png" alt="" className="h-14 w-14 rounded-xl" />
             Mis PDFs
           </Link>
         </div>
