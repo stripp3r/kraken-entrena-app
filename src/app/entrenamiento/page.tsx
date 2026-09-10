@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RutinaHub } from "@/components/rutina-hub";
@@ -42,6 +43,14 @@ export default async function EntrenamientoPage() {
           routines={routines ?? []}
           idsDesbloqueados={[...idsDesbloqueados]}
         />
+
+        <Link
+          href="/entrenamiento/cardio"
+          className="mt-8 flex items-center justify-between rounded-lg border border-border bg-bg-card px-5 py-4 transition-colors hover:border-border-strong"
+        >
+          <span className="text-sm text-white">🏃 Cardio</span>
+          <span className="text-xs text-gray-500">Registrar →</span>
+        </Link>
       </div>
     </main>
   );
