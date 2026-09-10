@@ -30,17 +30,25 @@ export async function GET(request: NextRequest) {
   }
 
   const origin = request.nextUrl.origin;
-  const { initPoint } = await crearSuscripcionGolden({
-    userId: user.id,
-    email: user.email,
-    precioArs: golden.precio_ars,
-    reason: "KRAKEN Golden (suscripción anual)",
-    backUrl: `${origin}/compra/gracias`,
-  });
 
-  if (!initPoint) {
-    return NextResponse.json({ error: "No se pudo crear la suscripción." }, { status: 502 });
+  try {
+    const { initPoint } = await crearSuscripcionGolden({
+      userId: user.id,
+      email: user.email,
+      precioArs: golden.precio_ars,
+      reason: "KRAKEN Golden (suscripcion anual)",
+      backUrl: `${origin}/compra/gracias`,
+    });
+
+    if (!initPoint) {
+      return NextResponse.json({ error: "Mercado Pago no devolvió un link." }, { status: 502 });
+    }
+
+    return NextResponse.redirect(initPoint);
+  } catch (e) {
+    return NextResponse.json(
+      { error: "Falló la creación de la suscripción", detalle: String(e) },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.redirect(initPoint);
 }
