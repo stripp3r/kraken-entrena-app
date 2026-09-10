@@ -108,6 +108,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ignorado: pago.status });
   }
 
+  // Un cobro de suscripción también puede llegar como evento "payment"
+  // (operation_type = recurring_payment): eso lo maneja el flujo de
+  // suscripción, acá se ignora para no tratarlo como compra de producto.
+  const pagoConTipo = pago as typeof pago & { operation_type?: string };
+  if (pagoConTipo.operation_type === "recurring_payment") {
+    return NextResponse.json({ ok: true, ignorado: "recurring_payment" });
+  }
+
   if (!pago.external_reference || !pago.payer?.email) {
     return NextResponse.json(
       { error: "Pago aprobado sin external_reference o email" },
@@ -125,7 +133,14 @@ export async function POST(request: NextRequest) {
   });
 
   if (resultado.error) {
-    return NextResponse.json({ error: resultado.error }, { status: 500 });
+    // Producto desconocido -> no es una compra nuestra (p.ej. un pago de
+    // suscripción sin operation_type): se ignora, no se responde 500 para
+    // que MP no reintente eternamente.
+    const status = resultado.error.startsWith("Producto desconocido") ? 200 : 500;
+    return NextResponse.json(
+      status === 200 ? { ok: true, ignorado: resultado.error } : { error: resultado.error },
+      { status }
+    );
   }
 
   return NextResponse.json({ ok: true });
