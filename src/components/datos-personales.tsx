@@ -3,6 +3,14 @@
 import { useState } from "react";
 import { guardarPerfil } from "@/app/perfil/datos/actions";
 import { SelectNativo } from "@/components/select-nativo";
+import type { Suscripcion } from "@/lib/premium";
+
+const TONO_SUSCRIPCION: Record<Suscripcion["tono"], string> = {
+  oro: "bg-amber-400/15 text-amber-300",
+  prueba: "bg-sky-400/15 text-sky-300",
+  compra: "bg-orange-400/15 text-orange-300",
+  ninguna: "bg-gray-500/15 text-gray-400",
+};
 
 type Profile = {
   nombre: string | null;
@@ -44,7 +52,7 @@ export function DatosPersonales({
 }: {
   profile: Profile | null;
   rutina: Rutina;
-  suscripcion?: string;
+  suscripcion?: Suscripcion;
   error?: string;
 }) {
   const [editando, setEditando] = useState(!profile?.nombre);
@@ -67,7 +75,18 @@ export function DatosPersonales({
             valor={profile.actividad_fisica ? ACTIVIDAD_LABEL[profile.actividad_fisica] : "-"}
           />
           <Fila label="Rutina" valor={rutina ? `${rutina.nombre} (${rutina.dias} días)` : "-"} />
-          {suscripcion && <Fila label="Suscripción" valor={suscripcion} />}
+          {suscripcion && (
+            <div className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
+              <dt className="text-gray-500">Suscripción</dt>
+              <dd>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${TONO_SUSCRIPCION[suscripcion.tono]}`}
+                >
+                  {suscripcion.texto}
+                </span>
+              </dd>
+            </div>
+          )}
         </dl>
 
         <button

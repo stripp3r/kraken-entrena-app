@@ -2,23 +2,29 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DatosPersonales } from "@/components/datos-personales";
 import { BackLink } from "@/components/back-link";
-import { diasRestantesTrial } from "@/lib/premium";
+import { diasRestantesTrial, type Suscripcion } from "@/lib/premium";
 
 function etiquetaSuscripcion(
   profile: { golden_perpetuo?: boolean | null; premium_hasta?: string | null } | null,
   sub: { proximo_cobro?: string | null } | null
-): string {
-  if (profile?.golden_perpetuo) return "Golden · Founder";
+): Suscripcion {
+  if (profile?.golden_perpetuo) return { texto: "Golden · Founder", tono: "oro" };
   if (sub) {
-    return sub.proximo_cobro
-      ? `Golden · renueva ${sub.proximo_cobro.split("-").reverse().join("/")}`
-      : "Golden";
+    return {
+      texto: sub.proximo_cobro
+        ? `Golden · renueva ${sub.proximo_cobro.split("-").reverse().join("/")}`
+        : "Golden",
+      tono: "oro",
+    };
   }
   const dias = diasRestantesTrial(profile);
   if (dias != null) {
-    return `Prueba gratis · ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}`;
+    return {
+      texto: `Prueba gratis · ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}`,
+      tono: "prueba",
+    };
   }
-  return "Sin suscripción";
+  return { texto: "Sin suscripción", tono: "ninguna" };
 }
 
 export default async function PerfilDatosPage({

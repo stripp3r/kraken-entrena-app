@@ -6,6 +6,12 @@ export type EstadoPremium = {
   premium_hasta?: string | null;
 };
 
+// Etiqueta + color para mostrar el estado de suscripción en la UI.
+export type Suscripcion = {
+  texto: string;
+  tono: "oro" | "prueba" | "compra" | "ninguna";
+};
+
 // Único criterio de acceso a la app: Golden perpetuo, o prueba/suscripción
 // vigente (premium_hasta hoy o en el futuro).
 export function esPremium(p: EstadoPremium | null | undefined): boolean {
