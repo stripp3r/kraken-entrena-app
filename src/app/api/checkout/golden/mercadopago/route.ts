@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user?.email) {
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -34,7 +34,6 @@ export async function GET(request: NextRequest) {
   try {
     const { initPoint } = await crearSuscripcionGolden({
       userId: user.id,
-      email: user.email,
       precioArs: golden.precio_ars,
       reason: "KRAKEN Golden (suscripcion anual)",
       backUrl: `${origin}/compra/gracias`,
