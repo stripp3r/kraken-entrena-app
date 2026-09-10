@@ -9,6 +9,7 @@ const TONO_SUSCRIPCION: Record<Suscripcion["tono"], string> = {
   oro: "bg-amber-400/15 text-amber-300",
   prueba: "bg-sky-400/15 text-sky-300",
   compra: "bg-orange-400/15 text-orange-300",
+  pendiente: "bg-red-400/15 text-red-300",
   ninguna: "bg-gray-500/15 text-gray-400",
 };
 

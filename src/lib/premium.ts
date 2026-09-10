@@ -9,7 +9,7 @@ export type EstadoPremium = {
 // Etiqueta + color para mostrar el estado de suscripción en la UI.
 export type Suscripcion = {
   texto: string;
-  tono: "oro" | "prueba" | "compra" | "ninguna";
+  tono: "oro" | "prueba" | "compra" | "pendiente" | "ninguna";
 };
 
 // Único criterio de acceso a la app: Golden perpetuo, o prueba/suscripción

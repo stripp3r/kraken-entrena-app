@@ -120,6 +120,112 @@ async function obtenerAccessToken() {
   return data.access_token as string;
 }
 
+// ---------- Suscripción Golden (billing subscriptions, vía REST) ----------
+// El SDK envuelve create/getSubscription pero no la Catalog Products API,
+// así que se hace todo por REST para mantenerlo consistente.
+
+async function paypalFetch(path: string, init: RequestInit) {
+  const token = await obtenerAccessToken();
+  const res = await fetch(`${apiBase()}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(init.headers ?? {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`PayPal ${path}: ${res.status} ${JSON.stringify(data)}`);
+  }
+  return data;
+}
+
+// Crea (una sola vez) el producto + plan de facturación anual de Golden y
+// devuelve el plan_id. Si ya existe uno guardado, lo devuelve tal cual.
+export async function crearPlanGoldenPaypal(precioUsd: number): Promise<string> {
+  const producto = await paypalFetch("/v1/catalogs/products", {
+    method: "POST",
+    body: JSON.stringify({
+      name: "KRAKEN Golden",
+      description: "Acceso completo a KRAKEN Entrena",
+      type: "SERVICE",
+      category: "SOFTWARE",
+    }),
+  });
+
+  const plan = await paypalFetch("/v1/billing/plans", {
+    method: "POST",
+    body: JSON.stringify({
+      product_id: producto.id,
+      name: "KRAKEN Golden (anual)",
+      description: "Suscripción anual con renovación automática",
+      billing_cycles: [
+        {
+          frequency: { interval_unit: "YEAR", interval_count: 1 },
+          tenure_type: "REGULAR",
+          sequence: 1,
+          total_cycles: 0,
+          pricing_scheme: {
+            fixed_price: { value: precioUsd.toFixed(2), currency_code: "USD" },
+          },
+        },
+      ],
+      payment_preferences: {
+        auto_bill_outstanding: true,
+        setup_fee_failure_action: "CANCEL",
+        payment_failure_threshold: 1,
+      },
+    }),
+  });
+
+  return plan.id as string;
+}
+
+export async function crearSuscripcionGoldenPaypal({
+  planId,
+  userId,
+  returnUrl,
+  cancelUrl,
+}: {
+  planId: string;
+  userId: string;
+  returnUrl: string;
+  cancelUrl: string;
+}) {
+  const sub = await paypalFetch("/v1/billing/subscriptions", {
+    method: "POST",
+    body: JSON.stringify({
+      plan_id: planId,
+      custom_id: userId,
+      application_context: {
+        brand_name: "KRAKEN Fitness",
+        user_action: "SUBSCRIBE_NOW",
+        shipping_preference: "NO_SHIPPING",
+        return_url: returnUrl,
+        cancel_url: cancelUrl,
+      },
+    }),
+  });
+
+  const aprobarUrl =
+    (sub.links as { rel: string; href: string }[] | undefined)?.find((l) => l.rel === "approve")
+      ?.href ?? null;
+  return { id: sub.id as string | undefined, aprobarUrl };
+}
+
+export async function obtenerSuscripcionPaypal(id: string): Promise<{
+  id: string;
+  status: string;
+  custom_id?: string;
+  billing_info?: {
+    next_billing_time?: string;
+    last_payment?: { amount?: { value?: string; currency_code?: string } };
+  };
+}> {
+  return paypalFetch(`/v1/billing/subscriptions/${id}`, { method: "GET" });
+}
+
 // El SDK oficial no trae un validador de firma de webhooks (a diferencia del
 // de Mercado Pago) -- PayPal solo expone esto como un endpoint REST propio,
 // así que hay que llamarlo a mano con un token obtenido por client credentials.

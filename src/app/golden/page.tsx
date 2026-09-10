@@ -78,27 +78,49 @@ export default async function GoldenPage() {
             </ul>
 
             {precioListo ? (
-              <div className="mb-4 rounded-lg border border-border bg-bg-card px-4 py-3 text-center">
-                <p className="text-lg font-medium text-white">
-                  {golden?.precio_usd ? `USD ${golden.precio_usd}` : ""}
-                  {golden?.precio_usd && golden?.precio_ars ? " · " : ""}
-                  {golden?.precio_ars ? `$${golden.precio_ars} ARS` : ""}
-                </p>
-                <p className="text-xs text-gray-500">por año, se renueva solo</p>
-              </div>
-            ) : (
-              <p className="mb-4 text-center text-xs text-gray-500">
-                La suscripción va a estar disponible muy pronto.
-              </p>
-            )}
+              <>
+                <div className="mb-4 rounded-lg border border-border bg-bg-card px-4 py-3 text-center">
+                  <p className="text-lg font-medium text-white">
+                    {golden?.precio_usd ? `USD ${golden.precio_usd}` : ""}
+                    {golden?.precio_usd && golden?.precio_ars ? " · " : ""}
+                    {golden?.precio_ars ? `$${golden.precio_ars} ARS` : ""}
+                  </p>
+                  <p className="text-xs text-gray-500">por año, se renueva solo</p>
+                </div>
 
-            <button
-              type="button"
-              disabled
-              className="w-full rounded-full bg-white px-5 py-3 text-sm font-medium text-black opacity-50"
-            >
-              Suscribirme (próximamente)
-            </button>
+                <div className="flex flex-col gap-2">
+                  {golden?.precio_ars ? (
+                    <a
+                      href="/api/checkout/golden/mercadopago"
+                      className="w-full rounded-full bg-[#009ee3] px-5 py-3 text-center text-sm font-medium text-white"
+                    >
+                      Suscribirme con Mercado Pago
+                    </a>
+                  ) : null}
+                  {golden?.precio_usd ? (
+                    <a
+                      href="/api/checkout/golden/paypal"
+                      className="w-full rounded-full bg-[#ffc439] px-5 py-3 text-center text-sm font-medium text-[#003087]"
+                    >
+                      Suscribirme con PayPal
+                    </a>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mb-4 text-center text-xs text-gray-500">
+                  La suscripción va a estar disponible muy pronto.
+                </p>
+                <button
+                  type="button"
+                  disabled
+                  className="w-full rounded-full bg-white px-5 py-3 text-sm font-medium text-black opacity-50"
+                >
+                  Suscribirme (próximamente)
+                </button>
+              </>
+            )}
           </>
         )}
       </div>

@@ -1,4 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hoyISO } from "@/lib/fecha";
+
+// Meses de acceso completo a la app que da comprar un plan suelto (el PDF y
+// las rutinas quedan para siempre; el uso de la app, acotado a esto).
+const MESES_ACCESO_POR_COMPRA = 3;
 
 // Punto único al que llegan los webhooks de pago (Mercado Pago, PayPal)
 // una vez que confirmaron -- contra la API del proveedor, no solo confiando
@@ -83,6 +88,25 @@ export async function procesarCompraAprobada({
         rutinas.map((r) => ({ user_id: userId, routine_id: r.routine_id })),
         { onConflict: "user_id,routine_id", ignoreDuplicates: true }
       );
+    }
+
+    // Acceso completo a la app por N meses (salvo que ya sea Golden).
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("premium_hasta, premium_origen, golden_perpetuo")
+      .eq("id", userId)
+      .single();
+
+    if (!perfil?.golden_perpetuo && perfil?.premium_origen !== "golden") {
+      const hoy = hoyISO();
+      const base =
+        perfil?.premium_hasta && perfil.premium_hasta > hoy ? perfil.premium_hasta : hoy;
+      const d = new Date(`${base}T00:00:00-03:00`);
+      d.setMonth(d.getMonth() + MESES_ACCESO_POR_COMPRA);
+      await supabase
+        .from("profiles")
+        .update({ premium_hasta: d.toISOString().slice(0, 10), premium_origen: "compra" })
+        .eq("id", userId);
     }
   }
 

@@ -4,21 +4,42 @@ import { DatosPersonales } from "@/components/datos-personales";
 import { BackLink } from "@/components/back-link";
 import { diasRestantesTrial, type Suscripcion } from "@/lib/premium";
 
+const ddmm = (iso?: string | null) => (iso ? iso.split("-").reverse().join("/") : "");
+
 function etiquetaSuscripcion(
-  profile: { golden_perpetuo?: boolean | null; premium_hasta?: string | null } | null,
-  sub: { proximo_cobro?: string | null } | null
+  profile: {
+    golden_perpetuo?: boolean | null;
+    premium_hasta?: string | null;
+    premium_origen?: string | null;
+  } | null,
+  sub: { estado?: string | null; proximo_cobro?: string | null; cancelada_al?: string | null } | null
 ): Suscripcion {
   if (profile?.golden_perpetuo) return { texto: "Golden · Founder", tono: "oro" };
-  if (sub) {
+
+  if (sub && sub.estado !== "vencida") {
+    if (sub.estado === "pausada") {
+      return { texto: "Golden · pago pendiente", tono: "pendiente" };
+    }
+    if (sub.estado === "cancelada") {
+      return {
+        texto: sub.cancelada_al ? `Golden · hasta ${ddmm(sub.cancelada_al)}` : "Golden · cancelada",
+        tono: "oro",
+      };
+    }
     return {
-      texto: sub.proximo_cobro
-        ? `Golden · renueva ${sub.proximo_cobro.split("-").reverse().join("/")}`
-        : "Golden",
+      texto: sub.proximo_cobro ? `Golden · renueva ${ddmm(sub.proximo_cobro)}` : "Golden",
       tono: "oro",
     };
   }
+
   const dias = diasRestantesTrial(profile);
   if (dias != null) {
+    if (profile?.premium_origen === "compra") {
+      return {
+        texto: `Acceso por compra · hasta ${ddmm(profile.premium_hasta)}`,
+        tono: "compra",
+      };
+    }
     return {
       texto: `Prueba gratis · ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}`,
       tono: "prueba",
@@ -47,9 +68,10 @@ export default async function PerfilDatosPage({
     supabase.from("profiles").select("*, routines(nombre, dias)").eq("id", user.id).single(),
     supabase
       .from("suscripciones")
-      .select("proximo_cobro")
+      .select("estado, proximo_cobro, cancelada_al")
       .eq("user_id", user.id)
-      .eq("estado", "activa")
+      .order("updated_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
   ]);
 

@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verificarFirmaWebhookPaypal, obtenerOrdenPaypal } from "@/lib/paypal";
+import {
+  verificarFirmaWebhookPaypal,
+  obtenerOrdenPaypal,
+  obtenerSuscripcionPaypal,
+} from "@/lib/paypal";
 import { procesarCompraAprobada } from "@/lib/compras";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  marcarSuscripcionActiva,
+  acreditarCobroGolden,
+  pausarGolden,
+  cancelarGolden,
+} from "@/lib/suscripciones";
 
-// Red de seguridad además de /api/checkout/paypal/retorno: ese endpoint ya
-// captura y desbloquea en el momento, pero si el comprador cierra el
-// navegador antes de volver (o si esa request falla por cualquier motivo)
-// el dinero ya se movió y nadie se entera. Este webhook reprocesa el mismo
-// evento -- es idempotente por (proveedor, proveedor_payment_id), así que no
-// duplica nada si el retorno ya lo había procesado.
+// Un solo webhook para PayPal: pagos únicos (PAYMENT.CAPTURE.COMPLETED) y
+// suscripciones Golden (BILLING.SUBSCRIPTION.* / PAYMENT.SALE.COMPLETED).
 export async function POST(request: NextRequest) {
   const payload = await request.json().catch(() => null);
 
@@ -28,11 +35,74 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }
 
-  if (payload.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
-    return NextResponse.json({ ok: true, ignorado: payload.event_type });
+  const tipo = payload.event_type as string;
+  const recurso = payload.resource ?? {};
+
+  // ---------- Suscripción Golden ----------
+  if (tipo === "BILLING.SUBSCRIPTION.ACTIVATED") {
+    if (!recurso.id || !recurso.custom_id) {
+      return NextResponse.json({ error: "Suscripción sin custom_id" }, { status: 400 });
+    }
+    await marcarSuscripcionActiva({
+      userId: recurso.custom_id,
+      proveedor: "paypal",
+      proveedorSubId: recurso.id,
+      precio: recurso.billing_info?.last_payment?.amount?.value
+        ? Number(recurso.billing_info.last_payment.amount.value)
+        : null,
+      moneda: recurso.billing_info?.last_payment?.amount?.currency_code ?? "USD",
+      proximoCobro: recurso.billing_info?.next_billing_time?.slice(0, 10) ?? null,
+    });
+    return NextResponse.json({ ok: true });
   }
 
-  const captura = payload.resource;
+  if (tipo === "PAYMENT.SALE.COMPLETED" && recurso.billing_agreement_id) {
+    const subId = recurso.billing_agreement_id as string;
+    const admin = createAdminClient();
+    const { data: fila } = await admin
+      .from("suscripciones")
+      .select("user_id")
+      .eq("proveedor", "paypal")
+      .eq("proveedor_sub_id", subId)
+      .maybeSingle();
+    const userId =
+      fila?.user_id ?? (await obtenerSuscripcionPaypal(subId)).custom_id ?? null;
+    if (!userId) {
+      return NextResponse.json({ error: "No se pudo resolver el usuario" }, { status: 400 });
+    }
+    const sub = await obtenerSuscripcionPaypal(subId);
+    await acreditarCobroGolden({
+      userId,
+      proveedor: "paypal",
+      proveedorSubId: subId,
+      cobroId: String(recurso.id),
+      precio: recurso.amount?.total ? Number(recurso.amount.total) : null,
+      moneda: recurso.amount?.currency ?? "USD",
+      proximoCobro: sub.billing_info?.next_billing_time?.slice(0, 10) ?? null,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (tipo === "BILLING.SUBSCRIPTION.CANCELLED" && recurso.id) {
+    await cancelarGolden("paypal", recurso.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (
+    (tipo === "BILLING.SUBSCRIPTION.SUSPENDED" ||
+      tipo === "BILLING.SUBSCRIPTION.PAYMENT.FAILED") &&
+    recurso.id
+  ) {
+    await pausarGolden("paypal", recurso.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  // ---------- Pago único (Anti-Flakardo y planes sueltos) ----------
+  if (tipo !== "PAYMENT.CAPTURE.COMPLETED") {
+    return NextResponse.json({ ok: true, ignorado: tipo });
+  }
+
+  const captura = recurso;
   const orderId = captura?.supplementary_data?.related_ids?.order_id ?? null;
   const productoSlug = captura?.custom_id ?? null;
 
