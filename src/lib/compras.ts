@@ -1,11 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { enviarEntregaProducto } from "@/lib/email";
 
-// Punto único al que llegan tanto el webhook de Mercado Pago como el de
-// PayHip una vez que confirmaron (contra la API del proveedor, no solo
-// confiando en el payload) que un pago está aprobado. Idempotente: un mismo
+// Punto único al que llegan los webhooks de pago (Mercado Pago, PayPal)
+// una vez que confirmaron -- contra la API del proveedor, no solo confiando
+// en el payload -- que un pago está aprobado. Idempotente: un mismo
 // (proveedor, proveedorPaymentId) nunca se procesa dos veces, aunque el
 // proveedor reintente el webhook.
+//
+// La entrega del producto (PDF + rutinas) es 100% dentro de la app: el
+// comprador baja la app y se registra con el mismo email del pago -> el
+// trigger handle_new_user reclama esta compra y le da el acceso; el PDF lo
+// descarga desde Perfil -> Mis PDFs. No se manda ningún mail.
 export async function procesarCompraAprobada({
   proveedor,
   proveedorPaymentId,
@@ -25,7 +29,7 @@ export async function procesarCompraAprobada({
 
   const { data: producto } = await supabase
     .from("productos")
-    .select("id, nombre, pdf_storage_path")
+    .select("id")
     .eq("slug", productoSlug)
     .eq("activo", true)
     .single();
@@ -82,29 +86,5 @@ export async function procesarCompraAprobada({
     }
   }
 
-  let pdfUrl: string | null = null;
-  if (producto.pdf_storage_path) {
-    const { data: signed } = await supabase.storage
-      .from("productos")
-      .createSignedUrl(producto.pdf_storage_path, 60 * 60 * 24 * 7);
-    pdfUrl = signed?.signedUrl ?? null;
-  }
-
-  // La compra y el desbloqueo ya están confirmados en este punto -- un mail
-  // que falla (ej. Resend sin configurar todavía) no debe hacer parecer que
-  // la venta entera falló.
-  let emailEnviado = true;
-  try {
-    await enviarEntregaProducto({
-      email,
-      nombreProducto: producto.nombre,
-      pdfUrl,
-      cuentaExistente: Boolean(userId),
-    });
-  } catch (e) {
-    emailEnviado = false;
-    console.error("No se pudo enviar el mail de entrega:", e);
-  }
-
-  return { ok: true, compraId: compra.id, desbloqueado: Boolean(userId), emailEnviado };
+  return { ok: true, compraId: compra.id, desbloqueado: Boolean(userId) };
 }

@@ -8,9 +8,9 @@ export default function CompraGraciasPage() {
           ¡GRACIAS!
         </h1>
         <p className="mb-8 text-sm text-gray-400">
-          Tu pago se acreditó. En unos minutos te llega un mail con tu PDF y,
-          si ya tenés cuenta en la app (o creás una con el mismo email que
-          usaste para pagar), tu rutina nueva queda desbloqueada sola.
+          Tu pago se acreditó. Entrá a la app y registrate con el mismo email
+          que usaste para pagar: tu rutina queda desbloqueada sola y el PDF lo
+          descargás desde Perfil → Mis PDFs.
         </p>
         <Link
           href="/login"
