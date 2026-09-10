@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { esPremium, diasRestantesTrial } from "@/lib/premium";
 
 const INCLUYE = [
@@ -21,13 +22,15 @@ export default async function GoldenPage() {
     redirect("/login");
   }
 
+  const admin = createAdminClient();
   const [{ data: perfil }, { data: golden }] = await Promise.all([
     supabase
       .from("profiles")
       .select("premium_hasta, golden_perpetuo")
       .eq("id", user.id)
       .single(),
-    supabase
+    // productos tiene RLS sin policy para authenticated -> se lee con admin.
+    admin
       .from("productos")
       .select("precio_ars, precio_usd, activo")
       .eq("slug", "golden-anual")
