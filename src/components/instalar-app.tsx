@@ -15,19 +15,31 @@ function detectarNavegadorEmbebido(ua: string): string | null {
   return null;
 }
 
+// En iOS SOLO Safari puede "Agregar a pantalla de inicio". Chrome/Firefox/
+// Edge para iOS (CriOS/FxiOS/EdgiOS) y los navegadores embebidos de
+// WhatsApp/Mail/etc. (WKWebView sin "Safari" en el UA) no pueden.
+function esIOSsinSafari(ua: string): boolean {
+  if (!/iphone|ipad|ipod/i.test(ua)) return false;
+  if (/CriOS|FxiOS|EdgiOS/i.test(ua)) return true;
+  return !/Safari/i.test(ua);
+}
+
 export function InstalarApp() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [instalada, setInstalada] = useState(false);
   const [esIOS, setEsIOS] = useState(false);
+  const [iosSinSafari, setIosSinSafari] = useState(false);
   const [navegadorEmbebido, setNavegadorEmbebido] = useState<string | null>(null);
 
   useEffect(() => {
     const yaInstalada =
       window.matchMedia("(display-mode: standalone)").matches ||
       (window.navigator as { standalone?: boolean }).standalone === true;
+    const ua = window.navigator.userAgent;
     setInstalada(yaInstalada);
-    setEsIOS(/iphone|ipad|ipod/i.test(window.navigator.userAgent));
-    setNavegadorEmbebido(detectarNavegadorEmbebido(window.navigator.userAgent));
+    setEsIOS(/iphone|ipad|ipod/i.test(ua));
+    setIosSinSafari(esIOSsinSafari(ua));
+    setNavegadorEmbebido(detectarNavegadorEmbebido(ua));
 
     function onBeforeInstallPrompt(e: Event) {
       e.preventDefault();
@@ -80,12 +92,26 @@ export function InstalarApp() {
     );
   }
 
+  // iPhone/iPad pero fuera de Safari (Chrome iOS, o abierto desde WhatsApp/
+  // Mail/etc.): no se puede instalar desde acá, hay que pasar a Safari.
+  if (iosSinSafari) {
+    return (
+      <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-200">
+        Para instalar la app en tu iPhone, abrí este mismo link en{" "}
+        <strong className="text-amber-100">Safari</strong> (no desde WhatsApp, Instagram ni
+        Chrome). Después tocá <strong className="text-amber-100">Compartir</strong> y{" "}
+        <strong className="text-amber-100">&quot;Agregar a la pantalla de inicio&quot;</strong>.
+      </div>
+    );
+  }
+
   if (esIOS) {
     return (
-      <div className="mb-6 rounded-lg border border-border bg-bg-card px-4 py-3 text-center text-xs text-gray-400">
-        Para instalar la app: tocá <strong className="text-gray-300">Compartir</strong> (el
-        ícono del cuadrado con la flecha) y después{" "}
-        <strong className="text-gray-300">&quot;Agregar a la pantalla de inicio&quot;</strong>.
+      <div className="mb-6 rounded-lg border border-border bg-bg-card px-4 py-3 text-left text-sm text-gray-300">
+        Para instalar la app: tocá{" "}
+        <strong className="text-white">Compartir</strong> (el ícono del cuadrado con la
+        flecha, abajo) y después{" "}
+        <strong className="text-white">&quot;Agregar a la pantalla de inicio&quot;</strong>.
       </div>
     );
   }
