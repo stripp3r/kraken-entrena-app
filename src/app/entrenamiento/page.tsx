@@ -46,10 +46,10 @@ export default async function EntrenamientoPage() {
 
         <Link
           href="/entrenamiento/cardio"
-          className="mt-8 flex items-center justify-between rounded-lg border border-border bg-bg-card px-5 py-4 transition-colors hover:border-border-strong"
+          className="mt-8 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
         >
-          <span className="text-sm text-white">🏃 Cardio</span>
-          <span className="text-xs text-gray-500">Registrar →</span>
+          <img src="/section-icons/cardio.png" alt="" className="h-14 w-14 rounded-xl" />
+          Cardio
         </Link>
       </div>
     </main>
