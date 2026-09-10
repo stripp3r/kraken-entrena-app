@@ -39,10 +39,12 @@ const opcionesDe = (mapa: Record<string, string>) =>
 export function DatosPersonales({
   profile,
   rutina,
+  suscripcion,
   error,
 }: {
   profile: Profile | null;
   rutina: Rutina;
+  suscripcion?: string;
   error?: string;
 }) {
   const [editando, setEditando] = useState(!profile?.nombre);
@@ -65,6 +67,7 @@ export function DatosPersonales({
             valor={profile.actividad_fisica ? ACTIVIDAD_LABEL[profile.actividad_fisica] : "-"}
           />
           <Fila label="Rutina" valor={rutina ? `${rutina.nombre} (${rutina.dias} días)` : "-"} />
+          {suscripcion && <Fila label="Suscripción" valor={suscripcion} />}
         </dl>
 
         <button
