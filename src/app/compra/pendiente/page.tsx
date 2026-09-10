@@ -8,8 +8,9 @@ export default function CompraPendientePage() {
         <p className="text-sm text-gray-400">
           Tu pago está en revisión (algunos medios, como Rapipago o Pago
           Fácil, tardan hasta 2 días hábiles en acreditarse). En cuanto se
-          confirme, te llega el mail y la rutina queda desbloqueada sola —
-          no hace falta que hagas nada más.
+          confirme, entrá a la app y registrate con el mismo email que usaste
+          para pagar: la rutina queda desbloqueada sola y el PDF lo descargás
+          desde Perfil → Mis PDFs.
         </p>
       </div>
     </main>
