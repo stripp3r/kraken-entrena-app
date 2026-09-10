@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ACTIVIDADES_CARDIO, labelActividad } from "@/lib/cardio";
 import { registrarCardio, borrarCardio } from "@/app/entrenamiento/cardio/actions";
+import { SelectNativo } from "@/components/select-nativo";
 
 type Sesion = {
   id: number;
@@ -65,18 +66,13 @@ export function CardioCliente({
           <label htmlFor="cardio-actividad" className="text-sm text-gray-300">
             Actividad
           </label>
-          <select
+          <SelectNativo
             id="cardio-actividad"
+            titulo="Actividad"
             value={actividad}
-            onChange={(e) => setActividad(e.target.value)}
-            className="rounded-lg border border-border bg-bg px-3 py-2.5 text-white outline-none focus:border-border-strong"
-          >
-            {ACTIVIDADES_CARDIO.map((a) => (
-              <option key={a.valor} value={a.valor}>
-                {a.label}
-              </option>
-            ))}
-          </select>
+            onChange={setActividad}
+            opciones={ACTIVIDADES_CARDIO.map((a) => ({ valor: a.valor, label: a.label }))}
+          />
         </div>
 
         <div className="flex gap-3">

@@ -37,13 +37,16 @@ body {
 
 /* La app tiene que sentirse nativa, no como una página de Chrome: sin
    selección de texto, sin el menú "Traducir/Copiar/Compartir", sin el
-   buscador de Google al mantener presionado, sin el flash gris al tocar. */
+   buscador de Google al mantener presionado, sin el flash gris al tocar,
+   sin zoom con los dedos y sin el "pull to refresh" al arrastrar hacia abajo. */
 html,
 body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
 }
 
 input,
