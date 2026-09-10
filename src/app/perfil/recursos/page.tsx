@@ -18,33 +18,29 @@ export default async function RecursosPage() {
 
   const admin = createAdminClient();
 
-  const { data: accesos } = await admin
-    .from("profile_routine_access")
-    .select("routine_id")
-    .eq("user_id", user.id);
+  // Directo contra `compras`: tenés el PDF si pagaste ese producto puntual,
+  // sin importar de dónde te venga el acceso a las rutinas que desbloquea
+  // (ver la nota en actions.ts sobre por qué esto ya no sale de
+  // profile_routine_access).
+  const { data: compras } = await admin
+    .from("compras")
+    .select("productos(id, nombre, pdf_storage_path)")
+    .eq("user_id", user.id)
+    .eq("estado", "aprobado");
 
-  const routineIds = accesos?.map((a) => a.routine_id) ?? [];
+  const vistos = new Set<number>();
+  const productos: ProductoConPdf[] = [];
 
-  let productos: ProductoConPdf[] = [];
+  for (const compra of compras ?? []) {
+    const producto = compra.productos as unknown as {
+      id: number;
+      nombre: string;
+      pdf_storage_path: string | null;
+    } | null;
 
-  if (routineIds.length) {
-    const { data: relaciones } = await admin
-      .from("producto_rutinas")
-      .select("productos(id, nombre, pdf_storage_path)")
-      .in("routine_id", routineIds);
-
-    const vistos = new Set<number>();
-    for (const relacion of relaciones ?? []) {
-      const producto = relacion.productos as unknown as {
-        id: number;
-        nombre: string;
-        pdf_storage_path: string | null;
-      } | null;
-
-      if (producto?.pdf_storage_path && !vistos.has(producto.id)) {
-        vistos.add(producto.id);
-        productos.push({ id: producto.id, nombre: producto.nombre });
-      }
+    if (producto?.pdf_storage_path && !vistos.has(producto.id)) {
+      vistos.add(producto.id);
+      productos.push({ id: producto.id, nombre: producto.nombre });
     }
   }
 

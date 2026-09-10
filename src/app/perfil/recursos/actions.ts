@@ -3,12 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// La entitlement a un PDF se deduce de la misma tabla que ya desbloquea
-// rutinas (profile_routine_access) -- si el usuario tiene acceso a alguna
-// rutina que ese producto desbloquea, tiene acceso a su PDF. Evita necesitar
-// RLS nueva sobre productos/producto_rutinas/compras: la identidad viene de
-// la sesión (createClient), y el admin client solo se usa ya confirmado quién
-// es el usuario, para leer datos scopeados a su propio user.id.
+// La entitlement a un PDF se chequea directo contra `compras` -- tenés el
+// PDF si vos (este user_id) tenés una compra aprobada de ese producto,
+// punto. A propósito NO se infiere desde profile_routine_access: el acceso a
+// una rutina puede venir de otro lado (asignación manual del coach, cuentas
+// de prueba) sin que eso signifique haber pagado ese producto puntual.
 export async function obtenerLinkDescargaPdf(productoId: number) {
   const supabase = await createClient();
   const {
@@ -21,26 +20,16 @@ export async function obtenerLinkDescargaPdf(productoId: number) {
 
   const admin = createAdminClient();
 
-  const { data: accesos } = await admin
-    .from("profile_routine_access")
-    .select("routine_id")
-    .eq("user_id", user.id);
-
-  const routineIds = accesos?.map((a) => a.routine_id) ?? [];
-
-  if (!routineIds.length) {
-    return { error: "No tenés acceso a este PDF" };
-  }
-
-  const { data: relacion } = await admin
-    .from("producto_rutinas")
-    .select("producto_id")
+  const { data: compra } = await admin
+    .from("compras")
+    .select("id")
+    .eq("user_id", user.id)
     .eq("producto_id", productoId)
-    .in("routine_id", routineIds)
+    .eq("estado", "aprobado")
     .limit(1)
     .maybeSingle();
 
-  if (!relacion) {
+  if (!compra) {
     return { error: "No tenés acceso a este PDF" };
   }
 
