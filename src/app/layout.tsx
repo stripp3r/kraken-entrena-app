@@ -3,7 +3,9 @@ import { Bebas_Neue, Inter } from "next/font/google";
 import "./globals.css";
 import { RegisterServiceWorker } from "./register-sw";
 import { BottomNav } from "@/components/bottom-nav";
+import { TrialBanner } from "@/components/trial-banner";
 import { createClient } from "@/lib/supabase/server";
+import { diasRestantesTrial } from "@/lib/premium";
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-display",
@@ -41,18 +43,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   } = await supabase.auth.getUser();
 
   let genero: "femenino" | "masculino" = "masculino";
+  let diasTrial: number | null = null;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("sexo")
+      .select("sexo, premium_hasta, golden_perpetuo")
       .eq("id", user.id)
       .single();
     if (profile?.sexo === "femenino") genero = "femenino";
+    diasTrial = diasRestantesTrial(profile);
   }
 
   return (
     <html lang="es" className={`${bebasNeue.variable} ${inter.variable} h-full`}>
       <body className="min-h-full flex flex-col pb-16 antialiased">
+        {diasTrial != null && <TrialBanner dias={diasTrial} />}
         {children}
         <BottomNav genero={genero} />
         <RegisterServiceWorker />

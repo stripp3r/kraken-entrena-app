@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { hoyISO } from "@/lib/fecha";
+import { esPremium } from "@/lib/premium";
 
 export type SetInput = {
   peso: number | null;
@@ -115,7 +116,7 @@ export async function cambiarRutinaActiva(routineId: number) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("routine_id")
+    .select("routine_id, premium_hasta, golden_perpetuo")
     .eq("id", user.id)
     .single();
 
@@ -123,15 +124,17 @@ export async function cambiarRutinaActiva(routineId: number) {
     return { ok: true };
   }
 
-  const { data: acceso } = await supabase
-    .from("profile_routine_access")
-    .select("routine_id")
-    .eq("user_id", user.id)
-    .eq("routine_id", routineId)
-    .maybeSingle();
+  if (!esPremium(profile)) {
+    const { data: acceso } = await supabase
+      .from("profile_routine_access")
+      .select("routine_id")
+      .eq("user_id", user.id)
+      .eq("routine_id", routineId)
+      .maybeSingle();
 
-  if (!acceso) {
-    return { error: "Todavía no tenés esa rutina desbloqueada." };
+    if (!acceso) {
+      return { error: "Todavía no tenés esa rutina desbloqueada." };
+    }
   }
 
   const hoy = hoyISO();

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RutinaHub } from "@/components/rutina-hub";
+import { esPremium } from "@/lib/premium";
 
 export default async function EntrenamientoPage() {
   const supabase = await createClient();
@@ -17,7 +18,7 @@ export default async function EntrenamientoPage() {
   const [{ data: profile }, { data: routines }, { data: acceso }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("routine_id, routines(nombre, dias)")
+      .select("routine_id, premium_hasta, golden_perpetuo, routines(nombre, dias)")
       .eq("id", user.id)
       .single(),
     supabase
@@ -28,7 +29,12 @@ export default async function EntrenamientoPage() {
   ]);
 
   const rutinaActiva = Array.isArray(profile?.routines) ? profile.routines[0] : profile?.routines;
-  const idsDesbloqueados = new Set((acceso ?? []).map((a) => a.routine_id));
+  // Con prueba/Golden vigente, todas las rutinas están disponibles. Sin eso,
+  // solo las compradas sueltas (profile_routine_access) -- aunque en la
+  // práctica el middleware ya no deja llegar acá a un usuario sin premium.
+  const idsDesbloqueados = esPremium(profile)
+    ? new Set((routines ?? []).map((r) => r.id))
+    : new Set((acceso ?? []).map((a) => a.routine_id));
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
