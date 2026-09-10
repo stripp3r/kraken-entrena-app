@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { guardarPerfil } from "@/app/perfil/datos/actions";
+import { SelectNativo } from "@/components/select-nativo";
 
 type Profile = {
   nombre: string | null;
@@ -32,6 +33,9 @@ const ACTIVIDAD_LABEL: Record<string, string> = {
   extremo: "Extremo",
 };
 
+const opcionesDe = (mapa: Record<string, string>) =>
+  Object.entries(mapa).map(([valor, label]) => ({ valor, label }));
+
 export function DatosPersonales({
   profile,
   rutina,
@@ -42,6 +46,11 @@ export function DatosPersonales({
   error?: string;
 }) {
   const [editando, setEditando] = useState(!profile?.nombre);
+  const [sexo, setSexo] = useState(profile?.sexo ?? "");
+  const [objetivo, setObjetivo] = useState(profile?.objetivo ?? "");
+  const [actividadFisica, setActividadFisica] = useState(profile?.actividad_fisica ?? "");
+
+  const faltaAlgo = !sexo || !objetivo || !actividadFisica;
 
   if (!editando && profile?.nombre) {
     return (
@@ -101,19 +110,14 @@ export function DatosPersonales({
           <label htmlFor="sexo" className={labelClass}>
             Sexo
           </label>
-          <select
+          <SelectNativo
             id="sexo"
-            name="sexo"
-            defaultValue={profile?.sexo ?? ""}
-            required
-            className={fieldClass}
-          >
-            <option value="" disabled>
-              Elegí
-            </option>
-            <option value="femenino">Femenino</option>
-            <option value="masculino">Masculino</option>
-          </select>
+            titulo="Sexo"
+            value={sexo}
+            onChange={setSexo}
+            opciones={opcionesDe(SEXO_LABEL)}
+          />
+          <input type="hidden" name="sexo" value={sexo} />
         </div>
         <div className="flex w-28 flex-col gap-1.5">
           <label htmlFor="edad" className={labelClass}>
@@ -136,49 +140,36 @@ export function DatosPersonales({
         <label htmlFor="objetivo" className={labelClass}>
           Objetivo
         </label>
-        <select
+        <SelectNativo
           id="objetivo"
-          name="objetivo"
-          defaultValue={profile?.objetivo ?? ""}
-          required
-          className={fieldClass}
-        >
-          <option value="" disabled>
-            Elegí
-          </option>
-          <option value="superavit">Superávit (ganar masa)</option>
-          <option value="mantenimiento">Mantenimiento</option>
-          <option value="definicion">Definición</option>
-        </select>
+          titulo="Objetivo"
+          value={objetivo}
+          onChange={setObjetivo}
+          opciones={opcionesDe(OBJETIVO_LABEL)}
+        />
+        <input type="hidden" name="objetivo" value={objetivo} />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="actividad_fisica" className={labelClass}>
           Actividad física fuera del gym
         </label>
-        <select
+        <SelectNativo
           id="actividad_fisica"
-          name="actividad_fisica"
-          defaultValue={profile?.actividad_fisica ?? ""}
-          required
-          className={fieldClass}
-        >
-          <option value="" disabled>
-            Elegí
-          </option>
-          <option value="poca_o_nula">Poca o nula</option>
-          <option value="ligera">Ligera</option>
-          <option value="moderada">Moderada</option>
-          <option value="muy_activo">Muy activo</option>
-          <option value="extremo">Extremo</option>
-        </select>
+          titulo="Actividad física fuera del gym"
+          value={actividadFisica}
+          onChange={setActividadFisica}
+          opciones={opcionesDe(ACTIVIDAD_LABEL)}
+        />
+        <input type="hidden" name="actividad_fisica" value={actividadFisica} />
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       <button
         formAction={guardarPerfil}
-        className="mt-2 rounded-full bg-white px-5 py-3 font-medium text-black transition-opacity hover:opacity-90"
+        disabled={faltaAlgo}
+        className="mt-2 rounded-full bg-white px-5 py-3 font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         Guardar
       </button>
