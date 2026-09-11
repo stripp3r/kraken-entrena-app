@@ -56,11 +56,13 @@ export async function obtenerPago(paymentId: string) {
 
 export async function crearSuscripcionGolden({
   userId,
+  email,
   precioArs,
   reason,
   backUrl,
 }: {
   userId: string;
+  email: string;
   precioArs: number;
   reason: string;
   backUrl: string;
@@ -70,6 +72,7 @@ export async function crearSuscripcionGolden({
     body: {
       reason,
       external_reference: userId,
+      payer_email: email,
       back_url: backUrl,
       status: "pending",
       auto_recurring: {
