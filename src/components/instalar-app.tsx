@@ -24,6 +24,33 @@ function esIOSsinSafari(ua: string): boolean {
   return !/Safari/i.test(ua);
 }
 
+// Botón chico para copiar el link actual -- así en Safari no hay que
+// escribir la URL a mano después de salir de Chrome/una app.
+function BotonCopiarLink() {
+  const [copiado, setCopiado] = useState(false);
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      // Si el navegador bloquea el portapapeles, no rompe nada -- el link
+      // sigue estando visible en la barra de direcciones para copiarlo a mano.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copiar}
+      className="mt-2 rounded-full border border-current px-3 py-1 text-xs font-medium"
+    >
+      {copiado ? "¡Copiado!" : "📋 Copiar link"}
+    </button>
+  );
+}
+
 export function InstalarApp() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [instalada, setInstalada] = useState(false);
@@ -71,11 +98,14 @@ export function InstalarApp() {
       <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 text-left">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icons/alerta-navegador.png" alt="" className="mt-0.5 h-8 w-8 shrink-0" />
-        <p className="text-xs text-red-200">
-          Estás viendo esto desde {navegadorEmbebido} — para instalar la app, tocá los{" "}
-          <strong className="text-red-100">⋮</strong> (tres puntos, arriba a la derecha) y elegí{" "}
-          <strong className="text-red-100">&quot;Abrir en el navegador&quot;</strong>.
-        </p>
+        <div className="text-xs text-red-200">
+          <p>
+            Estás viendo esto desde {navegadorEmbebido} — para instalar la app, tocá los{" "}
+            <strong className="text-red-100">⋮</strong> (tres puntos, arriba a la derecha) y
+            elegí <strong className="text-red-100">&quot;Abrir en el navegador&quot;</strong>.
+          </p>
+          <BotonCopiarLink />
+        </div>
       </div>
     );
   }
@@ -97,10 +127,20 @@ export function InstalarApp() {
   if (iosSinSafari) {
     return (
       <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-200">
-        Para instalar la app en tu iPhone, abrí este mismo link en{" "}
-        <strong className="text-amber-100">Safari</strong> (no desde WhatsApp, Instagram ni
-        Chrome). Después tocá <strong className="text-amber-100">Compartir</strong> y{" "}
-        <strong className="text-amber-100">&quot;Agregar a la pantalla de inicio&quot;</strong>.
+        <p className="mb-2 font-medium text-amber-100">
+          En iPhone, instalar solo funciona desde Safari
+        </p>
+        <ol className="list-decimal space-y-1 pl-4">
+          <li>Copiá este link (botón abajo).</li>
+          <li>
+            Abrí la app <strong className="text-amber-100">Safari</strong> (el ícono de la
+            brújula, desde la pantalla de inicio de tu iPhone) — no Chrome, ni un link abierto
+            desde WhatsApp/Instagram/Mail.
+          </li>
+          <li>Pegá el link ahí y entrá.</li>
+          <li>Seguí las instrucciones que van a aparecer en esta misma pantalla.</li>
+        </ol>
+        <BotonCopiarLink />
       </div>
     );
   }
@@ -108,10 +148,27 @@ export function InstalarApp() {
   if (esIOS) {
     return (
       <div className="mb-6 rounded-lg border border-border bg-bg-card px-4 py-3 text-left text-sm text-gray-300">
-        Para instalar la app: tocá{" "}
-        <strong className="text-white">Compartir</strong> (el ícono del cuadrado con la
-        flecha, abajo) y después{" "}
-        <strong className="text-white">&quot;Agregar a la pantalla de inicio&quot;</strong>.
+        <p className="mb-2 font-medium text-white">Para instalar la app en tu iPhone:</p>
+        <ol className="list-decimal space-y-1.5 pl-4">
+          <li>
+            Abajo de la pantalla, tocá el ícono de <strong className="text-white">Compartir</strong>{" "}
+            (un cuadrado con una flecha hacia arriba <span aria-hidden>⬆️</span>).
+          </li>
+          <li>
+            Si no lo ves, tocá primero los{" "}
+            <strong className="text-white">&quot;•••&quot;</strong> (tres puntos) y buscá ahí la
+            opción <strong className="text-white">&quot;Compartir&quot;</strong>.
+          </li>
+          <li>
+            En la lista que se abre, deslizá hacia abajo hasta encontrar{" "}
+            <strong className="text-white">&quot;Agregar a la pantalla de inicio&quot;</strong> y
+            tocala.
+          </li>
+          <li>
+            Confirmá tocando <strong className="text-white">&quot;Agregar&quot;</strong> arriba a
+            la derecha.
+          </li>
+        </ol>
       </div>
     );
   }
