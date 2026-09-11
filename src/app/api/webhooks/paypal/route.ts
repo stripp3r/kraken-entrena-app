@@ -11,6 +11,7 @@ import {
   acreditarCobroGolden,
   pausarGolden,
   cancelarGolden,
+  decodificarReferencia,
 } from "@/lib/suscripciones";
 
 // Un solo webhook para PayPal: pagos únicos (PAYMENT.CAPTURE.COMPLETED) y
@@ -43,10 +44,12 @@ export async function POST(request: NextRequest) {
     if (!recurso.id || !recurso.custom_id) {
       return NextResponse.json({ error: "Suscripción sin custom_id" }, { status: 400 });
     }
+    const { userId, frecuencia } = decodificarReferencia(recurso.custom_id);
     await marcarSuscripcionActiva({
-      userId: recurso.custom_id,
+      userId,
       proveedor: "paypal",
       proveedorSubId: recurso.id,
+      frecuencia,
       precio: recurso.billing_info?.last_payment?.amount?.value
         ? Number(recurso.billing_info.last_payment.amount.value)
         : null,
@@ -61,20 +64,28 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient();
     const { data: fila } = await admin
       .from("suscripciones")
-      .select("user_id")
+      .select("user_id, frecuencia")
       .eq("proveedor", "paypal")
       .eq("proveedor_sub_id", subId)
       .maybeSingle();
-    const userId =
-      fila?.user_id ?? (await obtenerSuscripcionPaypal(subId)).custom_id ?? null;
-    if (!userId) {
+
+    const sub = await obtenerSuscripcionPaypal(subId);
+    let userId = fila?.user_id ?? null;
+    let frecuencia = fila?.frecuencia as "mensual" | "anual" | undefined;
+    if ((!userId || !frecuencia) && sub.custom_id) {
+      const decodificado = decodificarReferencia(sub.custom_id);
+      userId = userId ?? decodificado.userId;
+      frecuencia = frecuencia ?? decodificado.frecuencia;
+    }
+    if (!userId || !frecuencia) {
       return NextResponse.json({ error: "No se pudo resolver el usuario" }, { status: 400 });
     }
-    const sub = await obtenerSuscripcionPaypal(subId);
+
     await acreditarCobroGolden({
       userId,
       proveedor: "paypal",
       proveedorSubId: subId,
+      frecuencia,
       cobroId: String(recurso.id),
       precio: recurso.amount?.total ? Number(recurso.amount.total) : null,
       moneda: recurso.amount?.currency ?? "USD",

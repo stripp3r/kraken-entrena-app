@@ -5,6 +5,7 @@ import {
   PreApproval,
   WebhookSignatureValidator,
 } from "mercadopago";
+import { codificarReferencia, type Frecuencia } from "@/lib/suscripciones";
 
 function config() {
   return new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN! });
@@ -52,16 +53,18 @@ export async function obtenerPago(paymentId: string) {
   return payment.get({ id: paymentId });
 }
 
-// ---------- Suscripción Golden (preapproval anual con débito automático) ----------
+// ---------- Suscripción Golden (preapproval con débito automático) ----------
 
 export async function crearSuscripcionGolden({
   userId,
+  frecuencia,
   email,
   precioArs,
   reason,
   backUrl,
 }: {
   userId: string;
+  frecuencia: Frecuencia;
   email: string;
   precioArs: number;
   reason: string;
@@ -71,12 +74,12 @@ export async function crearSuscripcionGolden({
   const result = await preapproval.create({
     body: {
       reason,
-      external_reference: userId,
+      external_reference: codificarReferencia(userId, frecuencia),
       payer_email: email,
       back_url: backUrl,
       status: "pending",
       auto_recurring: {
-        frequency: 12,
+        frequency: frecuencia === "mensual" ? 1 : 12,
         frequency_type: "months",
         transaction_amount: precioArs,
         currency_id: "ARS",

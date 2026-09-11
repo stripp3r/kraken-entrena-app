@@ -6,6 +6,7 @@ import {
   PaypalExperienceUserAction,
   PaypalWalletContextShippingPreference,
 } from "@paypal/paypal-server-sdk";
+import { codificarReferencia, type Frecuencia } from "@/lib/suscripciones";
 
 function ambiente() {
   return process.env.PAYPAL_ENVIRONMENT === "production"
@@ -141,9 +142,13 @@ async function paypalFetch(path: string, init: RequestInit) {
   return data;
 }
 
-// Crea (una sola vez) el producto + plan de facturación anual de Golden y
-// devuelve el plan_id. Si ya existe uno guardado, lo devuelve tal cual.
-export async function crearPlanGoldenPaypal(precioUsd: number): Promise<string> {
+// Crea (una sola vez, por frecuencia) el producto + plan de facturación de
+// Golden y devuelve el plan_id. Si ya existe uno guardado, lo devuelve tal
+// cual -- se guarda un plan distinto para mensual y para anual.
+export async function crearPlanGoldenPaypal(
+  precioUsd: number,
+  frecuencia: Frecuencia
+): Promise<string> {
   const producto = await paypalFetch("/v1/catalogs/products", {
     method: "POST",
     body: JSON.stringify({
@@ -158,11 +163,17 @@ export async function crearPlanGoldenPaypal(precioUsd: number): Promise<string> 
     method: "POST",
     body: JSON.stringify({
       product_id: producto.id,
-      name: "KRAKEN Golden (anual)",
-      description: "Suscripción anual con renovación automática",
+      name: frecuencia === "mensual" ? "KRAKEN Golden (mensual)" : "KRAKEN Golden (anual)",
+      description:
+        frecuencia === "mensual"
+          ? "Suscripción mensual con renovación automática"
+          : "Suscripción anual con renovación automática",
       billing_cycles: [
         {
-          frequency: { interval_unit: "YEAR", interval_count: 1 },
+          frequency:
+            frecuencia === "mensual"
+              ? { interval_unit: "MONTH", interval_count: 1 }
+              : { interval_unit: "YEAR", interval_count: 1 },
           tenure_type: "REGULAR",
           sequence: 1,
           total_cycles: 0,
@@ -185,11 +196,13 @@ export async function crearPlanGoldenPaypal(precioUsd: number): Promise<string> 
 export async function crearSuscripcionGoldenPaypal({
   planId,
   userId,
+  frecuencia,
   returnUrl,
   cancelUrl,
 }: {
   planId: string;
   userId: string;
+  frecuencia: Frecuencia;
   returnUrl: string;
   cancelUrl: string;
 }) {
@@ -197,7 +210,7 @@ export async function crearSuscripcionGoldenPaypal({
     method: "POST",
     body: JSON.stringify({
       plan_id: planId,
-      custom_id: userId,
+      custom_id: codificarReferencia(userId, frecuencia),
       application_context: {
         brand_name: "KRAKEN Fitness",
         user_action: "SUBSCRIBE_NOW",

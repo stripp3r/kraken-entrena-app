@@ -13,6 +13,7 @@ import {
   acreditarCobroGolden,
   pausarGolden,
   cancelarGolden,
+  decodificarReferencia,
 } from "@/lib/suscripciones";
 
 const soloFecha = (iso?: string | null) => (iso ? iso.slice(0, 10) : null);
@@ -49,15 +50,16 @@ export async function POST(request: NextRequest) {
   // ---------- Suscripción Golden: autorización / cancelación / pausa ----------
   if (tipo === "subscription_preapproval") {
     const pre = await obtenerPreApproval(String(id));
-    const userId = pre.external_reference ?? null;
-    if (!userId || !pre.id) {
+    if (!pre.external_reference || !pre.id) {
       return NextResponse.json({ error: "Preapproval sin external_reference" }, { status: 400 });
     }
+    const { userId, frecuencia } = decodificarReferencia(pre.external_reference);
     if (pre.status === "authorized") {
       await marcarSuscripcionActiva({
         userId,
         proveedor: "mercadopago",
         proveedorSubId: pre.id,
+        frecuencia,
         precio: pre.auto_recurring?.transaction_amount ?? null,
         moneda: pre.auto_recurring?.currency_id ?? "ARS",
         proximoCobro: soloFecha(pre.next_payment_date),
@@ -70,26 +72,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, status: pre.status });
   }
 
-  // ---------- Suscripción Golden: cada cobro anual ----------
+  // ---------- Suscripción Golden: cada cobro (mensual o anual) ----------
   if (tipo === "subscription_authorized_payment") {
     const ap = await obtenerAuthorizedPayment(String(id));
     const admin = createAdminClient();
     const { data: sub } = await admin
       .from("suscripciones")
-      .select("user_id")
+      .select("user_id, frecuencia")
       .eq("proveedor", "mercadopago")
       .eq("proveedor_sub_id", ap.preapproval_id)
       .maybeSingle();
-    const userId =
-      sub?.user_id ?? (await obtenerPreApproval(ap.preapproval_id)).external_reference ?? null;
-    if (!userId) {
+
+    let userId = sub?.user_id ?? null;
+    let frecuencia = sub?.frecuencia as "mensual" | "anual" | undefined;
+    if (!userId || !frecuencia) {
+      const pre = await obtenerPreApproval(ap.preapproval_id);
+      if (pre.external_reference) {
+        const decodificado = decodificarReferencia(pre.external_reference);
+        userId = userId ?? decodificado.userId;
+        frecuencia = frecuencia ?? decodificado.frecuencia;
+      }
+    }
+    if (!userId || !frecuencia) {
       return NextResponse.json({ error: "No se pudo resolver el usuario" }, { status: 400 });
     }
+
     if (ap.status === "processed") {
       await acreditarCobroGolden({
         userId,
         proveedor: "mercadopago",
         proveedorSubId: ap.preapproval_id,
+        frecuencia,
         cobroId: String(ap.id),
         precio: ap.transaction_amount ?? null,
         moneda: ap.currency_id ?? "ARS",

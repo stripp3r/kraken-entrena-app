@@ -1,19 +1,42 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO } from "@/lib/fecha";
 
+export type Frecuencia = "mensual" | "anual";
+
+// external_reference (MP) / custom_id (PayPal) llevan el usuario Y la
+// frecuencia elegida, codificados como "userId|frecuencia" -- así el webhook
+// sabe, sin otra consulta, si tiene que sumar 1 mes o 1 año por cada cobro.
+// Sin "|" (suscripciones viejas, ya reales, creadas antes de este cambio) se
+// asume 'anual', que es lo que eran todas hasta ahora.
+export function codificarReferencia(userId: string, frecuencia: Frecuencia): string {
+  return `${userId}|${frecuencia}`;
+}
+
+export function decodificarReferencia(ref: string): { userId: string; frecuencia: Frecuencia } {
+  const [userId, frecuencia] = ref.split("|");
+  return { userId, frecuencia: frecuencia === "mensual" ? "mensual" : "anual" };
+}
+
 function unAnioDesde(fechaISO: string): string {
   const d = new Date(`${fechaISO}T00:00:00-03:00`);
   d.setFullYear(d.getFullYear() + 1);
   return d.toISOString().slice(0, 10);
 }
 
+function unMesDesde(fechaISO: string): string {
+  const d = new Date(`${fechaISO}T00:00:00-03:00`);
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 // Marca/actualiza la suscripción como activa sin tocar premium_hasta.
 // Se llama cuando el proveedor confirma que la suscripción quedó autorizada
-// (el año de acceso lo suma el cobro, no la autorización).
+// (el período de acceso lo suma el cobro, no la autorización).
 export async function marcarSuscripcionActiva({
   userId,
   proveedor,
   proveedorSubId,
+  frecuencia,
   precio,
   moneda,
   proximoCobro,
@@ -21,6 +44,7 @@ export async function marcarSuscripcionActiva({
   userId: string;
   proveedor: "mercadopago" | "paypal";
   proveedorSubId: string;
+  frecuencia: Frecuencia;
   precio: number | null;
   moneda: string | null;
   proximoCobro: string | null;
@@ -31,6 +55,7 @@ export async function marcarSuscripcionActiva({
       user_id: userId,
       proveedor,
       proveedor_sub_id: proveedorSubId,
+      frecuencia,
       estado: "activa",
       precio,
       moneda,
@@ -43,13 +68,15 @@ export async function marcarSuscripcionActiva({
 }
 
 // Un cobro de Golden se acreditó (alta o renovación): empuja premium_hasta
-// un año más allá de lo que sea mayor entre hoy y premium_hasta actual, marca
-// el origen 'golden' y deja la suscripción activa. Dedupe por `cobroId`: si
-// ese cobro ya se procesó (ultimo_cobro_id), no vuelve a sumar el año.
+// un período (1 mes o 1 año, según la frecuencia) más allá de lo que sea
+// mayor entre hoy y premium_hasta actual, marca el origen 'golden' y deja
+// la suscripción activa. Dedupe por `cobroId`: si ese cobro ya se procesó
+// (ultimo_cobro_id), no vuelve a sumar el período.
 export async function acreditarCobroGolden({
   userId,
   proveedor,
   proveedorSubId,
+  frecuencia,
   cobroId,
   precio,
   moneda,
@@ -58,6 +85,7 @@ export async function acreditarCobroGolden({
   userId: string;
   proveedor: "mercadopago" | "paypal";
   proveedorSubId: string;
+  frecuencia: Frecuencia;
   cobroId: string;
   precio: number | null;
   moneda: string | null;
@@ -85,7 +113,7 @@ export async function acreditarCobroGolden({
 
   const base =
     perfil?.premium_hasta && perfil.premium_hasta > hoy ? perfil.premium_hasta : hoy;
-  const nuevoHasta = unAnioDesde(base);
+  const nuevoHasta = frecuencia === "mensual" ? unMesDesde(base) : unAnioDesde(base);
 
   await supabase
     .from("profiles")
@@ -102,6 +130,7 @@ export async function acreditarCobroGolden({
       user_id: userId,
       proveedor,
       proveedor_sub_id: proveedorSubId,
+      frecuencia,
       estado: "activa",
       precio,
       moneda,

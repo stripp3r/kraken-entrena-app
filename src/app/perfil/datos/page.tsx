@@ -12,22 +12,33 @@ function etiquetaSuscripcion(
     premium_hasta?: string | null;
     premium_origen?: string | null;
   } | null,
-  sub: { estado?: string | null; proximo_cobro?: string | null; cancelada_al?: string | null } | null
+  sub: {
+    estado?: string | null;
+    proximo_cobro?: string | null;
+    cancelada_al?: string | null;
+    frecuencia?: string | null;
+  } | null
 ): Suscripcion {
   if (profile?.golden_perpetuo) return { texto: "Golden · Founder", tono: "oro" };
 
+  const etiquetaFrecuencia = sub?.frecuencia === "mensual" ? " (mensual)" : "";
+
   if (sub && sub.estado !== "vencida") {
     if (sub.estado === "pausada") {
-      return { texto: "Golden · pago pendiente", tono: "pendiente" };
+      return { texto: `Golden${etiquetaFrecuencia} · pago pendiente`, tono: "pendiente" };
     }
     if (sub.estado === "cancelada") {
       return {
-        texto: sub.cancelada_al ? `Golden · hasta ${ddmm(sub.cancelada_al)}` : "Golden · cancelada",
+        texto: sub.cancelada_al
+          ? `Golden${etiquetaFrecuencia} · hasta ${ddmm(sub.cancelada_al)}`
+          : `Golden${etiquetaFrecuencia} · cancelada`,
         tono: "oro",
       };
     }
     return {
-      texto: sub.proximo_cobro ? `Golden · renueva ${ddmm(sub.proximo_cobro)}` : "Golden",
+      texto: sub.proximo_cobro
+        ? `Golden${etiquetaFrecuencia} · renueva ${ddmm(sub.proximo_cobro)}`
+        : `Golden${etiquetaFrecuencia}`,
       tono: "oro",
     };
   }
@@ -68,7 +79,7 @@ export default async function PerfilDatosPage({
     supabase.from("profiles").select("*, routines(nombre, dias)").eq("id", user.id).single(),
     supabase
       .from("suscripciones")
-      .select("estado, proximo_cobro, cancelada_al")
+      .select("estado, proximo_cobro, cancelada_al, frecuencia")
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false })
       .limit(1)
