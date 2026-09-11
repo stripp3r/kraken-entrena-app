@@ -68,7 +68,7 @@ export async function acreditarCobroGolden({
 
   const { data: sub } = await supabase
     .from("suscripciones")
-    .select("ultimo_cobro_id")
+    .select("ultimo_cobro_id, proximo_cobro")
     .eq("proveedor", proveedor)
     .eq("proveedor_sub_id", proveedorSubId)
     .maybeSingle();
@@ -92,6 +92,11 @@ export async function acreditarCobroGolden({
     .update({ premium_hasta: nuevoHasta, premium_origen: "golden" })
     .eq("id", userId);
 
+  // El proveedor no siempre manda la próxima fecha de cobro en este evento
+  // -- si no vino, se conserva la que ya había, o se usa nuevoHasta como
+  // mejor estimación (coincide con cuándo debería tocar el próximo cobro).
+  const proximoCobroFinal = proximoCobro ?? sub?.proximo_cobro ?? nuevoHasta;
+
   await supabase.from("suscripciones").upsert(
     {
       user_id: userId,
@@ -100,7 +105,7 @@ export async function acreditarCobroGolden({
       estado: "activa",
       precio,
       moneda,
-      proximo_cobro: proximoCobro,
+      proximo_cobro: proximoCobroFinal,
       cancelada_al: null,
       ultimo_cobro_id: cobroId,
       updated_at: new Date().toISOString(),

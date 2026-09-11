@@ -47,7 +47,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("sexo, premium_hasta, golden_perpetuo")
+      .select("sexo, premium_hasta, golden_perpetuo, premium_origen")
       .eq("id", user.id)
       .single();
     if (profile?.sexo === "femenino") genero = "femenino";

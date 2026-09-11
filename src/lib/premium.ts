@@ -4,6 +4,7 @@ import { hoyISO } from "@/lib/fecha";
 export type EstadoPremium = {
   golden_perpetuo?: boolean | null;
   premium_hasta?: string | null;
+  premium_origen?: string | null;
 };
 
 // Etiqueta + color para mostrar el estado de suscripción en la UI.
@@ -20,10 +21,13 @@ export function esPremium(p: EstadoPremium | null | undefined): boolean {
   return !!p.premium_hasta && p.premium_hasta >= hoyISO();
 }
 
-// Días que faltan para que termine la prueba. null si es Golden perpetuo,
-// si no hay fecha, o si ya venció.
+// Días que faltan para que termine la prueba. null si es Golden (perpetuo o
+// suscripción paga), si no hay fecha, o si ya venció -- este contador es
+// SOLO para el trial gratuito, no para el acceso pago.
 export function diasRestantesTrial(p: EstadoPremium | null | undefined): number | null {
-  if (!p || p.golden_perpetuo || !p.premium_hasta) return null;
+  if (!p || p.golden_perpetuo || p.premium_origen === "golden" || !p.premium_hasta) {
+    return null;
+  }
   const hoy = new Date(`${hoyISO()}T00:00:00-03:00`).getTime();
   const fin = new Date(`${p.premium_hasta}T00:00:00-03:00`).getTime();
   const dias = Math.round((fin - hoy) / 86_400_000);
