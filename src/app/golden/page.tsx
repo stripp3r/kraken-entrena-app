@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { esPremium, diasRestantesTrial } from "@/lib/premium";
+import { diasRestantesTrial } from "@/lib/premium";
 
 const INCLUYE = [
   "Todas las rutinas del catálogo (y las que se sumen)",
@@ -26,7 +26,7 @@ export default async function GoldenPage() {
   const [{ data: perfil }, { data: golden }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("premium_hasta, golden_perpetuo")
+      .select("premium_hasta, golden_perpetuo, premium_origen")
       .eq("id", user.id)
       .single(),
     // productos tiene RLS sin policy para authenticated -> se lee con admin.
@@ -37,9 +37,12 @@ export default async function GoldenPage() {
       .maybeSingle(),
   ]);
 
-  const premium = esPremium(perfil);
   const dias = diasRestantesTrial(perfil);
   const precioListo = Boolean(golden?.activo && (golden?.precio_ars || golden?.precio_usd));
+  // "Ya sos Golden" (nada que comprar) es distinto de "tenés acceso" --
+  // durante la prueba gratis también tenés acceso, pero igual tiene que
+  // poder pasarse a Golden si quiere, sin esperar a que se corte.
+  const esGolden = Boolean(perfil?.golden_perpetuo || perfil?.premium_origen === "golden");
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -48,14 +51,12 @@ export default async function GoldenPage() {
           KRAKEN GOLDEN
         </h1>
 
-        {premium ? (
+        {esGolden ? (
           <>
             <p className="mb-6 text-center text-sm text-gray-400">
               {perfil?.golden_perpetuo
                 ? "Tenés acceso total, sin vencimiento."
-                : dias != null
-                  ? `Estás en la prueba gratis. Te quedan ${dias} ${dias === 1 ? "día" : "días"}.`
-                  : "Tenés acceso completo."}
+                : "Ya sos Golden. Tu suscripción se renueva sola cada año."}
             </p>
             <Link
               href="/"
@@ -67,8 +68,9 @@ export default async function GoldenPage() {
         ) : (
           <>
             <p className="mb-6 text-center text-sm text-gray-400">
-              Tu prueba gratis terminó. Con Golden desbloqueás todo de nuevo, con
-              renovación anual automática.
+              {dias != null
+                ? `Estás en la prueba gratis (te quedan ${dias} ${dias === 1 ? "día" : "días"}). Pasate a Golden cuando quieras, sin esperar a que se corte.`
+                : "Tu prueba gratis terminó. Con Golden desbloqueás todo de nuevo, con renovación anual automática."}
             </p>
 
             <ul className="mb-6 flex flex-col gap-2">
