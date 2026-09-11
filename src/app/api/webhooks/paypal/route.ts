@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   const recurso = payload.resource ?? {};
 
   // ---------- Suscripción Golden ----------
-  if (tipo === "BILLING.SUBSCRIPTION.ACTIVATED") {
+  if (tipo === "BILLING.SUBSCRIPTION.ACTIVATED" || tipo === "BILLING.SUBSCRIPTION.RE-ACTIVATED") {
     if (!recurso.id || !recurso.custom_id) {
       return NextResponse.json({ error: "Suscripción sin custom_id" }, { status: 400 });
     }
@@ -83,7 +83,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  if (tipo === "BILLING.SUBSCRIPTION.CANCELLED" && recurso.id) {
+  if (
+    (tipo === "BILLING.SUBSCRIPTION.CANCELLED" || tipo === "BILLING.SUBSCRIPTION.EXPIRED") &&
+    recurso.id
+  ) {
     await cancelarGolden("paypal", recurso.id);
     return NextResponse.json({ ok: true });
   }
