@@ -29,26 +29,30 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let planId = golden.paypal_plan_id as string | null;
-  if (!planId) {
-    planId = await crearPlanGoldenPaypal(golden.precio_usd);
-    await admin
-      .from("productos")
-      .update({ paypal_plan_id: planId })
-      .eq("slug", "golden-anual");
+  try {
+    let planId = golden.paypal_plan_id as string | null;
+    if (!planId) {
+      planId = await crearPlanGoldenPaypal(golden.precio_usd);
+      await admin.from("productos").update({ paypal_plan_id: planId }).eq("slug", "golden-anual");
+    }
+
+    const origin = request.nextUrl.origin;
+    const { aprobarUrl } = await crearSuscripcionGoldenPaypal({
+      planId,
+      userId: user.id,
+      returnUrl: `${origin}/api/checkout/golden/paypal/retorno`,
+      cancelUrl: `${origin}/golden`,
+    });
+
+    if (!aprobarUrl) {
+      return NextResponse.json({ error: "No se pudo crear la suscripción." }, { status: 502 });
+    }
+
+    return NextResponse.redirect(aprobarUrl);
+  } catch (e) {
+    return NextResponse.json(
+      { error: "Falló el checkout de PayPal Golden", detalle: String(e) },
+      { status: 500 }
+    );
   }
-
-  const origin = request.nextUrl.origin;
-  const { aprobarUrl } = await crearSuscripcionGoldenPaypal({
-    planId,
-    userId: user.id,
-    returnUrl: `${origin}/api/checkout/golden/paypal/retorno`,
-    cancelUrl: `${origin}/golden`,
-  });
-
-  if (!aprobarUrl) {
-    return NextResponse.json({ error: "No se pudo crear la suscripción." }, { status: 502 });
-  }
-
-  return NextResponse.redirect(aprobarUrl);
 }
