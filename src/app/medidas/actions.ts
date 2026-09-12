@@ -10,6 +10,7 @@ export type MedicionInput = {
   hombros: number | null;
   pecho: number | null;
   brazo: number | null;
+  antebrazo: number | null;
   cintura: number | null;
   caderas: number | null;
   muslos: number | null;

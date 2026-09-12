@@ -19,6 +19,7 @@ const CAMPOS: { key: keyof MedicionInput; label: string }[] = [
   { key: "hombros", label: "Hombros (cm)" },
   { key: "pecho", label: "Pecho (cm)" },
   { key: "brazo", label: "Brazo (cm)" },
+  { key: "antebrazo", label: "Antebrazo (cm)" },
   { key: "cintura", label: "Cintura (cm)" },
   { key: "caderas", label: "Caderas (cm)" },
   { key: "muslos", label: "Muslos (cm)" },

@@ -8,6 +8,8 @@ export const GUIA_MEDIDAS: Record<string, string> = {
     "• Posición: Párate derecho con los brazos a los lados.\n\n• Herramienta: Usa una cinta métrica flexible.\n\n• Ubicación: Envuelve la cinta métrica alrededor de la parte más ancha del pecho, justo debajo de las axilas y sobre los omóplatos.\n\n• Ajuste: Asegúrate de que la cinta esté ajustada pero no apretada, y que esté nivelada en todo el contorno.\n\n• Medición: Anota la medida en centímetros.",
   Brazo:
     "• Posición: Levanta el brazo y flexiona el codo ligeramente.\n\n• Herramienta: Usa una cinta métrica flexible.\n\n• Ubicación: Mide alrededor de la parte más ancha del bíceps.\n\n• Ajuste: La cinta debe estar ajustada pero no apretada.\n\n• Medición: Anota la medida en centímetros.",
+  Antebrazo:
+    "• Posición: Extendé el brazo hacia adelante y cerrá el puño, tensando el antebrazo.\n\n• Herramienta: Usa una cinta métrica flexible.\n\n• Ubicación: Coloca la cinta alrededor de la parte más ancha del antebrazo, un poco por debajo del codo.\n\n• Ajuste: Asegúrate de que la cinta esté ajustada pero no apretada, y nivelada en todo el contorno.\n\n• Medición: Anota la medida en centímetros.",
   Cintura:
     "• Posición: Párate derecho y relaja el abdomen.\n\n• Herramienta: Usa una cinta métrica flexible.\n\n• Ubicación: Coloca la cinta alrededor de la parte más estrecha de la cintura, generalmente justo por encima del ombligo.\n\n• Ajuste: La cinta debe estar ajustada pero no apretada y debe estar nivelada en todo el contorno.\n\n• Medición: Anota la medida en centímetros.",
   Caderas:

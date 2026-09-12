@@ -9,6 +9,7 @@ type Medicion = {
   hombros: number | null;
   pecho: number | null;
   brazo: number | null;
+  antebrazo: number | null;
   cintura: number | null;
   caderas: number | null;
   muslos: number | null;
@@ -20,6 +21,7 @@ const CAMPOS: { key: keyof Omit<Medicion, "fecha" | "peso">; label: string }[] =
   { key: "hombros", label: "Hombros" },
   { key: "pecho", label: "Pecho" },
   { key: "brazo", label: "Brazo" },
+  { key: "antebrazo", label: "Antebrazo" },
   { key: "cintura", label: "Cintura" },
   { key: "caderas", label: "Caderas" },
   { key: "muslos", label: "Muslos" },
