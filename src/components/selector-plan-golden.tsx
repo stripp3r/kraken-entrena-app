@@ -4,6 +4,19 @@ import { useState } from "react";
 
 type Precio = { ars: number | null; usd: number | null } | null;
 
+// Mismo tamaño/peso para USD y ARS -- ninguna de las dos monedas debe verse
+// más "importante" que la otra, tus clientes están repartidos entre las dos.
+function LineaPrecio({ usd, ars }: { usd: number | null; ars: number | null }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      {usd != null && <p className="text-lg font-semibold text-white">USD {usd}</p>}
+      {ars != null && (
+        <p className="text-lg font-semibold text-white">${ars.toLocaleString("es-AR")} ARS</p>
+      )}
+    </div>
+  );
+}
+
 export function SelectorPlanGolden({
   mensual,
   anual,
@@ -28,15 +41,8 @@ export function SelectorPlanGolden({
           }`}
         >
           <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">Mensual</p>
-          {mensual?.usd && (
-            <p className="text-xl font-bold text-white">
-              USD {mensual.usd}
-              <span className="block text-xs font-normal text-gray-500">por mes</span>
-            </p>
-          )}
-          {mensual?.ars && (
-            <p className="mt-1 text-sm text-gray-300">${mensual.ars.toLocaleString("es-AR")} ARS</p>
-          )}
+          <LineaPrecio usd={mensual?.usd ?? null} ars={mensual?.ars ?? null} />
+          <p className="mt-1.5 text-xs text-gray-500">por mes</p>
         </button>
 
         <button
@@ -50,20 +56,14 @@ export function SelectorPlanGolden({
             Ahorrás ~35%
           </span>
           <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">Anual</p>
-          {anual?.usd && (
-            <p className="text-xl font-bold text-white">
-              USD {(anual.usd / 12).toFixed(2)}
-              <span className="block text-xs font-normal text-gray-500">por mes</span>
-            </p>
-          )}
-          {anual?.ars && (
-            <p className="mt-1 text-sm text-gray-300">
-              ${Math.round(anual.ars / 12).toLocaleString("es-AR")} ARS/mes
-            </p>
-          )}
-          {anual?.usd && (
-            <p className="mt-1 text-[11px] text-gray-500">
-              (USD {anual.usd} facturado 1 vez al año)
+          <LineaPrecio
+            usd={anual?.usd != null ? Number((anual.usd / 12).toFixed(2)) : null}
+            ars={anual?.ars != null ? Math.round(anual.ars / 12) : null}
+          />
+          <p className="mt-1.5 text-xs text-gray-500">por mes (equivalente)</p>
+          {anual?.usd != null && (
+            <p className="mt-1 text-[11px] text-gray-600">
+              USD {anual.usd} facturado 1 vez al año
             </p>
           )}
         </button>
