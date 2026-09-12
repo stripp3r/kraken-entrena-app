@@ -4,14 +4,15 @@ import { useState } from "react";
 
 type Precio = { ars: number | null; usd: number | null } | null;
 
-// Mismo tamaño/peso para USD y ARS -- ninguna de las dos monedas debe verse
-// más "importante" que la otra, tus clientes están repartidos entre las dos.
+// Mismo formato para las dos monedas ("USD 12.99" / "ARS 19.500", sin
+// duplicar el símbolo $ además del código) y mismo tamaño/peso -- ninguna
+// de las dos debe verse más "importante" que la otra.
 function LineaPrecio({ usd, ars }: { usd: number | null; ars: number | null }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col items-center gap-0.5">
       {usd != null && <p className="text-lg font-semibold text-white">USD {usd}</p>}
       {ars != null && (
-        <p className="text-lg font-semibold text-white">${ars.toLocaleString("es-AR")} ARS</p>
+        <p className="text-lg font-semibold text-white">ARS {ars.toLocaleString("es-AR")}</p>
       )}
     </div>
   );
@@ -36,7 +37,7 @@ export function SelectorPlanGolden({
         <button
           type="button"
           onClick={() => setPlan("mensual")}
-          className={`rounded-lg border-2 px-3 py-4 text-center transition-colors ${
+          className={`flex flex-col items-center rounded-lg border-2 px-3 py-4 text-center transition-colors ${
             plan === "mensual" ? "border-white bg-bg-card" : "border-border bg-bg-card/50"
           }`}
         >
@@ -48,13 +49,10 @@ export function SelectorPlanGolden({
         <button
           type="button"
           onClick={() => setPlan("anual")}
-          className={`relative rounded-lg border-2 px-3 py-4 text-center transition-colors ${
+          className={`flex flex-col items-center rounded-lg border-2 px-3 py-4 text-center transition-colors ${
             plan === "anual" ? "border-amber-400 bg-bg-card" : "border-border bg-bg-card/50"
           }`}
         >
-          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-400 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-black">
-            Ahorrás ~35%
-          </span>
           <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">Anual</p>
           <LineaPrecio
             usd={anual?.usd != null ? Number((anual.usd / 12).toFixed(2)) : null}
@@ -68,6 +66,10 @@ export function SelectorPlanGolden({
           )}
         </button>
       </div>
+
+      <p className="mt-3 text-center text-xs font-medium text-amber-400">
+        🏷️ Eligiendo anual ahorrás ~35% contra pagar mes a mes
+      </p>
 
       <div className="mt-4 flex flex-col gap-2">
         {tieneArs && (
