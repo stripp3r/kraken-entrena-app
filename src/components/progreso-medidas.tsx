@@ -12,6 +12,7 @@ type Medicion = {
   cintura: number | null;
   caderas: number | null;
   muslos: number | null;
+  gemelos: number | null;
 };
 
 const CAMPOS: { key: keyof Omit<Medicion, "fecha" | "peso">; label: string }[] = [
@@ -22,6 +23,7 @@ const CAMPOS: { key: keyof Omit<Medicion, "fecha" | "peso">; label: string }[] =
   { key: "cintura", label: "Cintura" },
   { key: "caderas", label: "Caderas" },
   { key: "muslos", label: "Muslos" },
+  { key: "gemelos", label: "Gemelos" },
 ];
 
 const COLORES = ["#7a7a7a", "#e7e7e7", "#f97316", "#38bdf8", "#a3e635"];

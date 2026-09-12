@@ -13,6 +13,7 @@ export type MedicionInput = {
   cintura: number | null;
   caderas: number | null;
   muslos: number | null;
+  gemelos: number | null;
 };
 
 export async function guardarMedicion(medicion: MedicionInput) {

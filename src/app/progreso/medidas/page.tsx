@@ -16,7 +16,7 @@ export default async function ProgresoMedidasPage() {
 
   const { data: historial } = await supabase
     .from("body_measurements")
-    .select("fecha, peso, cuello, hombros, pecho, brazo, cintura, caderas, muslos")
+    .select("fecha, peso, cuello, hombros, pecho, brazo, cintura, caderas, muslos, gemelos")
     .eq("user_id", user.id)
     .order("fecha", { ascending: true });
 

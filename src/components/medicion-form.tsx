@@ -22,6 +22,7 @@ const CAMPOS: { key: keyof MedicionInput; label: string }[] = [
   { key: "cintura", label: "Cintura (cm)" },
   { key: "caderas", label: "Caderas (cm)" },
   { key: "muslos", label: "Muslos (cm)" },
+  { key: "gemelos", label: "Gemelos (cm)" },
 ];
 
 function formVacio(): Record<string, string> {

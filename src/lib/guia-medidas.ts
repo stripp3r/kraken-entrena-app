@@ -14,4 +14,6 @@ export const GUIA_MEDIDAS: Record<string, string> = {
     "• Posición: Párate derecho con los pies juntos.\n\n• Herramienta: Usa una cinta métrica flexible.\n\n• Ubicación: Coloca la cinta alrededor de la parte más ancha de las caderas y los glúteos.\n\n• Ajuste: Asegúrate de que la cinta esté nivelada y ajustada pero no apretada.\n\n• Medición: Anota la medida en centímetros.",
   Muslos:
     "• Posición: Párate derecho con los pies separados a la anchura de los hombros.\n\n• Herramienta: Usa una cinta métrica flexible.\n\n• Ubicación: Coloca la cinta alrededor de la parte más ancha del muslo, generalmente a unos pocos centímetros por debajo de la ingle.\n\n• Ajuste: Asegúrate de que la cinta esté ajustada pero no apretada.\n\n• Medición: Anota la medida en centímetros.",
+  Gemelos:
+    "• Posición: Párate derecho con el peso repartido en los dos pies (podés apoyar el talón en un escalón bajo para relajar la pantorrilla).\n\n• Herramienta: Usa una cinta métrica flexible.\n\n• Ubicación: Coloca la cinta alrededor de la parte más ancha de la pantorrilla, a mitad de camino entre la rodilla y el tobillo.\n\n• Ajuste: Asegúrate de que la cinta esté ajustada pero no apretada, y nivelada en todo el contorno.\n\n• Medición: Anota la medida en centímetros.",
 };
