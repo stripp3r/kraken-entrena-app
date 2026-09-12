@@ -25,3 +25,16 @@ export function fechaISO(fecha: Date): string {
 export function inicioDelDiaArgentinaUTC(fechaYMD?: string): Date {
   return new Date(`${fechaYMD ?? hoyISO()}T00:00:00-03:00`);
 }
+
+// Edad en años a partir de una fecha de nacimiento 'YYYY-MM-DD', calculada
+// contra "hoy" en hora Argentina -- así nunca queda desactualizada.
+export function calcularEdad(fechaNacimientoISO: string): number {
+  const hoy = inicioDelDiaArgentinaUTC();
+  const nacimiento = inicioDelDiaArgentinaUTC(fechaNacimientoISO);
+  let edad = hoy.getUTCFullYear() - nacimiento.getUTCFullYear();
+  const aunNoCumplioEsteAnio =
+    hoy.getUTCMonth() < nacimiento.getUTCMonth() ||
+    (hoy.getUTCMonth() === nacimiento.getUTCMonth() && hoy.getUTCDate() < nacimiento.getUTCDate());
+  if (aunNoCumplioEsteAnio) edad -= 1;
+  return edad;
+}

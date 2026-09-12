@@ -4,6 +4,7 @@ import { useState } from "react";
 import { guardarPerfil } from "@/app/perfil/datos/actions";
 import { SelectNativo } from "@/components/select-nativo";
 import type { Suscripcion } from "@/lib/premium";
+import { calcularEdad, hoyISO } from "@/lib/fecha";
 
 const TONO_SUSCRIPCION: Record<Suscripcion["tono"], string> = {
   oro: "bg-amber-400/15 text-amber-300",
@@ -18,6 +19,7 @@ type Profile = {
   apellido: string | null;
   sexo: string | null;
   edad: number | null;
+  fecha_nacimiento: string | null;
   objetivo: string | null;
   actividad_fisica: string | null;
 };
@@ -69,7 +71,16 @@ export function DatosPersonales({
         <dl className="flex flex-col gap-3 text-sm">
           <Fila label="Nombre" valor={`${profile.nombre} ${profile.apellido ?? ""}`.trim()} />
           <Fila label="Sexo" valor={profile.sexo ? SEXO_LABEL[profile.sexo] : "-"} />
-          <Fila label="Edad" valor={profile.edad ? `${profile.edad} años` : "-"} />
+          <Fila
+            label="Edad"
+            valor={
+              profile.fecha_nacimiento
+                ? `${calcularEdad(profile.fecha_nacimiento)} años`
+                : profile.edad
+                  ? `${profile.edad} años`
+                  : "-"
+            }
+          />
           <Fila label="Objetivo" valor={profile.objetivo ? OBJETIVO_LABEL[profile.objetivo] : "-"} />
           <Fila
             label="Actividad física"
@@ -142,17 +153,16 @@ export function DatosPersonales({
           />
           <input type="hidden" name="sexo" value={sexo} />
         </div>
-        <div className="flex w-28 flex-col gap-1.5">
-          <label htmlFor="edad" className={labelClass}>
-            Edad
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <label htmlFor="fecha_nacimiento" className={labelClass}>
+            Fecha de nacimiento
           </label>
           <input
-            id="edad"
-            name="edad"
-            type="number"
-            min={12}
-            max={100}
-            defaultValue={profile?.edad ?? ""}
+            id="fecha_nacimiento"
+            name="fecha_nacimiento"
+            type="date"
+            max={hoyISO()}
+            defaultValue={profile?.fecha_nacimiento ?? ""}
             required
             className={fieldClass}
           />

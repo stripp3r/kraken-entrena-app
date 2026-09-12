@@ -15,15 +15,13 @@ export async function guardarPerfil(formData: FormData) {
     redirect("/login");
   }
 
-  const edadRaw = formData.get("edad") as string;
-
   const { error } = await supabase
     .from("profiles")
     .update({
       nombre: formData.get("nombre") as string,
       apellido: formData.get("apellido") as string,
       sexo: formData.get("sexo") as string,
-      edad: edadRaw ? Number(edadRaw) : null,
+      fecha_nacimiento: (formData.get("fecha_nacimiento") as string) || null,
       objetivo: formData.get("objetivo") as string,
       actividad_fisica: formData.get("actividad_fisica") as string,
       updated_at: new Date().toISOString(),
