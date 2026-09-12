@@ -47,7 +47,7 @@ export function SelectorPlanGolden({
           }`}
         >
           <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-400 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-black">
-            Ahorrás ~25%
+            Ahorrás ~35%
           </span>
           <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">Anual</p>
           {anual?.usd && (
