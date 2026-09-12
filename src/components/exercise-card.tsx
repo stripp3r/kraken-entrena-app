@@ -29,6 +29,7 @@ type Exercise = {
   imagen_url: string | null;
   video_url: string | null;
   como_hacerlo: string | null;
+  series_reps: string | null;
   alternativa: ExerciseAlternativa | null;
 };
 
@@ -193,6 +194,9 @@ export function ExerciseCard({
         )}
         <div>
           <h2 className="text-sm font-medium leading-tight text-white">{exercise.nombre}</h2>
+          {exercise.series_reps && (
+            <p className="mt-0.5 text-[11px] text-gray-500">{exercise.series_reps}</p>
+          )}
           {sesionEnCurso && (
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
               {exercise.como_hacerlo && (

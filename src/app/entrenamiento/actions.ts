@@ -124,7 +124,21 @@ export async function cambiarRutinaActiva(routineId: number) {
     return { ok: true };
   }
 
-  if (!esPremium(profile)) {
+  const { data: rutina } = await supabase
+    .from("routines")
+    .select("es_privada")
+    .eq("id", routineId)
+    .maybeSingle();
+
+  if (!rutina) {
+    return { error: "Esa rutina no existe." };
+  }
+
+  // Las rutinas privadas (armadas a medida para una sola cuenta) siempre
+  // necesitan acceso explícito, sin importar si el usuario es premium --
+  // si no, cualquier cuenta Golden podría "adivinar" el id y cambiarse a
+  // una rutina que no le pertenece.
+  if (rutina.es_privada || !esPremium(profile)) {
     const { data: acceso } = await supabase
       .from("profile_routine_access")
       .select("routine_id")

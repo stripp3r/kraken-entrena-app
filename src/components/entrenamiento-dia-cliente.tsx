@@ -32,6 +32,7 @@ export type ExerciseFull = {
   imagen_url: string | null;
   video_url: string | null;
   como_hacerlo: string | null;
+  series_reps: string | null;
   alternativa: ExerciseAlternativa | null;
   unilateral: boolean;
   tipoEsfuerzo: TipoEsfuerzo;

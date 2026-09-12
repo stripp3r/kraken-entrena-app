@@ -30,7 +30,7 @@ export default async function DiaEntrenamientoPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("routine_id")
+    .select("routine_id, sexo")
     .eq("id", user.id)
     .single();
 
@@ -44,7 +44,7 @@ export default async function DiaEntrenamientoPage({
     supabase
       .from("routine_exercises")
       .select(
-        "orden, exercise_definition_id, exercise_definitions(nombre, video_url, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo)"
+        "orden, exercise_definition_id, series_reps, exercise_definitions(nombre, video_url, video_url_fem, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo)"
       )
       .eq("dia", dia)
       .eq("routine_id", profile.routine_id)
@@ -66,12 +66,15 @@ export default async function DiaEntrenamientoPage({
       const def = Array.isArray(re.exercise_definitions)
         ? re.exercise_definitions[0]
         : re.exercise_definitions;
+      const videoUrl =
+        profile.sexo === "femenino" ? def?.video_url_fem ?? def?.video_url ?? null : def?.video_url ?? null;
       return {
         id: re.exercise_definition_id as number,
         nombre: def?.nombre ?? "",
-        video_url: def?.video_url ?? null,
+        video_url: videoUrl,
         imagen_url: def?.imagen_url ?? null,
         como_hacerlo: def?.como_hacerlo ?? null,
+        series_reps: re.series_reps ?? null,
         alternativa_id: def?.alternativa_id ?? null,
         unilateral: def?.unilateral ?? false,
         tipo_esfuerzo: def?.tipo_esfuerzo ?? "compuesto",
@@ -141,6 +144,7 @@ export default async function DiaEntrenamientoPage({
               imagen_url: ex.imagen_url,
               video_url: ex.video_url,
               como_hacerlo: ex.como_hacerlo,
+              series_reps: ex.series_reps,
               alternativa: ex.alternativa_id ? alternativaPorId.get(ex.alternativa_id) ?? null : null,
               unilateral: ex.unilateral,
               tipoEsfuerzo: ex.tipo_esfuerzo as "compuesto" | "aislado",
