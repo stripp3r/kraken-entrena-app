@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { diasRestantesTrial } from "@/lib/premium";
+import { SelectorPlanGolden } from "@/components/selector-plan-golden";
 
 const INCLUYE = [
   "Todas las rutinas del catálogo (y las que se sumen)",
@@ -13,37 +14,6 @@ const INCLUYE = [
 ];
 
 type PrecioPlan = { precio_ars: number | null; precio_usd: number | null; activo: boolean | null };
-
-function BotonesPago({
-  frecuencia,
-  tieneArs,
-  tieneUsd,
-}: {
-  frecuencia: "anual" | "mensual";
-  tieneArs: boolean;
-  tieneUsd: boolean;
-}) {
-  return (
-    <div className="mt-3 flex flex-col gap-2">
-      {tieneArs && (
-        <a
-          href={`/api/checkout/golden/mercadopago?frecuencia=${frecuencia}`}
-          className="w-full rounded-full bg-[#009ee3] px-5 py-2.5 text-center text-sm font-medium text-white"
-        >
-          Suscribirme con Mercado Pago
-        </a>
-      )}
-      {tieneUsd && (
-        <a
-          href={`/api/checkout/golden/paypal?frecuencia=${frecuencia}`}
-          className="w-full rounded-full bg-[#ffc439] px-5 py-2.5 text-center text-sm font-medium text-[#003087]"
-        >
-          Suscribirme con PayPal
-        </a>
-      )}
-    </div>
-  );
-}
 
 export default async function GoldenPage() {
   const supabase = await createClient();
@@ -119,7 +89,12 @@ export default async function GoldenPage() {
               ))}
             </ul>
 
-            {!anualListo && !mensualListo && (
+            {anualListo || mensualListo ? (
+              <SelectorPlanGolden
+                mensual={mensualListo ? { ars: mensual!.precio_ars, usd: mensual!.precio_usd } : null}
+                anual={anualListo ? { ars: anual!.precio_ars, usd: anual!.precio_usd } : null}
+              />
+            ) : (
               <>
                 <p className="mb-4 text-center text-xs text-gray-500">
                   La suscripción va a estar disponible muy pronto.
@@ -132,66 +107,6 @@ export default async function GoldenPage() {
                   Suscribirme (próximamente)
                 </button>
               </>
-            )}
-
-            {anualListo && (
-              <div className="relative mb-3 rounded-lg border-2 border-amber-400/60 bg-bg-card px-4 pb-4 pt-5 text-center">
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-400 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
-                  Recomendado · ahorrás ~25%
-                </span>
-
-                {anual?.precio_usd && (
-                  <p className="text-2xl font-bold text-white">
-                    USD {anual.precio_usd}
-                    <span className="text-sm font-normal text-gray-400">/año</span>
-                  </p>
-                )}
-                {anual?.precio_usd && (
-                  <p className="mb-1 text-xs text-gray-500">
-                    equivale a USD {(anual.precio_usd / 12).toFixed(2)}/mes
-                  </p>
-                )}
-                {anual?.precio_ars && (
-                  <p className="mt-2 text-lg font-medium text-white">
-                    ${anual.precio_ars.toLocaleString("es-AR")} ARS
-                    <span className="text-sm font-normal text-gray-400">/año</span>
-                  </p>
-                )}
-                {anual?.precio_ars && (
-                  <p className="text-xs text-gray-500">
-                    equivale a ${Math.round(anual.precio_ars / 12).toLocaleString("es-AR")} ARS/mes
-                  </p>
-                )}
-
-                <BotonesPago
-                  frecuencia="anual"
-                  tieneArs={Boolean(anual?.precio_ars)}
-                  tieneUsd={Boolean(anual?.precio_usd)}
-                />
-              </div>
-            )}
-
-            {mensualListo && (
-              <div className="rounded-lg border border-border bg-bg-card px-4 py-4 text-center">
-                <p className="mb-1 text-sm text-gray-400">¿Preferís pagar mes a mes?</p>
-                {mensual?.precio_usd && (
-                  <p className="text-lg font-medium text-white">
-                    USD {mensual.precio_usd}
-                    <span className="text-sm font-normal text-gray-400">/mes</span>
-                  </p>
-                )}
-                {mensual?.precio_ars && (
-                  <p className="text-sm text-gray-300">
-                    ${mensual.precio_ars.toLocaleString("es-AR")} ARS/mes
-                  </p>
-                )}
-
-                <BotonesPago
-                  frecuencia="mensual"
-                  tieneArs={Boolean(mensual?.precio_ars)}
-                  tieneUsd={Boolean(mensual?.precio_usd)}
-                />
-              </div>
             )}
           </>
         )}
