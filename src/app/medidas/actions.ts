@@ -14,6 +14,7 @@ export type MedicionInput = {
   caderas: number | null;
   muslos: number | null;
   gemelos: number | null;
+  muneca: number | null;
 };
 
 export async function guardarMedicion(medicion: MedicionInput) {

@@ -18,12 +18,20 @@ export default async function ProgresoSaludPage() {
     supabase.from("profiles").select("sexo").eq("id", user.id).single(),
     supabase
       .from("body_measurements")
-      .select("fecha, peso, altura, cuello, cintura, caderas")
+      .select("fecha, peso, altura, cuello, cintura, caderas, muneca")
       .eq("user_id", user.id)
       .order("fecha", { ascending: true }),
   ]);
 
   const genero = profile?.sexo === "femenino" ? "femenino" : "masculino";
+
+  // Contextura/peso ideal es un dato que casi no cambia (a diferencia del
+  // resto de Salud, que sí se recalcula por cada medición): se toma la
+  // muñeca más reciente cargada (puede venir de una medición vieja) junto
+  // con el peso más reciente en general.
+  const filas = historial ?? [];
+  const filaConMuneca = [...filas].reverse().find((m) => m.altura != null && m.muneca != null);
+  const pesoActual = [...filas].reverse().find((m) => m.peso != null)?.peso ?? null;
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -38,7 +46,15 @@ export default async function ProgresoSaludPage() {
           Evolución de tus valores de salud a partir de tus medidas cargadas.
         </p>
 
-        <ProgresoSalud historial={historial ?? []} genero={genero} />
+        <ProgresoSalud
+          historial={historial ?? []}
+          genero={genero}
+          contextura={
+            filaConMuneca
+              ? { altura: filaConMuneca.altura!, muneca: filaConMuneca.muneca!, pesoActual }
+              : null
+          }
+        />
       </div>
     </main>
   );

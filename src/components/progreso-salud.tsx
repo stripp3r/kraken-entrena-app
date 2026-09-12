@@ -16,6 +16,7 @@ import {
   type Genero,
   type MedicionSalud,
 } from "@/lib/salud";
+import { calcularContexturaYPesoIdeal } from "@/lib/contextura";
 
 type Medicion = MedicionSalud & { fecha: string };
 
@@ -112,13 +113,18 @@ function PanelMetrica({
 export function ProgresoSalud({
   historial,
   genero,
+  contextura,
 }: {
   historial: Medicion[];
   genero: Genero;
+  contextura: { altura: number; muneca: number; pesoActual: number | null } | null;
 }) {
   const conDatos = historial.filter(tieneDatosSuficientes);
+  const datosContextura = contextura
+    ? calcularContexturaYPesoIdeal(contextura.altura, contextura.muneca, genero)
+    : null;
 
-  if (conDatos.length === 0) {
+  if (conDatos.length === 0 && !datosContextura) {
     return (
       <div className="rounded-lg border border-border bg-bg-card p-4 text-center">
         <p className="text-sm text-gray-500">
@@ -181,6 +187,33 @@ export function ProgresoSalud({
       <PanelMetrica titulo="Grasa corporal (%)" puntos={grasaPuntos} sufijo="%" />
       <PanelMetrica titulo="Masa magra" puntos={masaMagraPuntos} sufijo=" kg" />
       <PanelMetrica titulo="Índice de grasa visceral" puntos={indicePuntos} decimales={2} />
+
+      {datosContextura && (
+        <div className="rounded-lg border border-border bg-bg-card p-4">
+          <h3 className="mb-3 text-white">Contextura y peso ideal</h3>
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="flex justify-between border-b border-border pb-2">
+              <span className="text-gray-500">Contextura</span>
+              <span className="text-white">{datosContextura.contextura}</span>
+            </div>
+            <div className="flex justify-between border-b border-border pb-2">
+              <span className="text-gray-500">Peso ideal aproximado</span>
+              <span className="text-white">{datosContextura.pesoIdealKg} kg</span>
+            </div>
+            {contextura?.pesoActual != null && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Tu peso actual</span>
+                <span className="text-white">{contextura.pesoActual} kg</span>
+              </div>
+            )}
+          </div>
+          <p className="mt-3 border-t border-border pt-2 text-xs text-gray-500">
+            Calculado a partir de tu altura y la circunferencia de tu muñeca
+            (indicador del tamaño de tu esqueleto). No cambia con el
+            entrenamiento, así que no hace falta volver a cargarlo seguido.
+          </p>
+        </div>
+      )}
 
       <p className="rounded-lg border border-border bg-bg-card p-4 text-xs text-gray-500">
         <strong className="text-gray-400">Importante:</strong> estos valores
