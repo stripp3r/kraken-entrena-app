@@ -4,10 +4,16 @@
 //
 // Uso:
 //   node scripts/asignar-gifs.js "ruta/a/una/carpeta/con/gifs"
+//   node scripts/asignar-gifs.js "ruta/a/una/carpeta/con/gifs" --force
 //
 // Cada archivo de la carpeta tiene que llamarse EXACTAMENTE como el
 // ejercicio en la base (mismo criterio que ya usamos para los videos), por
 // ejemplo:  "Meadows Row.gif",  "Curl femoral.gif"
+//
+// Por default NUNCA pisa un ejercicio que ya tiene imagen_url cargada --
+// lo sube al bucket igual (por si querés tenerlo ahí) pero no lo enlaza, y
+// avisa "ya tenía GIF, no se tocó". Usá --force solo si de verdad querés
+// reemplazar el GIF existente de ese ejercicio.
 //
 // Requiere que .env.local tenga, además de NEXT_PUBLIC_SUPABASE_URL, la
 // variable SUPABASE_SERVICE_ROLE_KEY (Supabase Dashboard -> Settings ->
@@ -48,8 +54,9 @@ async function main() {
   }
 
   const carpeta = process.argv[2];
+  const forzar = process.argv.includes("--force");
   if (!carpeta) {
-    console.error('Uso: node scripts/asignar-gifs.js "ruta/a/carpeta"');
+    console.error('Uso: node scripts/asignar-gifs.js "ruta/a/carpeta" [--force]');
     process.exit(1);
   }
 
@@ -79,16 +86,34 @@ async function main() {
 
     const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(archivo);
 
-    const { data: actualizados, error: dbError } = await supabase
+    const { data: existente, error: buscarError } = await supabase
+      .from("exercise_definitions")
+      .select("id, imagen_url")
+      .eq("nombre", nombreEjercicio)
+      .maybeSingle();
+
+    if (buscarError) {
+      console.error(`✗ ${nombreEjercicio}: error buscando el ejercicio -- ${buscarError.message}`);
+      continue;
+    }
+
+    if (!existente) {
+      console.warn(`⚠ "${nombreEjercicio}" no coincide con ningún ejercicio de la base -- revisá el nombre del archivo. (Igual se subió al bucket.)`);
+      continue;
+    }
+
+    if (existente.imagen_url && !forzar) {
+      console.log(`- ${nombreEjercicio}: ya tenía GIF, no se tocó (usá --force para reemplazarlo)`);
+      continue;
+    }
+
+    const { error: dbError } = await supabase
       .from("exercise_definitions")
       .update({ imagen_url: pub.publicUrl })
-      .eq("nombre", nombreEjercicio)
-      .select("id");
+      .eq("id", existente.id);
 
     if (dbError) {
       console.error(`✗ ${nombreEjercicio}: se subió el archivo pero no pude enlazarlo -- ${dbError.message}`);
-    } else if (!actualizados || actualizados.length === 0) {
-      console.warn(`⚠ "${nombreEjercicio}" no coincide con ningún ejercicio de la base -- revisá el nombre del archivo.`);
     } else {
       console.log(`✓ ${nombreEjercicio}`);
     }
