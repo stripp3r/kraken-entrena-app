@@ -42,6 +42,32 @@ create policy "usuarios logueados leen rutinas"
 alter table public.routine_exercises
   add column if not exists series_reps text;
 
+-- ============ RLS EN ROUTINE_EXERCISES (faltaba desde siempre) ============
+-- Sin esto, el contenido de CUALQUIER rutina (incluida una privada) queda
+-- legible por cualquier usuario logueado que consulte la tabla directamente,
+-- sin pasar por el filtro de "routines". La regla espeja exactamente la
+-- policy de "routines": un ejercicio de rutina es visible si su rutina no es
+-- privada, o si el usuario tiene acceso explícito a esa rutina.
+alter table public.routine_exercises enable row level security;
+
+drop policy if exists "usuarios logueados leen ejercicios de rutina" on public.routine_exercises;
+create policy "usuarios logueados leen ejercicios de rutina"
+  on public.routine_exercises for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.routines r
+      where r.id = routine_exercises.routine_id
+        and (
+          not r.es_privada
+          or exists (
+            select 1 from public.profile_routine_access pra
+            where pra.user_id = auth.uid() and pra.routine_id = r.id
+          )
+        )
+    )
+  );
+
 -- ============ EJERCICIOS NUEVOS ============
 -- (los que no tenían equivalente exacto en el catálogo existente)
 
