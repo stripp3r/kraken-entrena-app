@@ -76,7 +76,7 @@ export function CardioCliente({
         </div>
 
         <div className="flex gap-3">
-          <div className="flex flex-1 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <label htmlFor="cardio-min" className="text-sm text-gray-300">
               Minutos
             </label>
@@ -87,12 +87,12 @@ export function CardioCliente({
               min={1}
               value={minutos}
               onChange={(e) => setMinutos(e.target.value)}
-              className="rounded-lg border border-border bg-bg px-3 py-2.5 text-white outline-none focus:border-border-strong"
+              className="w-full min-w-0 rounded-lg border border-border bg-bg px-3 py-2.5 text-white outline-none focus:border-border-strong"
             />
           </div>
-          <div className="flex flex-1 flex-col gap-1.5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <label htmlFor="cardio-km" className="text-sm text-gray-300">
-              Km <span className="text-gray-600">(opcional)</span>
+              Km <span className="text-gray-600">(opc.)</span>
             </label>
             <input
               id="cardio-km"
@@ -102,7 +102,7 @@ export function CardioCliente({
               step="0.1"
               value={km}
               onChange={(e) => setKm(e.target.value)}
-              className="rounded-lg border border-border bg-bg px-3 py-2.5 text-white outline-none focus:border-border-strong"
+              className="w-full min-w-0 rounded-lg border border-border bg-bg px-3 py-2.5 text-white outline-none focus:border-border-strong"
             />
           </div>
         </div>

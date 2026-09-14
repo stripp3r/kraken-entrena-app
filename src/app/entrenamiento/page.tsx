@@ -51,8 +51,16 @@ export default async function EntrenamientoPage() {
         />
 
         <Link
-          href="/entrenamiento/cardio"
+          href="/entrenamiento/rutinas"
           className="mt-8 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+        >
+          <img src="/section-icons/rutinas-adquiridas.png" alt="" className="h-14 w-14 rounded-xl" />
+          Rutinas adquiridas
+        </Link>
+
+        <Link
+          href="/entrenamiento/cardio"
+          className="mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
         >
           <img src="/section-icons/cardio.png" alt="" className="h-14 w-14 rounded-xl" />
           Cardio
