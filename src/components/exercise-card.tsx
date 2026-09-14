@@ -257,7 +257,7 @@ export function ExerciseCard({
               muted
               loop
               playsInline
-              className="mb-3 h-40 w-full rounded-md bg-black object-contain"
+              className="mb-3 max-h-[70vh] w-full rounded-md bg-black object-contain"
             />
           )}
           <p className="whitespace-pre-line text-sm text-gray-300">{exercise.como_hacerlo}</p>
