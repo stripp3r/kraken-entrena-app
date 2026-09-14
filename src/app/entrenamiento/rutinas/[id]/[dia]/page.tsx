@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
-import { EjercicioPreviewCard } from "@/components/ejercicio-preview-card";
+import { ExerciseCard } from "@/components/exercise-card";
 import { CambiarAEstaRutinaBoton } from "@/components/cambiar-a-esta-rutina-boton";
 import { esPremium } from "@/lib/premium";
 
@@ -76,6 +76,7 @@ export default async function RutinaPreviewDiaPage({
       video_url: videoUrl,
       como_hacerlo: def?.como_hacerlo ?? null,
       series_reps: re.series_reps ?? null,
+      alternativa: null,
     };
   });
 
@@ -94,9 +95,9 @@ export default async function RutinaPreviewDiaPage({
             Todavía no hay ejercicios cargados para este día.
           </p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {exercises.map((ex) => (
-              <EjercicioPreviewCard key={ex.id} ejercicio={ex} />
+              <ExerciseCard key={ex.id} exercise={ex} logsDeHoy={[]} compacto />
             ))}
           </div>
         )}
