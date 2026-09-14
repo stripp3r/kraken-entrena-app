@@ -83,7 +83,6 @@ export function ExerciseCard({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editRow, setEditRow] = useState(emptyRow);
   const [mostrarComoHacerlo, setMostrarComoHacerlo] = useState(false);
-  const [mostrarVideo, setMostrarVideo] = useState(false);
   const [mostrarAlternativa, setMostrarAlternativa] = useState(false);
 
   // La tarjeta nunca se desmonta durante la sesión (solo cambian sus props),
@@ -209,15 +208,6 @@ export function ExerciseCard({
                   {mostrarComoHacerlo ? "Ocultar" : "¿Cómo hacerlo?"}
                 </button>
               )}
-              {exercise.video_url && (
-                <button
-                  type="button"
-                  onClick={() => setMostrarVideo((v) => !v)}
-                  className="text-xs text-gray-400 underline"
-                >
-                  {mostrarVideo ? "Ocultar video" : "Ver video"}
-                </button>
-              )}
               {exercise.alternativa && (
                 <button
                   type="button"
@@ -259,20 +249,18 @@ export function ExerciseCard({
 
       {mostrarComoHacerlo && exercise.como_hacerlo && (
         <div className="mt-3 rounded-md bg-bg p-3">
+          {exercise.video_url && (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <video
+              src={exercise.video_url}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="mb-3 h-40 w-full rounded-md bg-black object-contain"
+            />
+          )}
           <p className="whitespace-pre-line text-sm text-gray-300">{exercise.como_hacerlo}</p>
-        </div>
-      )}
-
-      {mostrarVideo && exercise.video_url && (
-        <div className="mt-3 overflow-hidden rounded-md bg-black">
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video
-            src={exercise.video_url}
-            controls
-            playsInline
-            preload="metadata"
-            className="w-full"
-          />
         </div>
       )}
 
