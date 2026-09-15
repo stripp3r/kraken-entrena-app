@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
@@ -36,7 +37,7 @@ export default async function HistorialPage() {
 
   const { data: historial } = await supabase
     .from("profile_routine_history")
-    .select("id, fecha_inicio, fecha_fin, routines(nombre, dias)")
+    .select("id, routine_id, fecha_inicio, fecha_fin, routines(nombre, dias)")
     .eq("user_id", user.id)
     .order("fecha_inicio", { ascending: false });
 
@@ -61,20 +62,22 @@ export default async function HistorialPage() {
           <div className="flex flex-col gap-3">
             {historial.map((h) => {
               const rutina = Array.isArray(h.routines) ? h.routines[0] : h.routines;
-              return (
-                <div
-                  key={h.id}
-                  className="rounded-lg border border-border bg-bg-card px-4 py-3"
-                >
-                  <div className="flex items-center justify-between">
+              const contenido = (
+                <>
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-white">
                       {rutina ? `${rutina.nombre} (${rutina.dias} días)` : "Rutina"}
                     </span>
-                    {!h.fecha_fin && (
-                      <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
-                        Activa
-                      </span>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {!h.fecha_fin && (
+                        <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+                          Activa
+                        </span>
+                      )}
+                      {h.routine_id && (
+                        <span className="text-2xl font-light leading-none text-gray-500">›</span>
+                      )}
+                    </div>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
                     Desde el {fechaLegible(h.fecha_inicio)}
@@ -83,6 +86,20 @@ export default async function HistorialPage() {
                   <p className="mt-0.5 text-xs text-gray-600">
                     {duracionLegible(h.fecha_inicio, h.fecha_fin)} de uso
                   </p>
+                </>
+              );
+
+              return h.routine_id ? (
+                <Link
+                  key={h.id}
+                  href={`/entrenamiento/rutinas/${h.routine_id}`}
+                  className="rounded-lg border border-border bg-bg-card px-4 py-3 transition-colors hover:border-border-strong active:bg-bg"
+                >
+                  {contenido}
+                </Link>
+              ) : (
+                <div key={h.id} className="rounded-lg border border-border bg-bg-card px-4 py-3">
+                  {contenido}
                 </div>
               );
             })}
