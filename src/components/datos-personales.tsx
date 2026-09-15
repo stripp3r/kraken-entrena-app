@@ -48,9 +48,9 @@ const ACTIVIDAD_LABEL: Record<string, string> = {
 
 // Etiqueta larga -- solo para el selector, donde ayuda a elegir bien.
 const OBJETIVO_LABEL_ELEGIR: Record<string, string> = {
-  superavit: "Superávit (comer un poco más para ganar músculo)",
-  mantenimiento: "Mantenimiento (seguir igual, sin buscar cambios)",
-  definicion: "Definición (comer un poco menos para bajar grasa)",
+  superavit: "Superávit (comer más calorías de las que gastás, para ganar músculo)",
+  mantenimiento: "Mantenimiento (comer las calorías que gastás, sin buscar cambios)",
+  definicion: "Definición (comer menos calorías de las que gastás, para bajar grasa)",
 };
 const ACTIVIDAD_LABEL_ELEGIR: Record<string, string> = {
   poca_o_nula: "Poca o nula (trabajo de oficina, casi no caminás)",
