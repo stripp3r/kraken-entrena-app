@@ -23,6 +23,12 @@ type ExerciseAlternativa = {
   como_hacerlo: string | null;
 };
 
+type Sugerencia = {
+  pesoAnterior: number;
+  repsAnterior: number;
+  pesoSugerido: number | null;
+};
+
 type Exercise = {
   id: number;
   nombre: string;
@@ -31,6 +37,7 @@ type Exercise = {
   como_hacerlo: string | null;
   series_reps: string | null;
   alternativa: ExerciseAlternativa | null;
+  sugerencia?: Sugerencia | null;
 };
 
 export type SesionActiva = {
@@ -290,6 +297,16 @@ export function ExerciseCard({
 
       {sesion && (
         <>
+          {exercise.sugerencia && (
+            <div className="mt-3 rounded-md border border-sky-500/30 bg-sky-500/10 p-3">
+              <p className="text-xs text-sky-300">
+                Última vez: {exercise.sugerencia.pesoAnterior}kg × {exercise.sugerencia.repsAnterior}
+                {exercise.sugerencia.pesoSugerido !== null && (
+                  <> — sugerencia orientativa hoy: ~{exercise.sugerencia.pesoSugerido}kg</>
+                )}
+              </p>
+            </div>
+          )}
           {logsDeHoy.length > 0 && (
             <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3">
               <p className="text-[11px] uppercase tracking-wide text-gray-500">Hoy</p>

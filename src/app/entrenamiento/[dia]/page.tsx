@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EntrenamientoDiaCliente } from "@/components/entrenamiento-dia-cliente";
 import { BackLink } from "@/components/back-link";
 import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
+import { ultimoTopSet, pesoSugerido } from "@/lib/analytics";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -87,7 +88,17 @@ export default async function DiaEntrenamientoPage({
     ...new Set(exercises.map((e) => e.alternativa_id).filter((id): id is number => id !== null)),
   ];
 
-  const [{ data: alternativas }, { data: logsHoy }] = await Promise.all([
+  const { data: stintActivo } = await supabase
+    .from("profile_routine_history")
+    .select("fecha_inicio")
+    .eq("user_id", user.id)
+    .is("fecha_fin", null)
+    .maybeSingle();
+  const desdeStint = stintActivo?.fecha_inicio
+    ? inicioDelDiaArgentinaUTC(stintActivo.fecha_inicio).toISOString()
+    : null;
+
+  const [{ data: alternativas }, { data: logsHoy }, { data: logsPrevios }] = await Promise.all([
     alternativaIds.length
       ? supabase
           .from("exercise_definitions")
@@ -115,7 +126,40 @@ export default async function DiaEntrenamientoPage({
             created_at: string;
           }[],
         }),
+    exerciseIds.length
+      ? (() => {
+          let query = supabase
+            .from("workout_logs")
+            .select("exercise_definition_id, peso, reps, created_at")
+            .eq("user_id", user.id)
+            .in("exercise_definition_id", exerciseIds)
+            .lt("created_at", hoyInicio.toISOString())
+            .order("created_at", { ascending: true });
+          if (desdeStint) query = query.gte("created_at", desdeStint);
+          return query;
+        })()
+      : Promise.resolve({
+          data: [] as { exercise_definition_id: number | null; peso: number | null; reps: number | null; created_at: string }[],
+        }),
   ]);
+
+  const sugerenciaPorEjercicio = new Map<
+    number,
+    { pesoAnterior: number; repsAnterior: number; pesoSugerido: number | null }
+  >();
+  for (const ex of exercises) {
+    const logsDelEjercicio = (logsPrevios ?? [])
+      .filter((l) => l.exercise_definition_id === ex.id)
+      .map((l) => ({ peso: l.peso, reps: l.reps, created_at: l.created_at }));
+    const ultimo = ultimoTopSet(logsDelEjercicio);
+    if (ultimo) {
+      sugerenciaPorEjercicio.set(ex.id, {
+        pesoAnterior: ultimo.peso,
+        repsAnterior: ultimo.reps,
+        pesoSugerido: pesoSugerido(logsDelEjercicio),
+      });
+    }
+  }
 
   const alternativaPorId = new Map((alternativas ?? []).map((a) => [a.id, a]));
 
@@ -148,6 +192,7 @@ export default async function DiaEntrenamientoPage({
               alternativa: ex.alternativa_id ? alternativaPorId.get(ex.alternativa_id) ?? null : null,
               unilateral: ex.unilateral,
               tipoEsfuerzo: ex.tipo_esfuerzo as "compuesto" | "aislado",
+              sugerencia: sugerenciaPorEjercicio.get(ex.id) ?? null,
             }))}
             logsPorEjercicio={Object.fromEntries(
               exercises.map((ex) => [

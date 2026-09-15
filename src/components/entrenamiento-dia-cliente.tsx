@@ -8,7 +8,18 @@ import { segundosEntreLados, segundosEntreSeries, type Lado, type TipoEsfuerzo }
 import { prepararAlertas } from "@/lib/sonido";
 import { hoyISO } from "@/lib/fecha";
 
-const OBJETIVO_SERIES = 3;
+const OBJETIVO_SERIES_DEFAULT = 3;
+
+// Saca la cantidad de series recomendadas del texto de series_reps
+// (ej. "4 x 5-8" -> 4, "3-4 x 8-12 por pierna" -> 3, el mínimo del rango).
+// Si el ejercicio no tiene esa recomendación cargada (rutinas viejas sin
+// series_reps), se usa el default de siempre.
+function seriesObjetivoDe(seriesReps: string | null): number {
+  if (!seriesReps) return OBJETIVO_SERIES_DEFAULT;
+  const match = seriesReps.match(/^(\d+)/);
+  const n = match ? Number(match[1]) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : OBJETIVO_SERIES_DEFAULT;
+}
 
 type ExerciseAlternativa = {
   id: number;
@@ -26,6 +37,12 @@ type WorkoutLog = {
   created_at: string;
 };
 
+export type Sugerencia = {
+  pesoAnterior: number;
+  repsAnterior: number;
+  pesoSugerido: number | null;
+};
+
 export type ExerciseFull = {
   id: number;
   nombre: string;
@@ -36,6 +53,7 @@ export type ExerciseFull = {
   alternativa: ExerciseAlternativa | null;
   unilateral: boolean;
   tipoEsfuerzo: TipoEsfuerzo;
+  sugerencia: Sugerencia | null;
 };
 
 function contarSeriesCompletas(ex: ExerciseFull, logs: WorkoutLog[]): number {
@@ -75,7 +93,7 @@ export function EntrenamientoDiaCliente({
 
   const activo = exercises.find((e) => e.id === activoId);
   const seriesCompletas = activo ? contarSeriesCompletas(activo, logsPorEjercicio[activo.id] ?? []) : 0;
-  const listoParaOtro = seriesCompletas >= OBJETIVO_SERIES;
+  const listoParaOtro = seriesCompletas >= seriesObjetivoDe(activo?.series_reps ?? null);
 
   function iniciar() {
     prepararAlertas();

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProgresoAnalitica } from "@/components/progreso-analitica";
 import { BackLink } from "@/components/back-link";
 import type { SetLog } from "@/lib/analytics";
+import { inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -63,13 +64,31 @@ export default async function ProgresoPage() {
 
   const exerciseIds = exercises.map((e) => e.id);
 
+  // El análisis es sobre ESTA rutina activa, no sobre toda la vida del
+  // ejercicio -- si el mismo ejercicio ya se usó en una rutina anterior
+  // (de prueba o real), ese historial viejo no tiene que mezclarse acá.
+  const { data: stintActivo } = await supabase
+    .from("profile_routine_history")
+    .select("fecha_inicio")
+    .eq("user_id", user.id)
+    .is("fecha_fin", null)
+    .maybeSingle();
+
+  const desde = stintActivo?.fecha_inicio
+    ? inicioDelDiaArgentinaUTC(stintActivo.fecha_inicio).toISOString()
+    : null;
+
   const { data: logs } = exerciseIds.length
-    ? await supabase
-        .from("workout_logs")
-        .select("exercise_definition_id, peso, reps, created_at")
-        .eq("user_id", user.id)
-        .in("exercise_definition_id", exerciseIds)
-        .order("created_at", { ascending: true })
+    ? await (() => {
+        let query = supabase
+          .from("workout_logs")
+          .select("exercise_definition_id, peso, reps, created_at")
+          .eq("user_id", user.id)
+          .in("exercise_definition_id", exerciseIds)
+          .order("created_at", { ascending: true });
+        if (desde) query = query.gte("created_at", desde);
+        return query;
+      })()
     : {
         data: [] as {
           exercise_definition_id: number | null;

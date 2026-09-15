@@ -107,6 +107,25 @@ export function calcularEstadisticasEjercicio(logs: SetLog[]): EstadisticasEjerc
   };
 }
 
+// Último top-set registrado (el de la sesión más reciente), para mostrar
+// "la última vez hiciste X" al arrancar un ejercicio -- y de ahí calcular
+// una sugerencia orientativa de sobrecarga progresiva.
+export function ultimoTopSet(logs: SetLog[]): SetValido | null {
+  const sets = topSetsPorDia(aSetsValidos(logs));
+  return sets.length ? sets[sets.length - 1] : null;
+}
+
+// Sugerencia orientativa para la próxima sesión: 1%+ sobre el 10RM o el
+// 12RM estimado, según qué tan cerca estuvo el último top-set de ese rango
+// -- no es una regla estricta, es una referencia de hacia dónde progresar.
+export function pesoSugerido(logs: SetLog[]): number | null {
+  const ultimo = ultimoTopSet(logs);
+  if (!ultimo) return null;
+  const stats = calcularEstadisticasEjercicio(logs);
+  const meta = ultimo.reps <= 11 ? stats.meta10 : stats.meta12;
+  return meta !== null ? Math.round(meta * 10) / 10 : null;
+}
+
 export type PuntoSerie = { fecha: string; valor: number };
 
 export function serieDeUnaRM(logs: SetLog[]): PuntoSerie[] {
