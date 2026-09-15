@@ -32,20 +32,40 @@ const labelClass = "text-sm text-gray-300";
 
 const SEXO_LABEL: Record<string, string> = { femenino: "Femenino", masculino: "Masculino" };
 const OBJETIVO_LABEL: Record<string, string> = {
-  superavit: "Superávit (ganar masa)",
-  mantenimiento: "Mantenimiento",
-  definicion: "Definición",
+  superavit: "Superávit (comer un poco más para ganar músculo)",
+  mantenimiento: "Mantenimiento (seguir igual, sin buscar cambios)",
+  definicion: "Definición (comer un poco menos para bajar grasa)",
 };
 const ACTIVIDAD_LABEL: Record<string, string> = {
-  poca_o_nula: "Poca o nula",
-  ligera: "Ligera",
-  moderada: "Moderada",
-  muy_activo: "Muy activo",
-  extremo: "Extremo",
+  poca_o_nula: "Poca o nula (trabajo de oficina, casi no caminás)",
+  ligera: "Ligera (caminás algo, trabajo de pie ocasional)",
+  moderada: "Moderada (caminás bastante, trabajo físico liviano)",
+  muy_activo: "Muy activo (trabajo físico exigente o hacés otro deporte)",
+  extremo: "Extremo (trabajo físico muy demandante, muchas horas en movimiento)",
 };
 
 const opcionesDe = (mapa: Record<string, string>) =>
   Object.entries(mapa).map(([valor, label]) => ({ valor, label }));
+
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+].map((label, i) => ({ valor: String(i + 1).padStart(2, "0"), label }));
+
+const DIAS = Array.from({ length: 31 }, (_, i) => ({
+  valor: String(i + 1).padStart(2, "0"),
+  label: String(i + 1),
+}));
+
+function aniosOpciones() {
+  const actual = Number(hoyISO().slice(0, 4));
+  const anios = [];
+  for (let a = actual - 10; a >= actual - 100; a--) {
+    anios.push({ valor: String(a), label: String(a) });
+  }
+  return anios;
+}
+const ANIOS = aniosOpciones();
 
 export function DatosPersonales({
   profile,
@@ -62,8 +82,12 @@ export function DatosPersonales({
   const [sexo, setSexo] = useState(profile?.sexo ?? "");
   const [objetivo, setObjetivo] = useState(profile?.objetivo ?? "");
   const [actividadFisica, setActividadFisica] = useState(profile?.actividad_fisica ?? "");
+  const [diaNac, setDiaNac] = useState(profile?.fecha_nacimiento?.slice(8, 10) ?? "");
+  const [mesNac, setMesNac] = useState(profile?.fecha_nacimiento?.slice(5, 7) ?? "");
+  const [anioNac, setAnioNac] = useState(profile?.fecha_nacimiento?.slice(0, 4) ?? "");
+  const fechaNacimiento = diaNac && mesNac && anioNac ? `${anioNac}-${mesNac}-${diaNac}` : "";
 
-  const faltaAlgo = !sexo || !objetivo || !actividadFisica;
+  const faltaAlgo = !sexo || !objetivo || !actividadFisica || !fechaNacimiento;
 
   if (!editando && profile?.nombre) {
     return (
@@ -153,20 +177,37 @@ export function DatosPersonales({
           />
           <input type="hidden" name="sexo" value={sexo} />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <label htmlFor="fecha_nacimiento" className={labelClass}>
-            Fecha de nacimiento
-          </label>
-          <input
-            id="fecha_nacimiento"
-            name="fecha_nacimiento"
-            type="date"
-            max={hoyISO()}
-            defaultValue={profile?.fecha_nacimiento ?? ""}
-            required
-            className={fieldClass}
-          />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Fecha de nacimiento</label>
+        <div className="flex gap-3">
+          <div className="min-w-0 flex-1">
+            <SelectNativo
+              titulo="Día"
+              value={diaNac}
+              onChange={setDiaNac}
+              opciones={DIAS}
+            />
+          </div>
+          <div className="min-w-0 flex-[1.4]">
+            <SelectNativo
+              titulo="Mes"
+              value={mesNac}
+              onChange={setMesNac}
+              opciones={MESES}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <SelectNativo
+              titulo="Año"
+              value={anioNac}
+              onChange={setAnioNac}
+              opciones={ANIOS}
+            />
+          </div>
         </div>
+        <input type="hidden" name="fecha_nacimiento" value={fechaNacimiento} />
       </div>
 
       <div className="flex flex-col gap-1.5">

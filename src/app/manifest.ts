@@ -7,6 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Tu rutina, tu progreso y tus técnicas KRAKEN en el celular.",
     start_url: "/",
     display: "standalone",
+    orientation: "portrait",
     background_color: "#050505",
     theme_color: "#050505",
     icons: [
