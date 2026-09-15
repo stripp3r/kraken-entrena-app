@@ -23,19 +23,27 @@ export function RutinaHub({
       {rutinaActiva ? (
         <Link
           href="/entrenamiento/dias"
-          className="block rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-5 py-4 text-center transition-colors hover:border-emerald-500"
+          className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-5 py-4 transition-colors hover:border-emerald-500 active:bg-emerald-500/20"
         >
-          <p className="text-xs uppercase tracking-wide text-emerald-300">Tu rutina activa</p>
-          <p className="mt-1 text-lg font-medium text-white">
-            {rutinaActiva.nombre} ({rutinaActiva.dias} días)
-          </p>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-emerald-300">Tu rutina activa</p>
+            <p className="mt-1 text-lg font-medium text-white">
+              {rutinaActiva.nombre} ({rutinaActiva.dias} días)
+            </p>
+          </div>
+          <span className="shrink-0 text-sm text-emerald-300">Ver días →</span>
         </Link>
       ) : (
-        <div className="rounded-lg border border-border bg-bg-card px-5 py-4 text-center">
-          <p className="text-sm text-gray-400">
-            Todavía no tenés una rutina activa. Contactá a tu coach para que te asigne una.
-          </p>
-        </div>
+        <Link
+          href="/entrenamiento/rutinas"
+          className="flex items-center justify-between gap-3 rounded-lg border border-amber-400/60 bg-amber-400/10 px-5 py-4 transition-colors hover:border-amber-400 active:bg-amber-400/20"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-wide text-amber-300">Sin rutina activa</p>
+            <p className="mt-1 text-lg font-medium text-white">Elegí tu rutina</p>
+          </div>
+          <span className="shrink-0 text-sm text-amber-300">Ver rutinas →</span>
+        </Link>
       )}
 
       {paraAdquirir.length > 0 && (
