@@ -46,14 +46,18 @@ export default async function AlimentacionPage() {
               href="/alimentacion/calculadora"
               className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
             >
-              <img src="/section-icons/alimentacion.png" alt="" className="h-14 w-14 rounded-xl" />
+              <img
+                src="/section-icons/calculadora-calorias.png"
+                alt=""
+                className="h-14 w-14 rounded-xl"
+              />
               Calculadora de calorías
             </Link>
             <Link
               href="/alimentacion/guia"
               className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
             >
-              <img src="/section-icons/pdfs.png" alt="" className="h-14 w-14 rounded-xl" />
+              <img src="/section-icons/guia-alimenticia.png" alt="" className="h-14 w-14 rounded-xl" />
               Guía alimenticia
             </Link>
           </div>
