@@ -31,7 +31,7 @@ export function RutinaHub({
               {rutinaActiva.nombre} ({rutinaActiva.dias} días)
             </p>
           </div>
-          <span className="shrink-0 text-sm text-emerald-300">Ver días →</span>
+          <span className="shrink-0 text-3xl font-light text-emerald-300">›</span>
         </Link>
       ) : (
         <Link
@@ -42,7 +42,7 @@ export function RutinaHub({
             <p className="text-xs uppercase tracking-wide text-amber-300">Sin rutina activa</p>
             <p className="mt-1 text-lg font-medium text-white">Elegí tu rutina</p>
           </div>
-          <span className="shrink-0 text-sm text-amber-300">Ver rutinas →</span>
+          <span className="shrink-0 text-3xl font-light text-amber-300">›</span>
         </Link>
       )}
 
