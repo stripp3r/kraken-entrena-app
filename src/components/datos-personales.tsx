@@ -31,12 +31,28 @@ const fieldClass =
 const labelClass = "text-sm text-gray-300";
 
 const SEXO_LABEL: Record<string, string> = { femenino: "Femenino", masculino: "Masculino" };
+
+// Etiqueta corta -- se usa en la grilla de resumen (Perfil sin editar).
 const OBJETIVO_LABEL: Record<string, string> = {
+  superavit: "Superávit",
+  mantenimiento: "Mantenimiento",
+  definicion: "Definición",
+};
+const ACTIVIDAD_LABEL: Record<string, string> = {
+  poca_o_nula: "Poca o nula",
+  ligera: "Ligera",
+  moderada: "Moderada",
+  muy_activo: "Muy activo",
+  extremo: "Extremo",
+};
+
+// Etiqueta larga -- solo para el selector, donde ayuda a elegir bien.
+const OBJETIVO_LABEL_ELEGIR: Record<string, string> = {
   superavit: "Superávit (comer un poco más para ganar músculo)",
   mantenimiento: "Mantenimiento (seguir igual, sin buscar cambios)",
   definicion: "Definición (comer un poco menos para bajar grasa)",
 };
-const ACTIVIDAD_LABEL: Record<string, string> = {
+const ACTIVIDAD_LABEL_ELEGIR: Record<string, string> = {
   poca_o_nula: "Poca o nula (trabajo de oficina, casi no caminás)",
   ligera: "Ligera (caminás algo, trabajo de pie ocasional)",
   moderada: "Moderada (caminás bastante, trabajo físico liviano)",
@@ -219,7 +235,7 @@ export function DatosPersonales({
           titulo="Objetivo"
           value={objetivo}
           onChange={setObjetivo}
-          opciones={opcionesDe(OBJETIVO_LABEL)}
+          opciones={opcionesDe(OBJETIVO_LABEL_ELEGIR)}
         />
         <input type="hidden" name="objetivo" value={objetivo} />
       </div>
@@ -233,7 +249,7 @@ export function DatosPersonales({
           titulo="Actividad física fuera del gym"
           value={actividadFisica}
           onChange={setActividadFisica}
-          opciones={opcionesDe(ACTIVIDAD_LABEL)}
+          opciones={opcionesDe(ACTIVIDAD_LABEL_ELEGIR)}
         />
         <input type="hidden" name="actividad_fisica" value={actividadFisica} />
       </div>
