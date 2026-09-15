@@ -13,6 +13,16 @@ export type Suscripcion = {
   tono: "oro" | "prueba" | "compra" | "pendiente" | "ninguna";
 };
 
+// Clases de color por tono -- un solo lugar para Datos Personales, Inicio,
+// o cualquier otra pantalla que muestre este badge.
+export const TONO_SUSCRIPCION_CLASES: Record<Suscripcion["tono"], string> = {
+  oro: "bg-amber-400/15 text-amber-300",
+  prueba: "bg-sky-400/15 text-sky-300",
+  compra: "bg-orange-400/15 text-orange-300",
+  pendiente: "bg-red-400/15 text-red-300",
+  ninguna: "bg-gray-500/15 text-gray-400",
+};
+
 // Único criterio de acceso a la app: Golden perpetuo, o prueba/suscripción
 // vigente (premium_hasta hoy o en el futuro).
 export function esPremium(p: EstadoPremium | null | undefined): boolean {
@@ -32,4 +42,64 @@ export function diasRestantesTrial(p: EstadoPremium | null | undefined): number 
   const fin = new Date(`${p.premium_hasta}T00:00:00-03:00`).getTime();
   const dias = Math.round((fin - hoy) / 86_400_000);
   return dias > 0 ? dias : null;
+}
+
+const ddmm = (iso?: string | null) => (iso ? iso.split("-").reverse().join("/") : "");
+
+// Etiqueta + tono para mostrar el estado de acceso en Datos Personales e
+// Inicio -- un solo lugar para no repetir esta lógica en cada pantalla.
+export function obtenerSuscripcion(
+  profile: EstadoPremium | null,
+  sub: {
+    estado?: string | null;
+    proximo_cobro?: string | null;
+    cancelada_al?: string | null;
+    frecuencia?: string | null;
+  } | null
+): Suscripcion {
+  if (profile?.golden_perpetuo) return { texto: "Golden · Founder", tono: "oro" };
+
+  const etiquetaFrecuencia = sub?.frecuencia === "mensual" ? " (mensual)" : "";
+
+  if (sub && sub.estado !== "vencida") {
+    if (sub.estado === "pausada") {
+      return { texto: `Golden${etiquetaFrecuencia} · pago pendiente`, tono: "pendiente" };
+    }
+    if (sub.estado === "cancelada") {
+      return {
+        texto: sub.cancelada_al
+          ? `Golden${etiquetaFrecuencia} · hasta ${ddmm(sub.cancelada_al)}`
+          : `Golden${etiquetaFrecuencia} · cancelada`,
+        tono: "oro",
+      };
+    }
+    return {
+      texto: sub.proximo_cobro
+        ? `Golden${etiquetaFrecuencia} · renueva ${ddmm(sub.proximo_cobro)}`
+        : `Golden${etiquetaFrecuencia}`,
+      tono: "oro",
+    };
+  }
+
+  // Golden otorgado a mano (ej. incluido en una mentoría) -- no tiene fila
+  // en `suscripciones` porque no pasó por Mercado Pago/PayPal, pero sigue
+  // siendo acceso Golden real mientras premium_hasta no venza.
+  if (profile?.premium_origen === "golden" && esPremium(profile)) {
+    return { texto: `Golden · hasta ${ddmm(profile.premium_hasta)}`, tono: "oro" };
+  }
+
+  const dias = diasRestantesTrial(profile);
+  if (dias != null) {
+    if (profile?.premium_origen === "compra") {
+      return {
+        texto: `Acceso por compra · hasta ${ddmm(profile.premium_hasta)}`,
+        tono: "compra",
+      };
+    }
+    return {
+      texto: `Prueba gratis · ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}`,
+      tono: "prueba",
+    };
+  }
+  return { texto: "Sin suscripción", tono: "ninguna" };
 }

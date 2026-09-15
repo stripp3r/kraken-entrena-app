@@ -3,16 +3,8 @@
 import { useState } from "react";
 import { guardarPerfil } from "@/app/perfil/datos/actions";
 import { SelectNativo } from "@/components/select-nativo";
-import type { Suscripcion } from "@/lib/premium";
+import { TONO_SUSCRIPCION_CLASES, type Suscripcion } from "@/lib/premium";
 import { calcularEdad, hoyISO } from "@/lib/fecha";
-
-const TONO_SUSCRIPCION: Record<Suscripcion["tono"], string> = {
-  oro: "bg-amber-400/15 text-amber-300",
-  prueba: "bg-sky-400/15 text-sky-300",
-  compra: "bg-orange-400/15 text-orange-300",
-  pendiente: "bg-red-400/15 text-red-300",
-  ninguna: "bg-gray-500/15 text-gray-400",
-};
 
 type Profile = {
   nombre: string | null;
@@ -132,7 +124,7 @@ export function DatosPersonales({
               <dt className="text-gray-500">Suscripción</dt>
               <dd>
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${TONO_SUSCRIPCION[suscripcion.tono]}`}
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${TONO_SUSCRIPCION_CLASES[suscripcion.tono]}`}
                 >
                   {suscripcion.texto}
                 </span>

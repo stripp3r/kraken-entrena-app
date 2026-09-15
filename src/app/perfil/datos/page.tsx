@@ -2,62 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DatosPersonales } from "@/components/datos-personales";
 import { BackLink } from "@/components/back-link";
-import { diasRestantesTrial, type Suscripcion } from "@/lib/premium";
-
-const ddmm = (iso?: string | null) => (iso ? iso.split("-").reverse().join("/") : "");
-
-function etiquetaSuscripcion(
-  profile: {
-    golden_perpetuo?: boolean | null;
-    premium_hasta?: string | null;
-    premium_origen?: string | null;
-  } | null,
-  sub: {
-    estado?: string | null;
-    proximo_cobro?: string | null;
-    cancelada_al?: string | null;
-    frecuencia?: string | null;
-  } | null
-): Suscripcion {
-  if (profile?.golden_perpetuo) return { texto: "Golden · Founder", tono: "oro" };
-
-  const etiquetaFrecuencia = sub?.frecuencia === "mensual" ? " (mensual)" : "";
-
-  if (sub && sub.estado !== "vencida") {
-    if (sub.estado === "pausada") {
-      return { texto: `Golden${etiquetaFrecuencia} · pago pendiente`, tono: "pendiente" };
-    }
-    if (sub.estado === "cancelada") {
-      return {
-        texto: sub.cancelada_al
-          ? `Golden${etiquetaFrecuencia} · hasta ${ddmm(sub.cancelada_al)}`
-          : `Golden${etiquetaFrecuencia} · cancelada`,
-        tono: "oro",
-      };
-    }
-    return {
-      texto: sub.proximo_cobro
-        ? `Golden${etiquetaFrecuencia} · renueva ${ddmm(sub.proximo_cobro)}`
-        : `Golden${etiquetaFrecuencia}`,
-      tono: "oro",
-    };
-  }
-
-  const dias = diasRestantesTrial(profile);
-  if (dias != null) {
-    if (profile?.premium_origen === "compra") {
-      return {
-        texto: `Acceso por compra · hasta ${ddmm(profile.premium_hasta)}`,
-        tono: "compra",
-      };
-    }
-    return {
-      texto: `Prueba gratis · ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}`,
-      tono: "prueba",
-    };
-  }
-  return { texto: "Sin suscripción", tono: "ninguna" };
-}
+import { obtenerSuscripcion } from "@/lib/premium";
 
 export default async function PerfilDatosPage({
   searchParams,
@@ -92,7 +37,7 @@ export default async function PerfilDatosPage({
       : profile.routines
     : null;
 
-  const suscripcion = etiquetaSuscripcion(profile ?? null, sub ?? null);
+  const suscripcion = obtenerSuscripcion(profile ?? null, sub ?? null);
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-12">
