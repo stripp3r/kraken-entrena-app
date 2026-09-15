@@ -38,6 +38,12 @@ export function BottomNav({ genero }: { genero: "femenino" | "masculino" }) {
         path.startsWith("/perfil") || path.startsWith("/medidas") || path.startsWith("/evolucion"),
       icon: `/section-icons/datos-${genero}.png`,
     },
+    {
+      href: "/alimentacion",
+      label: "Alimentación",
+      match: (path: string) => path.startsWith("/alimentacion"),
+      icon: "/section-icons/alimentacion.png",
+    },
   ];
 
   return (
