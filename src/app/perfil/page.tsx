@@ -66,6 +66,13 @@ export default async function PerfilPage() {
             <img src="/section-icons/pdfs.png" alt="" className="h-14 w-14 rounded-xl" />
             Mis PDFs
           </Link>
+          <Link
+            href="/alimentacion"
+            className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+          >
+            <img src="/section-icons/alimentacion.png" alt="" className="h-14 w-14 rounded-xl" />
+            Alimentación
+          </Link>
         </div>
 
         <form>
