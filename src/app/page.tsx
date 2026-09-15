@@ -21,7 +21,7 @@ export default async function Home() {
   const [{ data: profile }, { data: sub }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("nombre, golden_perpetuo, premium_hasta, premium_origen, routines(nombre, dias)")
+      .select("nombre, golden_perpetuo, premium_hasta, premium_origen")
       .eq("id", user.id)
       .single(),
     supabase
@@ -37,7 +37,6 @@ export default async function Home() {
     redirect("/perfil/datos");
   }
 
-  const rutina = Array.isArray(profile.routines) ? profile.routines[0] : profile.routines;
   const suscripcion = obtenerSuscripcion(profile, sub ?? null);
   const esGolden = Boolean(profile.golden_perpetuo) || profile.premium_origen === "golden";
 
@@ -65,18 +64,6 @@ export default async function Home() {
           </div>
           <span className="shrink-0 text-2xl font-light leading-none text-gray-500">›</span>
         </Link>
-
-        <div className="mt-8 flex flex-col items-center gap-2 text-center">
-          <p className="text-gray-300">
-            {rutina ? `${rutina.nombre} (${rutina.dias} días)` : "Listo para entrenar hoy."}
-          </p>
-          <Link
-            href="/entrenamiento"
-            className="mt-1 w-full rounded-full bg-white px-8 py-3.5 text-center font-medium text-black"
-          >
-            Entrenar hoy
-          </Link>
-        </div>
 
         <div className="mt-10">
           <p className="mb-3 text-sm text-gray-500">¿Buscás más?</p>
