@@ -2,11 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
-
-function fechaLegible(iso: string) {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
+import { fechaLegible } from "@/lib/fecha";
 
 function duracionLegible(fechaInicio: string, fechaFin: string | null) {
   const desde = new Date(`${fechaInicio}T00:00:00`);
@@ -92,7 +88,7 @@ export default async function HistorialPage() {
               return h.routine_id ? (
                 <Link
                   key={h.id}
-                  href={`/entrenamiento/rutinas/${h.routine_id}`}
+                  href={`/progreso/historial/${h.id}`}
                   className="rounded-lg border border-border bg-bg-card px-4 py-3 transition-colors hover:border-border-strong active:bg-bg"
                 >
                   {contenido}

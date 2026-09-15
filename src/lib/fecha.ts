@@ -13,6 +13,14 @@ export function hoyISO(): string {
   }).format(new Date());
 }
 
+// 'YYYY-MM-DD' -> 'DD/MM/YYYY', para mostrar fechas guardadas como texto
+// (fecha_inicio/fecha_fin) sin pasar por el parser de Date (evita corrimientos
+// de huso horario en fechas sin hora).
+export function fechaLegible(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 export function fechaISO(fecha: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: ZONA,
