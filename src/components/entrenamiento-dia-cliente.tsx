@@ -96,21 +96,27 @@ export function EntrenamientoDiaCliente({
   const seriesCompletas = activo ? contarSeriesCompletas(activo, logsPorEjercicio[activo.id] ?? []) : 0;
   const listoParaOtro = seriesCompletas >= seriesObjetivoDe(activo?.series_reps ?? null);
 
-  // Si el usuario navegó a otra pestaña de la app (Progreso, Inicio) a mitad
-  // de sesión y vuelve acá, esto restaura por dónde iba en vez de obligarlo
-  // a tocar "Iniciar entrenamiento" y elegir el ejercicio de nuevo -- los
-  // sets ya guardados nunca dependieron de esto, es solo la UI de "dónde
-  // estaba". Se resuelve en un efecto (no en el estado inicial) para que el
+  // Si el usuario navegó a otra pestaña de la app (Progreso, Inicio) y vuelve
+  // acá, esto restaura por dónde iba en vez de obligarlo a tocar "Iniciar
+  // entrenamiento" y elegir el ejercicio de nuevo -- los sets ya guardados
+  // nunca dependieron de esto, es solo la UI de "dónde estaba". Si todavía
+  // no había arrancado la sesión (solo entró a mirar este día), igual queda
+  // marcado como "último día visitado" para que el botón "Entrenar" del
+  // nav vuelva justo acá y no al menú principal -- eso es lo que el botón
+  // atrás nativo del celular ya hace solo, al volver literalmente a la misma
+  // página. Se resuelve en un efecto (no en el estado inicial) para que el
   // primer render coincida con el del servidor y no haya salto de hidratación.
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     if (finalizadoHoy) return;
     const guardada = leerSesionActiva();
-    if (guardada?.dia !== dia) return;
-    if (!exercises.some((e) => e.id === guardada.activoId)) return;
-    setSesionActiva(true);
-    setActivoId(guardada.activoId);
-    setLado(guardada.lado);
+    if (guardada?.dia === dia && exercises.some((e) => e.id === guardada.activoId)) {
+      setSesionActiva(true);
+      setActivoId(guardada.activoId);
+      setLado(guardada.lado);
+    } else {
+      guardarSesionActiva({ dia, activoId: null, lado: null });
+    }
     /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
