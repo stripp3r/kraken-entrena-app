@@ -30,7 +30,7 @@ export function DisclaimerGate({
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/80 px-6 pb-8 pt-16 sm:items-center">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 px-6 py-8">
       <div className="w-full max-w-sm rounded-2xl border border-border-strong bg-bg-card p-5 shadow-xl">
         <h2 className="text-center font-[family-name:var(--font-display)] text-2xl tracking-wide text-white">
           {titulo}
