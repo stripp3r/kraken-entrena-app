@@ -46,16 +46,7 @@ export default async function CalculadoraCaloriasPage() {
     redirect("/alimentacion");
   }
 
-  if (!profile?.disclaimer_calculadora_aceptado_at) {
-    return (
-      <DisclaimerGate
-        campo="calculadora"
-        volverA="/alimentacion"
-        titulo="CALORÍAS"
-        texto={TEXTO_DISCLAIMER_CALCULADORA}
-      />
-    );
-  }
+  const disclaimerPendiente = !profile?.disclaimer_calculadora_aceptado_at;
 
   const filas = medidas ?? [];
   const peso = [...filas].reverse().find((m) => m.peso != null)?.peso ?? null;
@@ -79,17 +70,26 @@ export default async function CalculadoraCaloriasPage() {
       : null;
 
   return (
-    <main className="flex flex-1 flex-col items-center px-6 py-12">
-      <div className="w-full max-w-sm">
-        <div className="relative mb-2">
-          <BackLink href="/alimentacion" />
-          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-            CALORÍAS
-          </h1>
-        </div>
-        <p className="mb-6 text-center text-sm text-gray-500">
-          Calculado con tus datos personales y tu última medición.
-        </p>
+    <>
+      {disclaimerPendiente && (
+        <DisclaimerGate
+          campo="calculadora"
+          volverA="/alimentacion"
+          titulo="CALORÍAS"
+          texto={TEXTO_DISCLAIMER_CALCULADORA}
+        />
+      )}
+      <main className="flex flex-1 flex-col items-center px-6 py-12">
+        <div className="w-full max-w-sm">
+          <div className="relative mb-2">
+            <BackLink href="/alimentacion" />
+            <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+              CALORÍAS
+            </h1>
+          </div>
+          <p className="mb-6 text-center text-sm text-gray-500">
+            Calculado con tus datos personales y tu última medición.
+          </p>
 
         {!resultado ? (
           <div className="flex flex-col gap-3">
@@ -148,8 +148,9 @@ export default async function CalculadoraCaloriasPage() {
               solo la próxima vez que entres acá.
             </p>
           </>
-        )}
-      </div>
-    </main>
+          )}
+        </div>
+      </main>
+    </>
   );
 }

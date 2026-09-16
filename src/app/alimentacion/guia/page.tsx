@@ -63,41 +63,42 @@ export default async function GuiaAlimenticiaPage() {
     );
   }
 
-  if (!profile?.disclaimer_guia_aceptado_at) {
-    return (
-      <DisclaimerGate
-        campo="guia"
-        volverA="/alimentacion"
-        titulo="GUÍA ALIMENTICIA"
-        texto={TEXTO_DISCLAIMER_GUIA}
-      />
-    );
-  }
+  const disclaimerPendiente = !profile?.disclaimer_guia_aceptado_at;
 
   return (
-    <main className="flex flex-1 flex-col items-center px-6 py-12">
-      <div className="w-full max-w-sm">
-        <div className="relative mb-2">
-          <BackLink href="/alimentacion" />
-          <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-            GUÍA ALIMENTICIA
-          </h1>
-        </div>
+    <>
+      {disclaimerPendiente && (
+        <DisclaimerGate
+          campo="guia"
+          volverA="/alimentacion"
+          titulo="GUÍA ALIMENTICIA"
+          texto={TEXTO_DISCLAIMER_GUIA}
+        />
+      )}
+      <main className="flex flex-1 flex-col items-center px-6 py-12">
+        <div className="w-full max-w-sm">
+          <div className="relative mb-2">
+            <BackLink href="/alimentacion" />
+            <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+              GUÍA ALIMENTICIA
+            </h1>
+          </div>
 
-        <div className="mt-6 rounded-lg border border-border-strong bg-bg-card p-4">
-          <p className="text-xs leading-relaxed text-gray-400">
-            Las recomendaciones que siguen son orientativas y educativas, pensadas para
-            acompañar tu entrenamiento; NO son una dieta ni una prescripción de un
-            licenciado en nutrición. Si tenés una condición médica, tomás medicación, o
-            tenés dudas de salud, consultá con tu médico o nutricionista antes de hacer
-            cambios.
+          <div className="mt-6 rounded-lg border border-border-strong bg-bg-card p-4">
+            <p className="text-xs leading-relaxed text-gray-400">
+              Las recomendaciones que siguen son orientativas y educativas, pensadas para
+              acompañar tu entrenamiento; NO son una dieta ni una prescripción de un
+              licenciado en nutrición. Si tenés una condición médica, tomás medicación, o
+              tenés dudas de salud, consultá con tu médico o nutricionista antes de hacer
+              cambios.
+            </p>
+          </div>
+
+          <p className="mt-6 text-center text-sm text-gray-500">
+            Todavía no tenés una guía alimenticia asignada. Tu coach te la va a cargar acá.
           </p>
         </div>
-
-        <p className="mt-6 text-center text-sm text-gray-500">
-          Todavía no tenés una guía alimenticia asignada. Tu coach te la va a cargar acá.
-        </p>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
