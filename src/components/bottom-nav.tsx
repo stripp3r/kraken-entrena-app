@@ -1,12 +1,26 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { leerSesionActiva } from "@/lib/sesion-entrenamiento";
 
 const OCULTAR_EN = ["/login", "/registro"];
 
 export function BottomNav({ genero }: { genero: "femenino" | "masculino" }) {
   const pathname = usePathname();
+  const [hrefEntrenar, setHrefEntrenar] = useState("/entrenamiento");
+
+  // Se re-lee en cada cambio de ruta (esta barra nunca se desmonta) para que,
+  // apenas el usuario arranca un día, "Entrenar" empiece a apuntar directo
+  // ahí -- sin esto, volver desde Progreso/Inicio lo mandaría siempre al hub
+  // a elegir el día de nuevo en vez de seguir donde estaba.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const sesion = leerSesionActiva();
+    setHrefEntrenar(sesion ? `/entrenamiento/${sesion.dia}` : "/entrenamiento");
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [pathname]);
 
   if (OCULTAR_EN.some((p) => pathname.startsWith(p))) {
     return null;
@@ -20,7 +34,7 @@ export function BottomNav({ genero }: { genero: "femenino" | "masculino" }) {
       icon: "/section-icons/inicio.png",
     },
     {
-      href: "/entrenamiento",
+      href: hrefEntrenar,
       label: "Entrenar",
       match: (path: string) => path.startsWith("/entrenamiento"),
       icon: `/section-icons/entrenar-${genero}.png`,

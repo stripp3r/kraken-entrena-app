@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ExerciseCard } from "./exercise-card";
 import { finalizarEntrenamientoDia } from "@/app/entrenamiento/actions";
 import { segundosEntreLados, segundosEntreSeries, type Lado, type TipoEsfuerzo } from "@/lib/descanso";
 import { prepararAlertas } from "@/lib/sonido";
 import { hoyISO } from "@/lib/fecha";
+import { leerSesionActiva, guardarSesionActiva, borrarSesionActiva } from "@/lib/sesion-entrenamiento";
 
 const OBJETIVO_SERIES_DEFAULT = 3;
 
@@ -95,6 +96,36 @@ export function EntrenamientoDiaCliente({
   const seriesCompletas = activo ? contarSeriesCompletas(activo, logsPorEjercicio[activo.id] ?? []) : 0;
   const listoParaOtro = seriesCompletas >= seriesObjetivoDe(activo?.series_reps ?? null);
 
+  // Si el usuario navegó a otra pestaña de la app (Progreso, Inicio) a mitad
+  // de sesión y vuelve acá, esto restaura por dónde iba en vez de obligarlo
+  // a tocar "Iniciar entrenamiento" y elegir el ejercicio de nuevo -- los
+  // sets ya guardados nunca dependieron de esto, es solo la UI de "dónde
+  // estaba". Se resuelve en un efecto (no en el estado inicial) para que el
+  // primer render coincida con el del servidor y no haya salto de hidratación.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (finalizadoHoy) return;
+    const guardada = leerSesionActiva();
+    if (guardada?.dia !== dia) return;
+    if (!exercises.some((e) => e.id === guardada.activoId)) return;
+    setSesionActiva(true);
+    setActivoId(guardada.activoId);
+    setLado(guardada.lado);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!sesionActiva) return;
+    guardarSesionActiva({ dia, activoId, lado });
+  }, [sesionActiva, activoId, lado, dia]);
+
+  useEffect(() => {
+    if (finalizadoHoy && leerSesionActiva()?.dia === dia) {
+      borrarSesionActiva();
+    }
+  }, [finalizadoHoy, dia]);
+
   function iniciar() {
     prepararAlertas();
     setSesionActiva(true);
@@ -124,6 +155,7 @@ export function EntrenamientoDiaCliente({
     setActivoId(null);
     setDescansoHasta(null);
     setLado(null);
+    borrarSesionActiva();
     router.refresh();
   }
 
@@ -136,13 +168,18 @@ export function EntrenamientoDiaCliente({
     setDescansoHasta(null);
   }
 
+  // onSetGuardado solo se dispara desde el botón "Guardar serie" de
+  // ExerciseCard (nunca durante el render) -- necesita el reloj real para
+  // saber hasta cuándo dura el descanso.
   function onSetGuardado() {
     if (!activo) return;
     if (activo.unilateral && lado === "derecho") {
       setEtiquetaDescanso("Descanso entre lados");
+      // eslint-disable-next-line react-hooks/purity
       setDescansoHasta(Date.now() + segundosEntreLados(activo.tipoEsfuerzo) * 1000);
     } else {
       setEtiquetaDescanso("Descanso");
+      // eslint-disable-next-line react-hooks/purity
       setDescansoHasta(Date.now() + segundosEntreSeries(activo.tipoEsfuerzo) * 1000);
     }
   }
