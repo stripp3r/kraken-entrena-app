@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
+import { DisclaimerGate } from "@/components/disclaimer-gate";
 import { calcularEdad } from "@/lib/fecha";
 import { esGoldenTier } from "@/lib/premium";
 import {
@@ -9,6 +10,10 @@ import {
   type ActividadNutricional,
   type ObjetivoNutricional,
 } from "@/lib/nutricion";
+
+const TEXTO_DISCLAIMER_CALCULADORA = `Esta calculadora estima tus calorías y macros usando una fórmula estándar (Mifflin-St Jeor) sobre los datos de tu perfil y tu última medición. Es una referencia general, no un cálculo clínico ni un diagnóstico.
+
+KRAKEN Fitness no se responsabiliza por decisiones que tomes en base a este resultado. Si tenés una condición médica, tomás medicación, estás embarazada, o tenés dudas de salud, consultá con tu médico o nutricionista antes de hacer cambios en tu alimentación.`;
 
 export default async function CalculadoraCaloriasPage() {
   const supabase = await createClient();
@@ -24,7 +29,9 @@ export default async function CalculadoraCaloriasPage() {
   const [{ data: profile }, { data: medidas }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("golden_perpetuo, premium_origen, sexo, fecha_nacimiento, actividad_fisica, objetivo")
+      .select(
+        "golden_perpetuo, premium_origen, sexo, fecha_nacimiento, actividad_fisica, objetivo, disclaimer_calculadora_aceptado_at"
+      )
       .eq("id", user.id)
       .single(),
     supabase
@@ -37,6 +44,17 @@ export default async function CalculadoraCaloriasPage() {
   const esGolden = esGoldenTier(profile);
   if (!esGolden) {
     redirect("/alimentacion");
+  }
+
+  if (!profile?.disclaimer_calculadora_aceptado_at) {
+    return (
+      <DisclaimerGate
+        campo="calculadora"
+        volverA="/alimentacion"
+        titulo="CALORÍAS"
+        texto={TEXTO_DISCLAIMER_CALCULADORA}
+      />
+    );
   }
 
   const filas = medidas ?? [];
@@ -93,12 +111,12 @@ export default async function CalculadoraCaloriasPage() {
           <>
             <div className="mb-6 rounded-lg border border-border-strong bg-bg-card p-4">
               <p className="text-xs leading-relaxed text-gray-400">
-                Esta información es orientativa y educativa, calculada con fórmulas estándar
-                (Mifflin-St Jeor). <strong className="text-gray-300">No es un plan
-                nutricional personalizado ni reemplaza la consulta con un nutricionista o
-                médico matriculado.</strong> KRAKEN Fitness no se responsabiliza por
-                decisiones tomadas únicamente en base a esta estimación. Si tenés alguna
-                condición de salud, consultá primero con un profesional.
+                Estimación orientativa (fórmula Mifflin-St Jeor), no un cálculo clínico.{" "}
+                <strong className="text-gray-300">
+                  KRAKEN Fitness no se responsabiliza por decisiones tomadas en base a este
+                  número.
+                </strong>{" "}
+                Si tenés una condición de salud, consultá primero con un profesional.
               </p>
             </div>
 

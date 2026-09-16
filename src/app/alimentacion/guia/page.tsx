@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
+import { DisclaimerGate } from "@/components/disclaimer-gate";
 import { esGoldenTier, esMentoria } from "@/lib/premium";
 
 const WHATSAPP_MENTORIA =
   "https://wa.me/5493413441070?text=Hola%20KRAKEN%2C%20quiero%20info%20de%20la%20Mentor%C3%ADa";
+
+const TEXTO_DISCLAIMER_GUIA = `Las recomendaciones que siguen son orientativas y educativas, pensadas para acompañar tu entrenamiento; NO son una dieta ni una prescripción de un licenciado en nutrición.
+
+Si tenés una condición médica, tomás medicación, o tenés dudas de salud, consultá con tu médico o nutricionista antes de hacer cambios.`;
 
 export default async function GuiaAlimenticiaPage() {
   const supabase = await createClient();
@@ -19,7 +24,7 @@ export default async function GuiaAlimenticiaPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("golden_perpetuo, premium_hasta, premium_origen")
+    .select("golden_perpetuo, premium_hasta, premium_origen, disclaimer_guia_aceptado_at")
     .eq("id", user.id)
     .single();
 
@@ -55,6 +60,17 @@ export default async function GuiaAlimenticiaPage() {
           </a>
         </div>
       </main>
+    );
+  }
+
+  if (!profile?.disclaimer_guia_aceptado_at) {
+    return (
+      <DisclaimerGate
+        campo="guia"
+        volverA="/alimentacion"
+        titulo="GUÍA ALIMENTICIA"
+        texto={TEXTO_DISCLAIMER_GUIA}
+      />
     );
   }
 
