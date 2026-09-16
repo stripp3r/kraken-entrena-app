@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { esGoldenTier } from "@/lib/premium";
 
 export default async function AlimentacionPage() {
   const supabase = await createClient();
@@ -19,7 +20,7 @@ export default async function AlimentacionPage() {
     .eq("id", user.id)
     .single();
 
-  const esGolden = Boolean(profile?.golden_perpetuo) || profile?.premium_origen === "golden";
+  const esGolden = esGoldenTier(profile);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">

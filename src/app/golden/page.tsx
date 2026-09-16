@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { diasRestantesTrial } from "@/lib/premium";
+import { diasRestantesTrial, esGoldenTier } from "@/lib/premium";
 import { SelectorPlanGolden } from "@/components/selector-plan-golden";
 
 const INCLUYE = [
@@ -49,7 +49,7 @@ export default async function GoldenPage() {
   // "Ya sos Golden" (nada que comprar) es distinto de "tenés acceso" --
   // durante la prueba gratis también tenés acceso, pero igual tiene que
   // poder pasarse a Golden si quiere, sin esperar a que se corte.
-  const esGolden = Boolean(perfil?.golden_perpetuo || perfil?.premium_origen === "golden");
+  const esGolden = esGoldenTier(perfil);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">

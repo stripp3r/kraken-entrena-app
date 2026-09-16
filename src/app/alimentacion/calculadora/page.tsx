@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { calcularEdad } from "@/lib/fecha";
+import { esGoldenTier } from "@/lib/premium";
 import {
   calcularEstimacionNutricional,
   type ActividadNutricional,
@@ -33,7 +34,7 @@ export default async function CalculadoraCaloriasPage() {
       .order("fecha", { ascending: true }),
   ]);
 
-  const esGolden = Boolean(profile?.golden_perpetuo) || profile?.premium_origen === "golden";
+  const esGolden = esGoldenTier(profile);
   if (!esGolden) {
     redirect("/alimentacion");
   }

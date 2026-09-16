@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES } from "@/lib/premium";
+import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES, esGoldenTier } from "@/lib/premium";
 
 const URL_PLANES = "https://kraken-fitness-web.vercel.app/#planes";
 const WHATSAPP_MENTORIA =
@@ -38,7 +38,7 @@ export default async function Home() {
   }
 
   const suscripcion = obtenerSuscripcion(profile, sub ?? null);
-  const esGolden = Boolean(profile.golden_perpetuo) || profile.premium_origen === "golden";
+  const esGolden = esGoldenTier(profile);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">

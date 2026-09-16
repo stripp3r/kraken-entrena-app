@@ -35,13 +35,34 @@ export function esPremium(p: EstadoPremium | null | undefined): boolean {
 // suscripción paga), si no hay fecha, o si ya venció -- este contador es
 // SOLO para el trial gratuito, no para el acceso pago.
 export function diasRestantesTrial(p: EstadoPremium | null | undefined): number | null {
-  if (!p || p.golden_perpetuo || p.premium_origen === "golden" || !p.premium_hasta) {
+  if (
+    !p ||
+    p.golden_perpetuo ||
+    p.premium_origen === "golden" ||
+    p.premium_origen === "mentoria" ||
+    !p.premium_hasta
+  ) {
     return null;
   }
   const hoy = new Date(`${hoyISO()}T00:00:00-03:00`).getTime();
   const fin = new Date(`${p.premium_hasta}T00:00:00-03:00`).getTime();
   const dias = Math.round((fin - hoy) / 86_400_000);
   return dias > 0 ? dias : null;
+}
+
+// Acceso "nivel Golden" en sentido amplio: Golden real (compra o Founder) O
+// mentoría (que incluye Golden como parte del servicio). Usar esto para
+// cualquier gate que sea "todo lo que da Golden" (rutinas, calculadora).
+export function esGoldenTier(p: EstadoPremium | null | undefined): boolean {
+  if (!p) return false;
+  return Boolean(p.golden_perpetuo) || p.premium_origen === "golden" || p.premium_origen === "mentoria";
+}
+
+// Acceso específico de Mentoría -- más estricto que esGoldenTier. Usar solo
+// para beneficios exclusivos de mentoría (ej. Guía alimenticia), nunca para
+// gates generales de Golden.
+export function esMentoria(p: EstadoPremium | null | undefined): boolean {
+  return p?.premium_origen === "mentoria" && esPremium(p);
 }
 
 const ddmm = (iso?: string | null) => (iso ? iso.split("-").reverse().join("/") : "");
@@ -81,8 +102,14 @@ export function obtenerSuscripcion(
     };
   }
 
-  // Golden otorgado a mano (ej. incluido en una mentoría) -- no tiene fila
-  // en `suscripciones` porque no pasó por Mercado Pago/PayPal, pero sigue
+  // Mentoría: incluye Golden como parte del servicio, pero se muestra con
+  // su propia etiqueta -- no es lo mismo que haber comprado Golden suelto.
+  if (esMentoria(profile)) {
+    return { texto: `Mentoría · hasta ${ddmm(profile?.premium_hasta)}`, tono: "oro" };
+  }
+
+  // Golden otorgado a mano fuera de mentoría -- no tiene fila en
+  // `suscripciones` porque no pasó por Mercado Pago/PayPal, pero sigue
   // siendo acceso Golden real mientras premium_hasta no venza.
   if (profile?.premium_origen === "golden" && esPremium(profile)) {
     return { texto: `Golden · hasta ${ddmm(profile.premium_hasta)}`, tono: "oro" };
