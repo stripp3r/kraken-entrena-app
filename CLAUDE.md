@@ -8,6 +8,30 @@ verdad sobre decisiones ya tomadas y convenciones establecidas -- no
 Ezequiel). Si algo de esto queda desactualizado, avisar y actualizar este
 archivo, no solo arreglarlo una vez y dejar que se repita el error.
 
+## Regla fija: mantener este documento actualizado, siempre, en el momento
+
+El usuario pidió explícitamente que este archivo funcione como reglamento
+vivo del proyecto -- la base para no repetir errores ni perder criterios
+ya definidos, pase lo que pase con la memoria de la conversación.
+
+**Cada vez que pase algo de esto, hay que sumarlo (o corregirlo) ACÁ
+MISMO, en el momento, no "después" ni "si me acuerdo":**
+- El usuario corrige algo que hice mal, o rechaza un enfoque.
+- El usuario confirma/define un criterio, convención o decisión de negocio
+  nueva (aunque sea chica).
+- Se descubre un bug o una limitación real de una herramienta/plataforma
+  (ej. el bug de tildes en Supabase Storage, las limitaciones de PWA en
+  iOS/Samsung Internet) -- documentarlo apenas se confirma, no al final de
+  la sesión.
+- Se toma una decisión de arquitectura o se establece un patrón de código
+  nuevo que otras pantallas/features deberían seguir.
+
+No hace falta preguntarle al usuario si hay que anotarlo -- se anota
+directo, como parte natural de resolver lo que sea que esté pasando en ese
+momento. Preferir agregarlo bajo la sección que ya existe más parecida
+(Modelo de datos / Decisiones de negocio / Convenciones de código / Qué NO
+hacer) antes que crear una sección nueva suelta.
+
 ## Qué es esto
 
 PWA (Progressive Web App) de entrenamiento -- reemplaza un Excel
