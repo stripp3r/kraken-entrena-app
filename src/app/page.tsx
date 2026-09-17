@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES, esGoldenTier } from "@/lib/premium";
 
 const URL_PLANES = "https://kraken-fitness-web.vercel.app/#planes";
+const URL_SITIO_WEB = "https://kraken-fitness-web.vercel.app/#inicio";
 const WHATSAPP_MENTORIA =
   "https://wa.me/5493413441070?text=Hola%20KRAKEN%2C%20quiero%20info%20de%20la%20Mentor%C3%ADa";
 
@@ -43,11 +44,22 @@ export default async function Home() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <img src="/kraken-mark.png" alt="KRAKEN" className="h-16 w-16" />
-          <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-            HOLA, {profile.nombre.toUpperCase()}
-          </h1>
+        <div className="relative">
+          <a
+            href={URL_SITIO_WEB}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute right-0 top-0"
+            aria-label="Sitio web de KRAKEN"
+          >
+            <img src="/section-icons/sitio-web.png" alt="" className="h-9 w-9 rounded-lg" />
+          </a>
+          <div className="flex flex-col items-center gap-4 text-center">
+            <img src="/kraken-mark.png" alt="KRAKEN" className="h-16 w-16" />
+            <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+              HOLA, {profile.nombre.toUpperCase()}
+            </h1>
+          </div>
         </div>
 
         <Link
