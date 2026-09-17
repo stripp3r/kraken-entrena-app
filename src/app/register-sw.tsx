@@ -20,6 +20,18 @@ export function RegisterServiceWorker() {
       lock?: (o: string) => Promise<void>;
     };
     orientacion?.lock?.("portrait").catch(() => {});
+
+    // `-webkit-touch-callout: none` (globals.css) solo lo respeta Safari/iOS --
+    // en Android/Chrome no evita el menú nativo de "mantener presionado" sobre
+    // un link (copiar vínculo, compartir, abrir en el navegador). Ahí el único
+    // gancho real es cancelar el evento "contextmenu", que es lo que dispara
+    // ese menú tanto en mantener presionado (mobile) como en click derecho
+    // (desktop).
+    function bloquearMenuContextual(e: Event) {
+      e.preventDefault();
+    }
+    document.addEventListener("contextmenu", bloquearMenuContextual);
+    return () => document.removeEventListener("contextmenu", bloquearMenuContextual);
   }, []);
 
   return null;
