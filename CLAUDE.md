@@ -190,6 +190,22 @@ pero el Dashboard es el método que usa el coach normalmente.
   - Instalar la PWA vía **Samsung Internet** puede disparar un bloqueo de
     Play Protect ("app insegura") por cómo ese navegador arma el WebAPK --
     Chrome no tiene ese problema. Workaround: instalar desde Chrome.
+  - **"KRAKEN Entrena requiere la siguiente app: Chrome"** (cartel con
+    botones Cerrar/Instalar, en loop, aunque Chrome ya esté actualizado):
+    confirmado en producción (cuenta del coach) el 2026-09-19. NO es un
+    bug de nuestro manifest/service worker (se revisaron los dos, están
+    bien) -- es que el WebAPK que arma Android para la PWA queda atado a
+    la versión de Chrome que lo generó, y una actualización de Chrome en
+    segundo plano puede romper esa asociación interna. Es un bug conocido
+    de Android/WebAPK, no exclusivo de esta app. **Arreglo confirmado que
+    funcionó**: reiniciar el celular. Si no alcanza: Ajustes → Apps →
+    Chrome → Almacenamiento → Borrar caché (NO "Borrar datos"); si sigue,
+    desinstalar el ícono de KRAKEN Entrena y volver a instalarlo desde
+    Chrome; como último recurso, desinstalar las actualizaciones de Chrome
+    y dejar que Play Store la reinstale. Es un arreglo que hay que repetir
+    cada vez que reaparece (no hay forma de prevenirlo desde el código de
+    la app) -- la única forma de eliminarlo de raíz es publicar como app
+    nativa real en Play Store, no como PWA/WebAPK.
   - `-webkit-touch-callout: none` (en `globals.css`) es Safari/iOS-only --
     en Android/Chrome hace falta además cancelar el evento `contextmenu`
     (ver `register-sw.tsx`) para evitar el menú nativo de "mantener
