@@ -192,10 +192,19 @@ activar y entrenar igual que cualquiera armada por el coach.
     volumen) son una primera propuesta razonada, no una definición cerrada
     del usuario -- válido revisarlas si en la práctica no reflejan bien un
     split real.
-- **Todavía sin construir**: la visualización real en forma de pentágono
-  (hoy son barras horizontales, más simple); el buscador de ejercicios del
-  Paso 3 es una lista plana de 126 ejercicios sin filtrar por categoría,
-  podría necesitar mejor UX si se siente lento/desordenado.
+- **Pentágono real (SVG)** ya construido en `src/components/pentagono-chart.tsx`
+  -- 5 ejes, con la referencia de cada uno (contra qué se compara) visible
+  como texto debajo del gráfico. El usuario preguntó explícitamente "¿contra
+  qué se compara?" en el primer test -- la respuesta es un techo de
+  referencia fijo por eje (30 series/semana, 4 veces/semana, etc.), NO otra
+  rutina puntual (comparar contra la rutina activa quedó descartado por
+  ahora: las rutinas viejas del coach no tienen `routine_dias` cargado, no
+  hay con qué comparar todavía).
+- **Buscador de ejercicios del Paso 3**: ya no depende de que el usuario
+  escriba el nombre exacto (el usuario lo marcó como algo que "va a
+  fracasar" -- la mayoría no sabe qué ejercicio buscar). Ahora es una
+  grilla navegable por categoría (tabs Legs/Pull/Push/Torso) con imágenes,
+  la búsqueda por texto es un filtro opcional encima.
 - **Pendiente de decidir**: gate de acceso (¿esto es para cualquier Golden,
   o exclusivo de algún tier?) -- no asumido, preguntar antes de gatear.
 - **Bug encontrado y corregido en el primer test real (2026-09-21)**: al
