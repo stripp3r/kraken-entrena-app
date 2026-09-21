@@ -52,6 +52,14 @@ reales ya la están usando.
   mismo repo. `CODEX_BRIEFING.md` (raíz del repo, NO commiteado a propósito)
   es el handoff que el usuario le comparte a mano -- mantenerlo actualizado
   cuando cambien cosas importantes.
+- **División de trabajo entre chats (aclarado 2026-09-21)**: hay OTRO chat
+  de Claude Code, separado de este, que el usuario usa exclusivamente para
+  dar de alta clientes de mentoría puntuales (le pasa un PDF/texto y ese
+  chat le carga la rutina + el PDF de guía alimenticia a ESE cliente). Todo
+  lo demás -- construir la app, mantener el catálogo de `exercise_definitions`
+  (deduplicar, completar, corregir GIFs), features nuevas -- se hace ACÁ.
+  No asumir que "cargar contenido" es trabajo del otro chat sin preguntar
+  primero; el otro chat es específicamente para eso, nada más.
 
 ## Estructura de carpetas relevante
 
@@ -208,11 +216,50 @@ activar y entrenar igual que cualquiera armada por el coach.
   usuario marcó esa categoría como conceptualmente rota para este uso
   ("Torso" mezcla empuje y tracción, "una cosa incluye la otra"). Filtra
   por `exercise_definitions.grupos_musculares` (migración 052, mismo tipo
-  que `routine_dias.grupos_musculares`), que **arranca vacío para los 126
-  ejercicios existentes** -- catalogar cada uno con su grupo muscular real
-  es tarea de contenido (la sesión que mantiene el catálogo), no de acá.
-  Mientras no esté cargado, los tabs de grupo muscular van a devolver
-  resultados vacíos y solo "Todos" muestra algo -- es esperado, no un bug.
+  que `routine_dias.grupos_musculares`), que **arranca vacío**. Mientras no
+  esté cargado, los tabs de grupo muscular van a devolver resultados
+  vacíos y solo "Todos" muestra algo -- es esperado, no un bug.
+
+## Auditoría del catálogo de ejercicios (2026-09-21) -- en curso
+
+Al usar "Crea tu rutina" por primera vez el usuario encontró ejercicios
+duplicados y GIFs rotos/mal asignados. Se hizo una auditoría real, no a
+ojo:
+
+- **Método**: descargar el `imagen_url` de los 126 ejercicios y comparar
+  por **hash MD5** (no por nombre) -- así se encuentran duplicados exactos
+  sin depender de que alguien los note a simple vista. Repetible: bajar
+  todos los gifs a un directorio, `md5sum *.gif`, agrupar por hash.
+- **Resultado**: 15 pares con el mismo archivo exacto. 11 eran el mismo
+  ejercicio con dos nombres (se fusionaron en `migration_053`, redirigiendo
+  `routine_exercises`/`workout_logs` del id que se borra al que queda). Los
+  otros 4 eran ejercicios DISTINTOS que compartían el gif por error (ej.
+  "Giro ruso" y "Giro oblicuo acostado" tenían el mismo GIF de crunch
+  genérico, no el de ninguno de los dos) -- se les buscó una imagen real y
+  distinta en la biblioteca de referencia
+  (`D:\PROYECTO FITNESS\VIDEOS\RECURSOS\TECNICAS DE EJERCICIOS\EJERCICIOS\<GRUPO
+  MUSCULAR>\`). Además "Hack Squat" apuntaba a un archivo borrado del
+  bucket (404) -- se volvió a subir.
+- **Pendiente sin resolver**: "Elevación de rodillas sentado con apoyo de
+  manos" sigue con el GIF de la variante de pierna recta -- no se encontró
+  en la biblioteca una imagen de la variante con rodilla flexionada.
+- **Fuente de verdad para qué ejercicios TIENEN que existir**: el Excel
+  original `EntrenaOptimo 4 días - DEFINITIVA.xlsx`, hoja `Hoja2`
+  (`G:\Mi unidad\PROGRAMA SOULVANZ\1 FISICOCULTURISMO\Ejercitacion en el
+  GYM\EntrenaOptimo\Excel App\4 dias\`). El usuario fue explícito: todo lo
+  que está ahí "sin excepción" tiene que estar en el catálogo. Esa hoja usa
+  **imágenes incrustadas en la celda** (Excel "image in cell" / rich value,
+  no un `<drawing>` clásico) -- para extraerlas hace falta parsear
+  `xl/metadata.xml` (atributo `vm` de la celda → índice en
+  `futureMetadata`) → `xl/richData/rdrichvalue.xml` (→ índice en
+  richValueRel) → `xl/richData/richValueRel.xml` + su `.rels` (→ archivo en
+  `xl/media/`). Ya se extrajeron así **145 ejercicios con nombre completo +
+  imagen** de Hoja2 (columnas C=código corto, F=nombre completo, D/E=
+  imágenes). Comparado contra los 126 de la base, la mayoría de las
+  coincidencias por similitud de texto son FALSAS (ej. "Sentadilla Goblet"
+  no es "Sentadilla isométrica") -- el número real de ejercicios nuevos que
+  faltan agregar es grande y todavía no está resuelto, es la continuación
+  de esta auditoría.
 - **Selector de grupos musculares por día**: pasó de chips sueltos a un
   desplegable (pedido explícito del usuario) -- se abre/cierra con
   `gruposAbierto`, y cambiar de día (`irADia`) lo cierra automáticamente.
