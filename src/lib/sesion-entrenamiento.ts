@@ -13,6 +13,8 @@ export type SesionGuardada = {
   fecha: string;
   activoId: number | null;
   lado: "derecho" | "izquierdo" | null;
+  descansoHasta: number | null;
+  etiquetaDescanso: string;
 };
 
 // Devuelve la sesión guardada solo si es de HOY -- una de ayer quedó vieja

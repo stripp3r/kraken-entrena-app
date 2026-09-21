@@ -65,6 +65,14 @@ export default async function EntrenamientoPage() {
           <img src="/section-icons/cardio.png" alt="" className="h-14 w-14 rounded-xl" />
           Cardio
         </Link>
+
+        <Link
+          href="/entrenamiento/crear-rutina"
+          className="mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+        >
+          <img src="/section-icons/crear-rutina.png" alt="" className="h-14 w-14 rounded-xl" />
+          Crea tu rutina
+        </Link>
       </div>
     </main>
   );

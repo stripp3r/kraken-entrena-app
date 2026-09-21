@@ -113,9 +113,22 @@ export function EntrenamientoDiaCliente({
     if (guardada?.dia === dia && exercises.some((e) => e.id === guardada.activoId)) {
       setSesionActiva(true);
       setActivoId(guardada.activoId);
-      setLado(guardada.lado);
+      // Si el descanso guardado ya venció mientras la app estaba cerrada/en
+      // segundo plano, no lo restauramos tal cual -- lo tratamos como si
+      // hubiese terminado normalmente (avanza de lado si era "entre lados")
+      // para no dejar la puerta abierta a cargar el mismo lado dos veces.
+      const descansoVigente = guardada.descansoHasta && guardada.descansoHasta > Date.now();
+      if (descansoVigente) {
+        setLado(guardada.lado);
+        setDescansoHasta(guardada.descansoHasta);
+        setEtiquetaDescanso(guardada.etiquetaDescanso);
+      } else if (guardada.descansoHasta && guardada.etiquetaDescanso === "Descanso entre lados") {
+        setLado(guardada.lado === "derecho" ? "izquierdo" : "derecho");
+      } else {
+        setLado(guardada.lado);
+      }
     } else {
-      guardarSesionActiva({ dia, activoId: null, lado: null });
+      guardarSesionActiva({ dia, activoId: null, lado: null, descansoHasta: null, etiquetaDescanso: "" });
     }
     /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,8 +136,8 @@ export function EntrenamientoDiaCliente({
 
   useEffect(() => {
     if (!sesionActiva) return;
-    guardarSesionActiva({ dia, activoId, lado });
-  }, [sesionActiva, activoId, lado, dia]);
+    guardarSesionActiva({ dia, activoId, lado, descansoHasta, etiquetaDescanso });
+  }, [sesionActiva, activoId, lado, dia, descansoHasta, etiquetaDescanso]);
 
   useEffect(() => {
     if (finalizadoHoy && leerSesionActiva()?.dia === dia) {
