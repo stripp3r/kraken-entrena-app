@@ -13,10 +13,10 @@ type ExerciseCatalogo = {
   nombre: string;
   imagen_url: string | null;
   tipo_esfuerzo: TipoEsfuerzo;
-  categoria: string | null;
+  grupos_musculares: string[] | null;
 };
 
-const CATEGORIA_TODAS = "Todos";
+const FILTRO_TODOS = "Todos";
 
 type EjercicioDia = {
   exerciseDefinitionId: number;
@@ -41,15 +41,21 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
   const [dias, setDias] = useState<DiaWizard[]>([]);
   const [diaActivo, setDiaActivo] = useState(0);
   const [busqueda, setBusqueda] = useState("");
-  const [categoriaActiva, setCategoriaActiva] = useState(CATEGORIA_TODAS);
+  const [filtroGrupo, setFiltroGrupo] = useState<string>(FILTRO_TODOS);
   const [nombreRutina, setNombreRutina] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gruposAbierto, setGruposAbierto] = useState(false);
 
   function elegirCantidad(n: number) {
     setDias(Array.from({ length: n }, diaVacio));
     setDiaActivo(0);
     setPaso("dias");
+  }
+
+  function irADia(indice: number) {
+    setDiaActivo(indice);
+    setGruposAbierto(false);
   }
 
   function toggleGrupo(grupo: GrupoMuscular) {
@@ -111,19 +117,16 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
     );
   }
 
-  const categorias = useMemo(() => {
-    const vistas = new Set(catalogo.map((ex) => ex.categoria).filter((c): c is string => Boolean(c)));
-    return [CATEGORIA_TODAS, ...[...vistas].sort()];
-  }, [catalogo]);
+  const filtrosGrupo = [FILTRO_TODOS, ...GRUPOS_MUSCULARES];
 
   const ejerciciosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return catalogo.filter((ex) => {
-      const pasaCategoria = categoriaActiva === CATEGORIA_TODAS || ex.categoria === categoriaActiva;
+      const pasaGrupo = filtroGrupo === FILTRO_TODOS || (ex.grupos_musculares ?? []).includes(filtroGrupo);
       const pasaBusqueda = !q || ex.nombre.toLowerCase().includes(q);
-      return pasaCategoria && pasaBusqueda;
+      return pasaGrupo && pasaBusqueda;
     });
-  }, [busqueda, categoriaActiva, catalogo]);
+  }, [busqueda, filtroGrupo, catalogo]);
 
   const diasParaCalculo: DiaBorrador[] = useMemo(
     () =>
@@ -210,7 +213,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
             <button
               key={i}
               type="button"
-              onClick={() => setDiaActivo(i)}
+              onClick={() => irADia(i)}
               className={`h-8 w-8 rounded-full text-sm font-medium transition-colors ${
                 i === diaActivo
                   ? "bg-emerald-500 text-black"
@@ -226,39 +229,51 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
 
         <div>
           <p className="mb-2 text-sm text-gray-400">Día {letra} — ¿qué grupos musculares toca?</p>
-          <div className="flex flex-wrap gap-2">
-            {GRUPOS_MUSCULARES.map((grupo) => (
-              <button
-                key={grupo}
-                type="button"
-                onClick={() => toggleGrupo(grupo)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  dia.gruposMusculares.includes(grupo)
-                    ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
-                    : "border-border text-gray-400"
-                }`}
-              >
-                {grupo}
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={() => setGruposAbierto((v) => !v)}
+            className="flex w-full items-center justify-between rounded-md border border-border bg-bg-card px-3 py-2.5 text-left text-sm text-white"
+          >
+            <span className={dia.gruposMusculares.length === 0 ? "text-gray-500" : "text-white"}>
+              {dia.gruposMusculares.length === 0 ? "Elegí uno o más grupos" : dia.gruposMusculares.join(", ")}
+            </span>
+            <span className="text-gray-400">{gruposAbierto ? "▲" : "▼"}</span>
+          </button>
+          {gruposAbierto && (
+            <div className="mt-1.5 flex flex-wrap gap-2 rounded-md border border-border bg-bg-card p-2.5">
+              {GRUPOS_MUSCULARES.map((grupo) => (
+                <button
+                  key={grupo}
+                  type="button"
+                  onClick={() => toggleGrupo(grupo)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    dia.gruposMusculares.includes(grupo)
+                      ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
+                      : "border-border text-gray-400"
+                  }`}
+                >
+                  {grupo}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
           <p className="mb-2 text-sm text-gray-400">Ejercicios del día {letra}</p>
           <div className="mb-2 flex flex-wrap gap-1.5">
-            {categorias.map((cat) => (
+            {filtrosGrupo.map((grupo) => (
               <button
-                key={cat}
+                key={grupo}
                 type="button"
-                onClick={() => setCategoriaActiva(cat)}
+                onClick={() => setFiltroGrupo(grupo)}
                 className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  categoriaActiva === cat
+                  filtroGrupo === grupo
                     ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
                     : "border-border text-gray-400"
                 }`}
               >
-                {cat}
+                {grupo}
               </button>
             ))}
           </div>
@@ -354,7 +369,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
           {diaActivo > 0 && (
             <button
               type="button"
-              onClick={() => setDiaActivo((d) => d - 1)}
+              onClick={() => irADia(diaActivo - 1)}
               className="flex-1 rounded-md border border-border-strong py-2.5 text-sm text-gray-300"
             >
               Día anterior
@@ -363,7 +378,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
           {diaActivo < dias.length - 1 ? (
             <button
               type="button"
-              onClick={() => setDiaActivo((d) => d + 1)}
+              onClick={() => irADia(diaActivo + 1)}
               disabled={!diaCompleto(dia)}
               className="flex-1 rounded-md bg-emerald-500 py-2.5 text-sm font-medium text-black disabled:opacity-50"
             >

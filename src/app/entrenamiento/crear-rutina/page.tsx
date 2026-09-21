@@ -15,7 +15,7 @@ export default async function CrearRutinaPage() {
 
   const { data: catalogo } = await supabase
     .from("exercise_definitions")
-    .select("id, nombre, imagen_url, tipo_esfuerzo, categoria")
+    .select("id, nombre, imagen_url, tipo_esfuerzo, grupos_musculares")
     .order("nombre", { ascending: true });
 
   return (
