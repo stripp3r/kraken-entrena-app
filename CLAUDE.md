@@ -202,9 +202,20 @@ activar y entrenar igual que cualquiera armada por el coach.
   hay con qué comparar todavía).
 - **Buscador de ejercicios del Paso 3**: ya no depende de que el usuario
   escriba el nombre exacto (el usuario lo marcó como algo que "va a
-  fracasar" -- la mayoría no sabe qué ejercicio buscar). Ahora es una
-  grilla navegable por categoría (tabs Legs/Pull/Push/Torso) con imágenes,
-  la búsqueda por texto es un filtro opcional encima.
+  fracasar" -- la mayoría no sabe qué ejercicio buscar). Es una grilla
+  navegable con imágenes; la búsqueda por texto es un filtro opcional
+  encima. **Ya NO filtra por `categoria`** (Legs/Pull/Push/Torso) -- el
+  usuario marcó esa categoría como conceptualmente rota para este uso
+  ("Torso" mezcla empuje y tracción, "una cosa incluye la otra"). Filtra
+  por `exercise_definitions.grupos_musculares` (migración 052, mismo tipo
+  que `routine_dias.grupos_musculares`), que **arranca vacío para los 126
+  ejercicios existentes** -- catalogar cada uno con su grupo muscular real
+  es tarea de contenido (la sesión que mantiene el catálogo), no de acá.
+  Mientras no esté cargado, los tabs de grupo muscular van a devolver
+  resultados vacíos y solo "Todos" muestra algo -- es esperado, no un bug.
+- **Selector de grupos musculares por día**: pasó de chips sueltos a un
+  desplegable (pedido explícito del usuario) -- se abre/cierra con
+  `gruposAbierto`, y cambiar de día (`irADia`) lo cierra automáticamente.
 - **Pendiente de decidir**: gate de acceso (¿esto es para cualquier Golden,
   o exclusivo de algún tier?) -- no asumido, preguntar antes de gatear.
 - **Bug encontrado y corregido en el primer test real (2026-09-21)**: al
