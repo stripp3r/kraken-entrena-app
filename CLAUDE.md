@@ -272,10 +272,24 @@ ojo:
 
   Comparado el listado de 145 nombres contra los 126 de la base, la
   mayoría de las coincidencias por similitud de texto son FALSAS (ej.
-  "Sentadilla Goblet" no es "Sentadilla isométrica") -- el número real de
-  ejercicios nuevos que
-  faltan agregar es grande y todavía no está resuelto, es la continuación
-  de esta auditoría.
+  "Sentadilla Goblet" no es "Sentadilla isométrica") -- el criterio final
+  que dio el usuario: **agarre distinto o implemento distinto (barra vs.
+  mancuerna vs. polea vs. máquina) SIEMPRE es un ejercicio separado**,
+  aunque el movimiento se parezca.
+- **Migración 054 (2026-09-21)**: 65 ejercicios nuevos agregados con este
+  criterio, cada uno con su GIF real de la biblioteca de referencia
+  (varios encontrados en subcarpetas de la biblioteca que ya estaban
+  nombradas casi igual que el Excel -- ej. `PECTORALES\PRESS DE PECHO
+  INCLINADO EN MÁQUINA HAMMER\`). Confirmados SIN GIF real disponible
+  (quedaron afuera a propósito, no hay reemplazo inventado): Sentadilla
+  con cinturón (belt squat -- solo había una ilustración 3D genérica),
+  Curl femoral con mancuerna, Estocadas para glúteos landmine, Sentadilla
+  asistida (solo existía una foto estática `.jfif`, no un GIF real).
+  **Regla confirmada por el usuario sin excepción**: la imagen final
+  SIEMPRE tiene que ser un `.gif` -- si la biblioteca solo tiene un
+  `.webp` animado, convertirlo a `.gif` (con PIL, `ImageSequence` +
+  `save_all`) antes de subirlo, nunca subir el `.webp` ni una foto
+  estática como reemplazo.
 - **Selector de grupos musculares por día**: pasó de chips sueltos a un
   desplegable (pedido explícito del usuario) -- se abre/cierra con
   `gruposAbierto`, y cambiar de día (`irADia`) lo cierra automáticamente.
