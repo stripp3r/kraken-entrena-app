@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GRUPOS_MUSCULARES, type GrupoMuscular } from "@/lib/grupos-musculares";
 import { calcularPentagono, calcularVolumenPorGrupo, type DiaBorrador } from "@/lib/pentagono";
+import { PentagonoChart } from "@/components/pentagono-chart";
 import type { TipoEsfuerzo } from "@/lib/descanso";
 import { guardarRutinaCreada } from "@/app/entrenamiento/crear-rutina/actions";
 
@@ -12,7 +13,10 @@ type ExerciseCatalogo = {
   nombre: string;
   imagen_url: string | null;
   tipo_esfuerzo: TipoEsfuerzo;
+  categoria: string | null;
 };
+
+const CATEGORIA_TODAS = "Todos";
 
 type EjercicioDia = {
   exerciseDefinitionId: number;
@@ -31,20 +35,13 @@ type DiaWizard = {
 
 const diaVacio = (): DiaWizard => ({ gruposMusculares: [], ejercicios: [] });
 
-const ETIQUETAS_PENTAGONO: Record<keyof ReturnType<typeof calcularPentagono>, string> = {
-  volumen: "Volumen",
-  frecuencia: "Frecuencia",
-  recuperacion: "Recuperación",
-  intensidad: "Intensidad",
-  sostenibilidad: "Sostenibilidad",
-};
-
 export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] }) {
   const router = useRouter();
   const [paso, setPaso] = useState<"cantidad" | "dias" | "resumen">("cantidad");
   const [dias, setDias] = useState<DiaWizard[]>([]);
   const [diaActivo, setDiaActivo] = useState(0);
   const [busqueda, setBusqueda] = useState("");
+  const [categoriaActiva, setCategoriaActiva] = useState(CATEGORIA_TODAS);
   const [nombreRutina, setNombreRutina] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,11 +111,19 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
     );
   }
 
-  const resultadosBusqueda = useMemo(() => {
+  const categorias = useMemo(() => {
+    const vistas = new Set(catalogo.map((ex) => ex.categoria).filter((c): c is string => Boolean(c)));
+    return [CATEGORIA_TODAS, ...[...vistas].sort()];
+  }, [catalogo]);
+
+  const ejerciciosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return [];
-    return catalogo.filter((ex) => ex.nombre.toLowerCase().includes(q)).slice(0, 20);
-  }, [busqueda, catalogo]);
+    return catalogo.filter((ex) => {
+      const pasaCategoria = categoriaActiva === CATEGORIA_TODAS || ex.categoria === categoriaActiva;
+      const pasaBusqueda = !q || ex.nombre.toLowerCase().includes(q);
+      return pasaCategoria && pasaBusqueda;
+    });
+  }, [busqueda, categoriaActiva, catalogo]);
 
   const diasParaCalculo: DiaBorrador[] = useMemo(
     () =>
@@ -241,30 +246,51 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
 
         <div>
           <p className="mb-2 text-sm text-gray-400">Ejercicios del día {letra}</p>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {categorias.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategoriaActiva(cat)}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  categoriaActiva === cat
+                    ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
+                    : "border-border text-gray-400"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar ejercicio..."
-            className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-border-strong"
+            placeholder="Buscar por nombre (opcional)..."
+            className="mb-2 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-border-strong"
           />
-          {resultadosBusqueda.length > 0 && (
-            <div className="mt-1 flex flex-col gap-1 rounded-md border border-border bg-bg-card p-1">
-              {resultadosBusqueda.map((ex) => (
-                <button
-                  key={ex.id}
-                  type="button"
-                  onClick={() => agregarEjercicio(ex)}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-white hover:bg-bg"
-                >
-                  {ex.imagen_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={ex.imagen_url} alt="" className="h-8 w-8 rounded bg-white object-contain" />
-                  )}
-                  {ex.nombre}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="grid max-h-72 grid-cols-3 gap-1.5 overflow-y-auto rounded-md border border-border bg-bg-card p-1.5">
+            {ejerciciosFiltrados.length === 0 && (
+              <p className="col-span-3 py-4 text-center text-xs text-gray-500">
+                Ningún ejercicio coincide -- probá otra categoría o buscá por nombre.
+              </p>
+            )}
+            {ejerciciosFiltrados.map((ex) => (
+              <button
+                key={ex.id}
+                type="button"
+                onClick={() => agregarEjercicio(ex)}
+                className="flex flex-col items-center gap-1 rounded-md p-1.5 text-center hover:bg-bg"
+              >
+                {ex.imagen_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={ex.imagen_url} alt="" className="aspect-square w-full rounded bg-white object-contain" />
+                ) : (
+                  <div className="aspect-square w-full rounded bg-bg" />
+                )}
+                <span className="text-[10px] leading-tight text-gray-300">{ex.nombre}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {dia.ejercicios.length > 0 && (
@@ -371,20 +397,9 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
       </div>
 
       <div>
-        <p className="mb-2 text-sm text-gray-400">Cómo se compara tu rutina</p>
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-bg-card p-3">
-          {(Object.keys(pentagono) as (keyof typeof pentagono)[]).map((clave) => (
-            <div key={clave} className="flex items-center gap-3">
-              <span className="w-24 shrink-0 text-xs text-gray-400">{ETIQUETAS_PENTAGONO[clave]}</span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
-                <div
-                  className="h-full rounded-full bg-emerald-500"
-                  style={{ width: `${pentagono[clave]}%` }}
-                />
-              </div>
-              <span className="w-8 shrink-0 text-right text-xs text-gray-300">{pentagono[clave]}</span>
-            </div>
-          ))}
+        <p className="mb-2 text-center text-sm text-gray-400">Cómo se compara tu rutina</p>
+        <div className="rounded-md border border-border bg-bg-card p-3">
+          <PentagonoChart scores={pentagono} />
         </div>
       </div>
 
