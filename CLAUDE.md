@@ -198,6 +198,13 @@ activar y entrenar igual que cualquiera armada por el coach.
   podría necesitar mejor UX si se siente lento/desordenado.
 - **Pendiente de decidir**: gate de acceso (¿esto es para cualquier Golden,
   o exclusivo de algún tier?) -- no asumido, preguntar antes de gatear.
+- **Bug encontrado y corregido en el primer test real (2026-09-21)**: al
+  guardar con "Crea tu rutina" la nueva rutina se activa sola (sin opción
+  de solo guardar sin usar) -- y el botón para volver a cambiar de rutina
+  ("Cambiar a esta rutina") vivía SOLO dentro de `/rutinas/[id]/[dia]`
+  (un día puntual), no en `/rutinas/[id]` (la pantalla de la rutina). Un
+  usuario que crea una rutina de prueba quedaba sin forma visible de volver
+  a la anterior. Corregido moviendo el botón también a `/rutinas/[id]`.
 
 ## Nuevo protocolo para clientes de Mentoría / entrenamiento privado (2026-09-20)
 
