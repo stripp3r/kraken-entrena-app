@@ -255,9 +255,25 @@ ojo:
   richValueRel) → `xl/richData/richValueRel.xml` + su `.rels` (→ archivo en
   `xl/media/`). Ya se extrajeron así **145 ejercicios con nombre completo +
   imagen** de Hoja2 (columnas C=código corto, F=nombre completo, D/E=
-  imágenes). Comparado contra los 126 de la base, la mayoría de las
-  coincidencias por similitud de texto son FALSAS (ej. "Sentadilla Goblet"
-  no es "Sentadilla isométrica") -- el número real de ejercicios nuevos que
+  imágenes).
+
+  **Regla reforzada explícitamente por el usuario (2026-09-21), no
+  "protocolo nuevo" -- ya regía desde antes y no hay que volver a
+  preguntarla**: del Excel **SOLO se usan los NOMBRES** (qué ejercicios
+  tienen que existir). **Nunca subir las imágenes incrustadas del Excel** --
+  son capturas estáticas sacadas de los mismos GIF de la biblioteca de
+  referencia en su momento (el Excel es "un boceto", no una fuente de
+  imágenes; de hecho esas imágenes de Excel no se usan en ningún lado de la
+  app). La imagen de CUALQUIER ejercicio nuevo sale siempre de
+  `D:\PROYECTO FITNESS\VIDEOS\RECURSOS\TECNICAS DE EJERCICIOS\EJERCICIOS\
+  <GRUPO MUSCULAR>\` (el GIF ilustrado blanco y negro), nunca de un video,
+  nunca de una captura de Excel, nunca de otra fuente -- ver también la
+  sección "GIF vs VIDEO" más arriba.
+
+  Comparado el listado de 145 nombres contra los 126 de la base, la
+  mayoría de las coincidencias por similitud de texto son FALSAS (ej.
+  "Sentadilla Goblet" no es "Sentadilla isométrica") -- el número real de
+  ejercicios nuevos que
   faltan agregar es grande y todavía no está resuelto, es la continuación
   de esta auditoría.
 - **Selector de grupos musculares por día**: pasó de chips sueltos a un
