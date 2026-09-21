@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
+import { CambiarAEstaRutinaBoton } from "@/components/cambiar-a-esta-rutina-boton";
 import { esPremium } from "@/lib/premium";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
@@ -31,7 +32,7 @@ export default async function RutinaPreviewPage({
   const [{ data: profile }, { data: routine }, { data: acceso }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("premium_hasta, golden_perpetuo")
+      .select("routine_id, premium_hasta, golden_perpetuo")
       .eq("id", user.id)
       .single(),
     supabase.from("routines").select("id, nombre, dias, descripcion").eq("id", routineId).maybeSingle(),
@@ -77,6 +78,14 @@ export default async function RutinaPreviewPage({
               Día {letra}
             </Link>
           ))}
+        </div>
+
+        <div className="mt-6">
+          <CambiarAEstaRutinaBoton
+            routineId={routine.id}
+            nombre={routine.nombre}
+            esActiva={routine.id === profile?.routine_id}
+          />
         </div>
       </div>
     </main>
