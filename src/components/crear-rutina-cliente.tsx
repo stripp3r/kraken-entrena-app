@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GRUPOS_MUSCULARES, type GrupoMuscular } from "@/lib/grupos-musculares";
 import { calcularPentagono, calcularVolumenPorGrupo, type DiaBorrador } from "@/lib/pentagono";
@@ -278,6 +279,13 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
             ))}
           </div>
         )}
+
+        <Link
+          href="/entrenamiento/rutinas"
+          className="mt-4 rounded-md border border-border-strong py-2.5 text-center text-sm text-gray-300 transition-colors hover:border-emerald-500"
+        >
+          Analizar una rutina que ya tenés
+        </Link>
       </div>
     );
   }

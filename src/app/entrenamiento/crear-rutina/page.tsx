@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
@@ -28,12 +27,6 @@ export default async function CrearRutinaPage() {
             CREA TU RUTINA
           </h1>
         </div>
-        <Link
-          href="/entrenamiento/rutinas"
-          className="mb-6 block text-center text-xs text-gray-500 underline"
-        >
-          ¿Preferís analizar una rutina que ya tenés en vez de crear una nueva?
-        </Link>
         <CrearRutinaCliente catalogo={catalogo ?? []} />
       </div>
     </main>
