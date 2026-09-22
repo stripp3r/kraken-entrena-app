@@ -179,35 +179,11 @@ activar y entrenar igual que cualquiera armada por el coach.
   `cambiarRutinaActiva()` (la función que YA existe, no una nueva) para
   activarla -- así también queda reflejada en `profile_routine_history`
   como cualquier cambio de rutina.
-- **Pentágono comparativo** (`src/lib/pentagono.ts`), 5 ejes normalizados
-  0-100 (a pedido explícito del usuario -- sin normalizar no se puede
-  comparar splits entre sí):
-  - **Volumen**: promedio de series semanales por grupo muscular.
-  - **Frecuencia**: promedio de veces/semana por grupo muscular.
-  - **Recuperación**: qué tan espaciadas están las sesiones que repiten un
-    mismo grupo muscular -- NO es el descanso entre series (eso ya está
-    estandarizado por `tipo_esfuerzo`, ver `descanso.ts`, y el usuario
-    confirmó explícitamente que no se toca eso, no es configurable por
-    ejercicio). Ejemplo del propio usuario: pecho en 3 días seguidos =
-    recuperación pésima aunque la frecuencia sea igual que pecho separado
-    por descansos.
-  - **Intensidad**: combina RIR objetivo + rango de reps (RIR bajo + reps
-    bajas = alta intensidad).
-  - **Sostenibilidad**: días/semana + duración estimada de sesión -- mide
-    "¿esto entra en tu vida real?", no la recuperación muscular (eso ya lo
-    cubre el eje de arriba, no duplicar).
-  - Las fórmulas y los rangos de referencia (ej. 30 series = 100pts de
-    volumen) son una primera propuesta razonada, no una definición cerrada
-    del usuario -- válido revisarlas si en la práctica no reflejan bien un
-    split real.
-- **Pentágono real (SVG)** ya construido en `src/components/pentagono-chart.tsx`
-  -- 5 ejes, con la referencia de cada uno (contra qué se compara) visible
-  como texto debajo del gráfico. El usuario preguntó explícitamente "¿contra
-  qué se compara?" en el primer test -- la respuesta es un techo de
-  referencia fijo por eje (30 series/semana, 4 veces/semana, etc.), NO otra
-  rutina puntual (comparar contra la rutina activa quedó descartado por
-  ahora: las rutinas viejas del coach no tienen `routine_dias` cargado, no
-  hay con qué comparar todavía).
+- **Pentágono comparativo** (`src/lib/pentagono.ts`) -- ver la sección
+  **"Analizador de rutinas y pentágono (2026-09-22)"** más abajo, que
+  reemplaza por completo esta descripción original (el cálculo de Volumen e
+  Intensidad se reescribió, y el comparador contra otras rutinas -- que acá
+  decía "descartado por ahora" -- se construyó y ya funciona).
 - **Buscador de ejercicios del Paso 3**: ya no depende de que el usuario
   escriba el nombre exacto (el usuario lo marcó como algo que "va a
   fracasar" -- la mayoría no sabe qué ejercicio buscar). Es una grilla
@@ -724,6 +700,114 @@ duración, así que sigue contando bien). Si ya venció mientras la app
 estaba cerrada, se trata como si hubiese terminado normalmente -- si era
 "Descanso entre lados" se avanza el lado igual, para no dejar la puerta
 abierta a repetir el mismo lado.
+
+## Analizador de rutinas y pentágono (2026-09-22)
+
+El pentágono dejó de ser solo parte del wizard de "Crea tu rutina" -- ahora
+también compara rutinas YA EXISTENTES entre sí, estilo comparador de
+jugadores de un videojuego de fútbol (varios polígonos superpuestos, cada
+uno con su color).
+
+- **`/entrenamiento/analizador`** (`src/components/analizador-cliente.tsx`):
+  el usuario elige hasta 3 rutinas de las que tiene adquiridas, se
+  superponen sus pentágonos (cada uno con su color: verde/celeste/naranja)
+  y debajo hay una tabla "series por semana, por grupo muscular" comparando
+  las rutinas lado a lado. **El número más alto de cada fila se pinta del
+  color de esa rutina** (empate = los dos quedan blancos) -- así se ve a
+  simple vista quién gana cada grupo sin comparar número por número.
+- **`src/lib/analisis-rutina.ts`** (`calcularAnalisisRutina`): función
+  compartida que arma el pentágono de una rutina EXISTENTE del coach
+  (Kraken Split, Torso-Pierna, etc.) leyendo `routine_exercises` real de la
+  base. Estas rutinas guardan `series_reps` como texto libre ("3 x 10-12
+  (RIR 1)"), no columnas numéricas -- se parsea con mejor esfuerzo
+  (`src/lib/parsear-series-reps.ts`, probado contra los ~50 formatos reales
+  que hay en la base) y cae a defaults razonables si el texto falla o no
+  existe. El grupo muscular de cada ejercicio sale siempre del catálogo
+  real, nunca del texto, así que ese dato es exacto sin importar qué tan
+  prolijo esté el `series_reps`.
+- **`src/lib/pentagono.ts` -- fórmulas actuales de los 5 ejes** (reescritas
+  varias veces esta sesión, esto es lo que hay HOY, no lo que decía la
+  sección vieja de "Crea tu rutina" más arriba):
+  - **Volumen**: cada grupo muscular tiene su propia banda MEV-MAV (Minimum
+    Effective Volume / Maximum Adaptive Volume, framework de Renaissance
+    Periodization -- `src/lib/volumen-landmarks.ts`, fuentes citadas ahí).
+    **NO usa MRV como techo** -- eso se probó primero y quedó mal (MRV es
+    el límite de recuperación, muy individual, y para la mayoría de los
+    naturales acercarse a eso ya es sobreentrenamiento, no la zona óptima).
+    Score piecewise por grupo: 0..MEV → 0..50, MEV..MAV → 50..100, ≥MAV →
+    100 tope (pasarse no suma ni resta en este eje). Se promedia el score
+    entre los grupos que la rutina toca.
+  - **Frecuencia**: promedio de veces/semana por grupo muscular (sin
+    cambios).
+  - **Recuperación**: los días de la rutina (Día A, B, C...) se reparten
+    parejo en una semana de 7 días (separación = 7/N) para convertir
+    "posición en la lista" en "días de descanso reales" -- sin esto,
+    cualquier Full Body daba 0 en este eje (interpretaba "todos los días de
+    la lista" como "todos los días de la semana sin descanso").
+  - **Intensidad**: **solo RIR objetivo**, ya NO promedia con rango de
+    reps. Mezclar reps ahí confundía intensidad de ESFUERZO (RIR, lo que
+    maneja el estímulo de hipertrofia) con intensidad de CARGA (%1RM) --
+    reps bajas no dan más hipertrofia que reps altas a esfuerzo igual.
+    `repsMin`/`repsMax` se mantienen en el modelo de datos (se usan para
+    mostrar la rutina), solo dejaron de influir en este score.
+  - **Sostenibilidad**: sin cambios (días/semana + duración estimada).
+  - Cada grupo pesa según sea principal (primer elemento de
+    `grupos_musculares`, crédito completo) o secundario (el resto, media
+    serie) -- ver `PESO_PRINCIPAL`/`PESO_SECUNDARIO` en `pentagono.ts`, sin
+    tocar en ninguna de estas revisiones.
+- **`src/components/pentagono-chart.tsx`**: acepta una LISTA de series
+  (`{label, color, scores}[]`), no un solo `scores` -- con una sola serie
+  se comporta como el pentágono clásico (sigla + valor en cada eje: V/F/R/
+  I/S, con la referencia completa abajo alineada a la izquierda); con dos o
+  más, solo la sigla (el valor no tiene sentido con varias rutinas
+  superpuestas) más una leyenda de colores debajo del gráfico.
+
+## Borrado de rutinas (2026-09-22)
+
+Solo se pueden borrar rutinas con `routines.creada_por_usuario = true` (las
+armadas por un usuario en "Crea tu rutina") -- las públicas del coach
+(Kraken Split, Full Body, Torso-Pierna, Push Pull Legs, etc.) y las de un
+plan comprado quedan fijas, sin botón de borrar. `src/app/entrenamiento/
+rutinas/actions.ts` (`borrarRutinaCreada`) revalida esto server-side
+(dueño vía `profile_routine_access`, no es la rutina activa del usuario) y
+borra con el admin client -- `routine_exercises`/`routine_dias`/
+`profile_routine_access` tienen `on delete cascade` sobre `routine_id`,
+`profiles.routine_id` y `profile_routine_history.routine_id` tienen `on
+delete set null` (no rompen, pero dejan al usuario sin rutina activa si
+borra la que tiene puesta -- por eso se bloquea ese caso explícitamente en
+vez de confiar en el `set null`). Botón en `src/components/borrar-rutina-
+boton.tsx`, mismo patrón de confirmación en dos pasos que `CambiarAEsta
+RutinaBoton`.
+
+**Antes de borrar CUALQUIER rutina "vieja"/sospechosa de estar vacía,
+chequear primero si está enganchada a un producto** (`producto_rutinas`) o
+tiene cuentas activas (`profiles.routine_id`) -- "Entreno 4 días" y "3 días
+- Fullbody" parecían basura (poca o ninguna `series_reps` cargada) pero
+las dos están enganchadas al producto real **KRAKEN Anti-Flakardo**
+(`producto_rutinas.producto_id` → slug `anti-flakardo`). El usuario no lo
+sabía hasta que se lo marcamos -- decidió dejarlas intactas (sin borrar, sin
+renombrar todavía) hasta confirmarlo él mismo. "5 días - hipertrofia" sí
+era genuinamente huérfana (0 cuentas, 0 productos) y se borró
+(`migration_060`... en realidad se borró antes, por SQL directo, no quedó
+en una migración archivada -- si hace falta reproducir: `delete from
+routines where nombre = '5 días - hipertrofia';`).
+
+## Rutinas nuevas: Torso-Pierna y Push Pull Legs (migración 060)
+
+Dos rutinas públicas armadas por Claude a pedido explícito del usuario
+("las tres más famosas, a tu consideración") para completar el catálogo
+junto con Full Body y Kraken Split. Todos los ejercicios son los ya
+existentes en `exercise_definitions` (no se creó ninguno nuevo).
+`series_reps` con rango + RIR recomendado en el mismo texto (mismo estilo
+que Kraken Split) y también en la columna `rir_objetivo`.
+
+- **Torso-Pierna** (4 días): A/C = torso (empuje horizontal+tracción
+  vertical / empuje vertical+tracción horizontal), B/D = pierna
+  (cuádriceps dominante / isquios-glúteo dominante).
+- **Push Pull Legs** (6 días): A/D = push (énfasis pecho / énfasis
+  hombro), B/E = pull (énfasis espalda ancho / espalda grosor+trapecio),
+  C/F = legs (piernas completo / glúteo-isquios+pantorrilla), doble
+  frecuencia por grupo en la semana.
 
 ## Qué NO hacer sin preguntarle antes al usuario
 

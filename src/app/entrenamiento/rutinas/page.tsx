@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
+import { BorrarRutinaBoton } from "@/components/borrar-rutina-boton";
 import { esPremium } from "@/lib/premium";
 
 export default async function RutinasAdquiridasPage() {
@@ -21,7 +22,10 @@ export default async function RutinasAdquiridasPage() {
       .select("routine_id, premium_hasta, golden_perpetuo")
       .eq("id", user.id)
       .single(),
-    supabase.from("routines").select("id, nombre, dias, descripcion").order("dias", { ascending: true }),
+    supabase
+      .from("routines")
+      .select("id, nombre, dias, descripcion, creada_por_usuario")
+      .order("dias", { ascending: true }),
     supabase.from("profile_routine_access").select("routine_id").eq("user_id", user.id),
   ]);
 
@@ -51,22 +55,31 @@ export default async function RutinasAdquiridasPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {adquiridas.map((r) => (
-              <Link
+              <div
                 key={r.id}
-                href={`/entrenamiento/rutinas/${r.id}`}
-                className="flex items-center justify-between rounded-lg border border-border bg-bg-card px-4 py-3 transition-colors hover:border-border-strong active:bg-bg"
+                className="rounded-lg border border-border bg-bg-card transition-colors hover:border-border-strong"
               >
-                <div>
-                  <p className="text-sm text-white">
-                    {r.nombre}
-                    {r.id === profile?.routine_id && (
-                      <span className="ml-2 text-[11px] text-emerald-400">· activa</span>
-                    )}
-                  </p>
-                  {r.descripcion && <p className="mt-0.5 text-xs text-gray-500">{r.descripcion}</p>}
-                </div>
-                <span className="text-xs text-gray-500">Ver →</span>
-              </Link>
+                <Link
+                  href={`/entrenamiento/rutinas/${r.id}`}
+                  className="flex items-center justify-between px-4 py-3 active:bg-bg"
+                >
+                  <div>
+                    <p className="text-sm text-white">
+                      {r.nombre}
+                      {r.id === profile?.routine_id && (
+                        <span className="ml-2 text-[11px] text-emerald-400">· activa</span>
+                      )}
+                    </p>
+                    {r.descripcion && <p className="mt-0.5 text-xs text-gray-500">{r.descripcion}</p>}
+                  </div>
+                  <span className="text-xs text-gray-500">Ver →</span>
+                </Link>
+                {r.creada_por_usuario && (
+                  <div className="flex justify-end border-t border-border px-4 py-2">
+                    <BorrarRutinaBoton routineId={r.id} />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}

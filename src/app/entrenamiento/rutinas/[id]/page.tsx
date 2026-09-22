@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { CambiarAEstaRutinaBoton } from "@/components/cambiar-a-esta-rutina-boton";
+import { BorrarRutinaBoton } from "@/components/borrar-rutina-boton";
 import { esPremium } from "@/lib/premium";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
@@ -35,7 +36,11 @@ export default async function RutinaPreviewPage({
       .select("routine_id, premium_hasta, golden_perpetuo")
       .eq("id", user.id)
       .single(),
-    supabase.from("routines").select("id, nombre, dias, descripcion").eq("id", routineId).maybeSingle(),
+    supabase
+      .from("routines")
+      .select("id, nombre, dias, descripcion, creada_por_usuario")
+      .eq("id", routineId)
+      .maybeSingle(),
     supabase
       .from("profile_routine_access")
       .select("routine_id")
@@ -92,6 +97,11 @@ export default async function RutinaPreviewPage({
           >
             Ver análisis de esta rutina
           </Link>
+          {routine.creada_por_usuario && (
+            <div className="flex justify-center pt-1">
+              <BorrarRutinaBoton routineId={routine.id} />
+            </div>
+          )}
         </div>
       </div>
     </main>
