@@ -46,6 +46,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gruposAbierto, setGruposAbierto] = useState(false);
+  const [filtroAbierto, setFiltroAbierto] = useState(false);
 
   function elegirCantidad(n: number) {
     setDias(Array.from({ length: n }, diaVacio));
@@ -56,21 +57,19 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
   function irADia(indice: number) {
     setDiaActivo(indice);
     setGruposAbierto(false);
+    setFiltroAbierto(false);
+    setFiltroGrupo(FILTRO_TODOS);
   }
 
   function toggleGrupo(grupo: GrupoMuscular) {
-    setDias((prev) =>
-      prev.map((d, i) =>
-        i !== diaActivo
-          ? d
-          : {
-              ...d,
-              gruposMusculares: d.gruposMusculares.includes(grupo)
-                ? d.gruposMusculares.filter((g) => g !== grupo)
-                : [...d.gruposMusculares, grupo],
-            }
-      )
-    );
+    const dia = dias[diaActivo];
+    const nuevos = dia.gruposMusculares.includes(grupo)
+      ? dia.gruposMusculares.filter((g) => g !== grupo)
+      : [...dia.gruposMusculares, grupo];
+    setDias((prev) => prev.map((d, i) => (i !== diaActivo ? d : { ...d, gruposMusculares: nuevos })));
+    if (filtroGrupo !== FILTRO_TODOS && !(nuevos as string[]).includes(filtroGrupo)) {
+      setFiltroGrupo(FILTRO_TODOS);
+    }
   }
 
   function agregarEjercicio(ex: ExerciseCatalogo) {
@@ -117,16 +116,21 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
     );
   }
 
-  const filtrosGrupo = [FILTRO_TODOS, ...GRUPOS_MUSCULARES];
+  const gruposDelDia = dias[diaActivo]?.gruposMusculares ?? [];
 
   const ejerciciosFiltrados = useMemo(() => {
+    if (gruposDelDia.length === 0) return [];
     const q = busqueda.trim().toLowerCase();
     return catalogo.filter((ex) => {
-      const pasaGrupo = filtroGrupo === FILTRO_TODOS || (ex.grupos_musculares ?? []).includes(filtroGrupo);
+      const gruposEx = ex.grupos_musculares ?? [];
+      const pasaGrupo =
+        filtroGrupo === FILTRO_TODOS
+          ? gruposEx.some((g) => (gruposDelDia as string[]).includes(g))
+          : gruposEx.includes(filtroGrupo);
       const pasaBusqueda = !q || ex.nombre.toLowerCase().includes(q);
       return pasaGrupo && pasaBusqueda;
     });
-  }, [busqueda, filtroGrupo, catalogo]);
+  }, [busqueda, filtroGrupo, catalogo, gruposDelDia]);
 
   const diasParaCalculo: DiaBorrador[] = useMemo(
     () =>
@@ -261,51 +265,76 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
 
         <div>
           <p className="mb-2 text-sm text-gray-400">Ejercicios del día {letra}</p>
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {filtrosGrupo.map((grupo) => (
+          {gruposDelDia.length === 0 ? (
+            <p className="rounded-md border border-border bg-bg-card px-3 py-2.5 text-center text-xs text-gray-500">
+              Elegí primero los grupos musculares de arriba.
+            </p>
+          ) : (
+            <>
               <button
-                key={grupo}
                 type="button"
-                onClick={() => setFiltroGrupo(grupo)}
-                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  filtroGrupo === grupo
-                    ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
-                    : "border-border text-gray-400"
-                }`}
+                onClick={() => setFiltroAbierto((v) => !v)}
+                className="flex w-full items-center justify-between rounded-md border border-border bg-bg-card px-3 py-2.5 text-left text-sm text-white"
               >
-                {grupo}
+                <span>{filtroGrupo}</span>
+                <span className="text-gray-400">{filtroAbierto ? "▲" : "▼"}</span>
               </button>
-            ))}
-          </div>
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre (opcional)..."
-            className="mb-2 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-border-strong"
-          />
-          <div className="grid max-h-72 grid-cols-3 gap-1.5 overflow-y-auto rounded-md border border-border bg-bg-card p-1.5">
-            {ejerciciosFiltrados.length === 0 && (
-              <p className="col-span-3 py-4 text-center text-xs text-gray-500">
-                Ningún ejercicio coincide -- probá otra categoría o buscá por nombre.
-              </p>
-            )}
-            {ejerciciosFiltrados.map((ex) => (
-              <button
-                key={ex.id}
-                type="button"
-                onClick={() => agregarEjercicio(ex)}
-                className="flex flex-col items-center gap-1 rounded-md p-1.5 text-center hover:bg-bg"
-              >
-                {ex.imagen_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={ex.imagen_url} alt="" className="aspect-square w-full rounded bg-white object-contain" />
-                ) : (
-                  <div className="aspect-square w-full rounded bg-bg" />
+              {filtroAbierto && (
+                <div className="mt-1.5 flex flex-wrap gap-2 rounded-md border border-border bg-bg-card p-2.5">
+                  {[FILTRO_TODOS, ...gruposDelDia].map((grupo) => (
+                    <button
+                      key={grupo}
+                      type="button"
+                      onClick={() => {
+                        setFiltroGrupo(grupo);
+                        setFiltroAbierto(false);
+                      }}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        filtroGrupo === grupo
+                          ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
+                          : "border-border text-gray-400"
+                      }`}
+                    >
+                      {grupo}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por nombre (opcional)..."
+                className="mb-2 mt-1.5 w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-border-strong"
+              />
+              <div className="grid max-h-72 grid-cols-3 gap-1.5 overflow-y-auto rounded-md border border-border bg-bg-card p-1.5">
+                {ejerciciosFiltrados.length === 0 && (
+                  <p className="col-span-3 py-4 text-center text-xs text-gray-500">
+                    Ningún ejercicio coincide -- probá otro grupo o buscá por nombre.
+                  </p>
                 )}
-                <span className="text-[10px] leading-tight text-gray-300">{ex.nombre}</span>
-              </button>
-            ))}
-          </div>
+                {ejerciciosFiltrados.map((ex) => (
+                  <button
+                    key={ex.id}
+                    type="button"
+                    onClick={() => agregarEjercicio(ex)}
+                    className="flex flex-col items-center gap-1 rounded-md p-1.5 text-center hover:bg-bg"
+                  >
+                    {ex.imagen_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={ex.imagen_url}
+                        alt=""
+                        className="aspect-square w-full rounded bg-white object-contain"
+                      />
+                    ) : (
+                      <div className="aspect-square w-full rounded bg-bg" />
+                    )}
+                    <span className="text-[10px] leading-tight text-gray-300">{ex.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {dia.ejercicios.length > 0 && (
