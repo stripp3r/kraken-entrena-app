@@ -26,9 +26,15 @@ function puntoEtiqueta(indice: number) {
   return { x, y, anchor };
 }
 
-export function PentagonoChart({ scores }: { scores: PentagonoScores }) {
-  const puntosDato = EJES.map((eje, i) => puntoEnEje(i, scores[eje.clave]));
-  const pathDato = puntosDato.map((p) => `${p.x},${p.y}`).join(" ");
+export type SerieEnPentagono = { label: string; color: string; scores: PentagonoScores };
+
+// Con una sola serie muestra el pentágono clásico (etiqueta + valor en cada
+// eje). Con dos o más, funciona como el comparador de jugadores del PES:
+// los polígonos se superponen, cada uno con su color, y una referencia
+// abajo dice quién es quién -- a simple vista se ve quién le gana a quién
+// en cada eje sin tener que leer números.
+export function PentagonoChart({ series }: { series: SerieEnPentagono[] }) {
+  const comparando = series.length > 1;
 
   return (
     <div className="flex flex-col items-center">
@@ -61,10 +67,18 @@ export function PentagonoChart({ scores }: { scores: PentagonoScores }) {
           );
         })}
 
-        <polygon points={pathDato} fill="#10b981" fillOpacity={0.25} stroke="#10b981" strokeWidth={2} />
-        {puntosDato.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill="#10b981" />
-        ))}
+        {series.map((s) => {
+          const puntos = EJES.map((eje, i) => puntoEnEje(i, s.scores[eje.clave]));
+          const path = puntos.map((p) => `${p.x},${p.y}`).join(" ");
+          return (
+            <g key={s.label}>
+              <polygon points={path} fill={s.color} fillOpacity={comparando ? 0.15 : 0.25} stroke={s.color} strokeWidth={2} />
+              {puntos.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r={3} fill={s.color} />
+              ))}
+            </g>
+          );
+        })}
 
         {EJES.map((eje, i) => {
           const et = puntoEtiqueta(i);
@@ -78,11 +92,22 @@ export function PentagonoChart({ scores }: { scores: PentagonoScores }) {
               className="fill-gray-300"
               fontSize={11}
             >
-              {eje.etiqueta} · {scores[eje.clave]}
+              {comparando ? eje.etiqueta : `${eje.etiqueta} · ${series[0]?.scores[eje.clave] ?? 0}`}
             </text>
           );
         })}
       </svg>
+
+      {comparando && (
+        <div className="mt-1 flex flex-wrap justify-center gap-3">
+          {series.map((s) => (
+            <span key={s.label} className="flex items-center gap-1.5 text-xs text-gray-300">
+              <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+              {s.label}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="mt-2 flex flex-col gap-0.5 text-center">
         {EJES.map((eje) => (

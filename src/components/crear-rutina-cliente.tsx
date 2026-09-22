@@ -281,10 +281,10 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
         )}
 
         <Link
-          href="/entrenamiento/rutinas"
+          href="/entrenamiento/analizador"
           className="mt-4 rounded-md border border-border-strong py-2.5 text-center text-sm text-gray-300 transition-colors hover:border-emerald-500"
         >
-          Analizar una rutina que ya tenés
+          Analizar rutinas adquiridas
         </Link>
       </div>
     );
@@ -527,7 +527,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
       <div>
         <p className="mb-2 text-center text-sm text-gray-400">Cómo se compara tu rutina</p>
         <div className="rounded-md border border-border bg-bg-card p-3">
-          <PentagonoChart scores={pentagono} />
+          <PentagonoChart series={[{ label: nombreRutina || "Tu rutina", color: "#10b981", scores: pentagono }]} />
         </div>
       </div>
 

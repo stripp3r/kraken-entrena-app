@@ -1,17 +1,10 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { PentagonoChart } from "@/components/pentagono-chart";
-import { calcularPentagono, calcularVolumenPorGrupo, type DiaBorrador } from "@/lib/pentagono";
-import { parsearSeriesReps } from "@/lib/parsear-series-reps";
+import { calcularAnalisisRutina } from "@/lib/analisis-rutina";
 import { esPremium } from "@/lib/premium";
-import type { TipoEsfuerzo } from "@/lib/descanso";
-
-type FilaRutina = {
-  dia: string;
-  series_reps: string | null;
-  exercise_definitions: { grupos_musculares: string[] | null; tipo_esfuerzo: TipoEsfuerzo } | { grupos_musculares: string[] | null; tipo_esfuerzo: TipoEsfuerzo }[] | null;
-};
 
 export default async function AnalisisRutinaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,7 +23,7 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
     redirect("/login");
   }
 
-  const [{ data: profile }, { data: routine }, { data: acceso }, { data: filas }] = await Promise.all([
+  const [{ data: profile }, { data: routine }, { data: acceso }] = await Promise.all([
     supabase.from("profiles").select("premium_hasta, golden_perpetuo").eq("id", user.id).single(),
     supabase.from("routines").select("id, nombre").eq("id", routineId).maybeSingle(),
     supabase
@@ -39,10 +32,6 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
       .eq("user_id", user.id)
       .eq("routine_id", routineId)
       .maybeSingle(),
-    supabase
-      .from("routine_exercises")
-      .select("dia, series_reps, exercise_definitions(grupos_musculares, tipo_esfuerzo)")
-      .eq("routine_id", routineId),
   ]);
 
   if (!routine) {
@@ -54,36 +43,7 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
     redirect("/entrenamiento/rutinas");
   }
 
-  // Esta rutina no vino de "Crea tu rutina" -- series/reps/RIR están
-  // guardados como texto libre ("3 x 10-12 (RIR 0-1)"), no como columnas
-  // numéricas, así que se parsean acá mismo (mejor esfuerzo, con
-  // defaults razonables si el texto no se puede leer -- ver
-  // src/lib/parsear-series-reps.ts). El grupo muscular de cada ejercicio
-  // sale del catálogo real, no de texto, así que ese dato siempre es exacto.
-  const porDia = new Map<string, DiaBorrador>();
-  for (const fila of (filas ?? []) as FilaRutina[]) {
-    const def = Array.isArray(fila.exercise_definitions)
-      ? fila.exercise_definitions[0]
-      : fila.exercise_definitions;
-    if (!def) continue;
-
-    const parseado = parsearSeriesReps(fila.series_reps);
-    const dia = porDia.get(fila.dia) ?? { dia: fila.dia, gruposMusculares: [], ejercicios: [] };
-    dia.ejercicios.push({
-      exerciseDefinitionId: 0,
-      tipoEsfuerzo: def.tipo_esfuerzo,
-      series: parseado.series,
-      repsMin: parseado.repsMin,
-      repsMax: parseado.repsMax,
-      rirObjetivo: parseado.rirObjetivo,
-      gruposMusculares: def.grupos_musculares ?? [],
-    });
-    porDia.set(fila.dia, dia);
-  }
-
-  const dias = [...porDia.values()];
-  const pentagono = calcularPentagono(dias);
-  const volumenPorGrupo = calcularVolumenPorGrupo(dias);
+  const { pentagono, volumenPorGrupo } = await calcularAnalisisRutina(supabase, routineId);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -104,7 +64,7 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
         <div>
           <p className="mb-2 text-center text-sm text-gray-400">Cómo se compara esta rutina</p>
           <div className="rounded-md border border-border bg-bg-card p-3">
-            <PentagonoChart scores={pentagono} />
+            <PentagonoChart series={[{ label: routine.nombre, color: "#10b981", scores: pentagono }]} />
           </div>
         </div>
 
@@ -118,6 +78,15 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="mt-6">
+          <Link
+            href="/entrenamiento/analizador"
+            className="block rounded-md border border-border-strong py-2.5 text-center text-sm text-gray-300 transition-colors hover:border-emerald-500"
+          >
+            Comparar con otra rutina
+          </Link>
         </div>
       </div>
     </main>
