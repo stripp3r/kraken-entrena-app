@@ -14,7 +14,7 @@ type FilaRutina = {
 
 export type AnalisisRutina = {
   pentagono: PentagonoScores;
-  volumenPorGrupo: { grupo: string; series: number }[];
+  volumenPorGrupo: { grupo: string; series: number; mrv: number }[];
 };
 
 // Las rutinas del coach guardan series/reps/RIR como texto libre, no como

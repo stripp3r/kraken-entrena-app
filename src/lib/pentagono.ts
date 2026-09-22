@@ -1,5 +1,6 @@
 import { segundosEntreSeries, type TipoEsfuerzo } from "@/lib/descanso";
 import type { GrupoMuscular } from "@/lib/grupos-musculares";
+import { mrvDeGrupo } from "@/lib/volumen-landmarks";
 
 export type EjercicioBorrador = {
   exerciseDefinitionId: number;
@@ -81,11 +82,18 @@ const diasPorGrupo = (dias: DiaBorrador[]): Map<string, number[]> => {
   return mapa;
 };
 
+// Cada grupo tiene su propio techo de volumen productivo (MRV, distinto
+// para pecho que para bíceps -- ver src/lib/volumen-landmarks.ts), así que
+// "cuánto volumen hiciste" se mide en % de TU MRV por grupo, no en una
+// escala pareja de "series totales" para todos. Un grupo por encima de su
+// MRV se tapa en 100% (no da puntos extra por pasarse -- volumen basura),
+// y se promedia el % entre los grupos que la rutina realmente toca.
 function calcularVolumen(dias: DiaBorrador[]): number {
-  const porGrupo = [...seriesPorGrupo(dias).values()];
+  const porGrupo = [...seriesPorGrupo(dias).entries()];
   if (porGrupo.length === 0) return 0;
-  const promedio = porGrupo.reduce((a, b) => a + b, 0) / porGrupo.length;
-  return mapear(promedio, 0, 30);
+  const porcentajes = porGrupo.map(([grupo, series]) => Math.min(100, (series / mrvDeGrupo(grupo)) * 100));
+  const promedio = porcentajes.reduce((a, b) => a + b, 0) / porcentajes.length;
+  return Math.round(promedio);
 }
 
 function calcularFrecuencia(dias: DiaBorrador[]): number {
@@ -158,8 +166,10 @@ export function calcularPentagono(dias: DiaBorrador[]): PentagonoScores {
   };
 }
 
-export function calcularVolumenPorGrupo(dias: DiaBorrador[]): { grupo: string; series: number }[] {
+export function calcularVolumenPorGrupo(
+  dias: DiaBorrador[]
+): { grupo: string; series: number; mrv: number }[] {
   return [...seriesPorGrupo(dias).entries()]
-    .map(([grupo, series]) => ({ grupo, series }))
-    .sort((a, b) => b.series - a.series);
+    .map(([grupo, series]) => ({ grupo, series, mrv: mrvDeGrupo(grupo) }))
+    .sort((a, b) => b.series / b.mrv - a.series / a.mrv);
 }
