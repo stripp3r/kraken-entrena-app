@@ -98,15 +98,24 @@ export function AnalizadorCliente({ rutinas }: { rutinas: RutinaAnalizada[] }) {
                     );
                     if (valores.every((v) => v === 0)) return null;
                     const mav = elegidas[0]?.volumenPorGrupo.find((v) => v.grupo === grupo)?.mav;
+                    const maximo = Math.max(...valores);
+                    const hayGanadorUnico = valores.filter((v) => v === maximo).length === 1;
                     return (
                       <tr key={grupo}>
                         <td className="py-1 text-gray-300">{grupo}</td>
                         <td className="py-1 pl-3 text-right text-gray-500">{mav ?? "–"}</td>
-                        {valores.map((v, i) => (
-                          <td key={i} className="py-1 pl-3 text-right text-white">
-                            {v === 0 ? "–" : Number.isInteger(v) ? v : v.toFixed(1)}
-                          </td>
-                        ))}
+                        {valores.map((v, i) => {
+                          const gana = hayGanadorUnico && v === maximo;
+                          return (
+                            <td
+                              key={i}
+                              className={`py-1 pl-3 text-right ${gana ? "font-medium" : "text-white"}`}
+                              style={gana ? { color: COLORES[i] } : undefined}
+                            >
+                              {v === 0 ? "–" : Number.isInteger(v) ? v : v.toFixed(1)}
+                            </td>
+                          );
+                        })}
                       </tr>
                     );
                   })}
