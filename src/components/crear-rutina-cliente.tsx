@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GRUPOS_MUSCULARES, type GrupoMuscular } from "@/lib/grupos-musculares";
 import { calcularPentagono, calcularVolumenPorGrupo, type DiaBorrador } from "@/lib/pentagono";
@@ -36,6 +36,49 @@ type DiaWizard = {
 
 const diaVacio = (): DiaWizard => ({ gruposMusculares: [], ejercicios: [] });
 
+// El wizard es varios pasos y puede llevar un rato armarlo -- sin esto, un
+// F5 o un cierre accidental del navegador borraba todo lo cargado (el
+// estado vivía solo en memoria de React). Se guarda en localStorage, un
+// borrador por dispositivo, y se limpia solo al guardar la rutina con
+// éxito. Nunca se persiste el paso "cantidad" porque ahí no hay nada
+// todavía que valga la pena recuperar.
+const BORRADOR_KEY = "kraken-crear-rutina-borrador";
+
+type Borrador = {
+  paso: "dias" | "resumen";
+  dias: DiaWizard[];
+  diaActivo: number;
+  nombreRutina: string;
+};
+
+function cargarBorrador(): Borrador | null {
+  try {
+    const crudo = localStorage.getItem(BORRADOR_KEY);
+    if (!crudo) return null;
+    const datos = JSON.parse(crudo);
+    if (!Array.isArray(datos?.dias) || datos.dias.length === 0) return null;
+    return datos as Borrador;
+  } catch {
+    return null;
+  }
+}
+
+function guardarBorrador(borrador: Borrador) {
+  try {
+    localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
+  } catch {
+    // Storage lleno, modo privado, etc. -- no es crítico, seguimos sin persistir.
+  }
+}
+
+function borrarBorrador() {
+  try {
+    localStorage.removeItem(BORRADOR_KEY);
+  } catch {
+    // no-op
+  }
+}
+
 export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] }) {
   const router = useRouter();
   const [paso, setPaso] = useState<"cantidad" | "dias" | "resumen">("cantidad");
@@ -48,6 +91,24 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
   const [error, setError] = useState<string | null>(null);
   const [gruposAbierto, setGruposAbierto] = useState(false);
   const [filtroAbierto, setFiltroAbierto] = useState(false);
+  const [cantidadAbierta, setCantidadAbierta] = useState(false);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const borrador = cargarBorrador();
+    if (!borrador) return;
+    setDias(borrador.dias);
+    setDiaActivo(borrador.diaActivo);
+    setNombreRutina(borrador.nombreRutina);
+    setPaso(borrador.paso);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // Solo al montar -- es una restauración única, no una sincronización continua.
+  }, []);
+
+  useEffect(() => {
+    if (paso === "cantidad") return;
+    guardarBorrador({ paso, dias, diaActivo, nombreRutina });
+  }, [paso, dias, diaActivo, nombreRutina]);
 
   function elegirCantidad(n: number) {
     setDias(Array.from({ length: n }, diaVacio));
@@ -185,26 +246,37 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
       return;
     }
 
+    borrarBorrador();
     router.push("/entrenamiento");
     router.refresh();
   }
 
   if (paso === "cantidad") {
     return (
-      <div className="flex flex-col gap-4">
-        <p className="text-center text-sm text-gray-400">¿Cuántos días por semana entrenás?</p>
-        <div className="grid grid-cols-4 gap-2">
-          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => elegirCantidad(n)}
-              className="rounded-md border border-border bg-bg-card py-3 text-lg font-medium text-white transition-colors hover:border-emerald-500"
-            >
-              {n}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col gap-2">
+        <p className="mb-2 text-center text-sm text-gray-400">¿Cuántos días por semana entrenás?</p>
+        <button
+          type="button"
+          onClick={() => setCantidadAbierta((v) => !v)}
+          className="flex w-full items-center justify-between rounded-md border border-border bg-bg-card px-3 py-2.5 text-left text-sm text-white"
+        >
+          <span className="text-gray-500">Elegí cuántos días</span>
+          <span className="text-gray-400">{cantidadAbierta ? "▲" : "▼"}</span>
+        </button>
+        {cantidadAbierta && (
+          <div className="flex flex-wrap gap-2 rounded-md border border-border bg-bg-card p-2.5">
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => elegirCantidad(n)}
+                className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-emerald-500 hover:text-emerald-300"
+              >
+                {n} {n === 1 ? "día" : "días"}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
