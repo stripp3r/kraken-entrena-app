@@ -96,11 +96,24 @@ function calcularFrecuencia(dias: DiaBorrador[]): number {
 }
 
 function calcularRecuperacion(dias: DiaBorrador[]): number {
+  const n = dias.length;
+  if (n === 0) return 0;
+  // `dias` es una lista de días de ENTRENO (Día A, B, C...), no de días de
+  // calendario -- una Full Body de 3 días no se entrena 3 días seguidos,
+  // se reparte en la semana (ej. lunes/miércoles/viernes). Para pasar de
+  // "posición en la lista" a "días de calendario de descanso" asumimos que
+  // los N días de entreno se reparten parejo en una semana de 7 días
+  // (separación = 7/N). Sin esto, cualquier rutina Full Body daba 0 en este
+  // eje -- tocaba todos los grupos en TODOS los días de la lista, y el
+  // cálculo viejo interpretaba "todos los días de la lista" como "todos los
+  // días de la semana sin descanso", que es literal para un split de 6-7
+  // días pero incorrecto para uno de 3.
+  const separacionDias = 7 / n;
   const gaps: number[] = [];
   for (const indices of diasPorGrupo(dias).values()) {
     if (indices.length < 2) continue;
     for (let i = 1; i < indices.length; i++) {
-      gaps.push(indices[i] - indices[i - 1] - 1);
+      gaps.push((indices[i] - indices[i - 1]) * separacionDias - 1);
     }
   }
   // Nadie repite grupo muscular en la semana -> recuperación perfecta.
