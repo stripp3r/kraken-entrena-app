@@ -59,6 +59,10 @@ export function InstalarApp() {
   const [navegadorEmbebido, setNavegadorEmbebido] = useState<string | null>(null);
 
   useEffect(() => {
+    // `window`/`navigator` no existen en el render de servidor -- este
+    // efecto es la única forma de leerlos, así que el estado se completa
+    // recién acá, no en el render inicial (evita mismatch de hidratación).
+    /* eslint-disable react-hooks/set-state-in-effect */
     const yaInstalada =
       window.matchMedia("(display-mode: standalone)").matches ||
       (window.navigator as { standalone?: boolean }).standalone === true;
@@ -67,6 +71,7 @@ export function InstalarApp() {
     setEsIOS(/iphone|ipad|ipod/i.test(ua));
     setIosSinSafari(esIOSsinSafari(ua));
     setNavegadorEmbebido(detectarNavegadorEmbebido(ua));
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     function onBeforeInstallPrompt(e: Event) {
       e.preventDefault();

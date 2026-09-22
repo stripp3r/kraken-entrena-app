@@ -118,7 +118,7 @@ export function ProgresoMedidas({ historial }: { historial: Medicion[] }) {
 
       <p className="mt-4 border-t border-border pt-3 text-xs text-gray-500">
         <strong className="text-gray-400">Importante:</strong> no obsesionarse
-        con "las medidas perfectas"; todos somos diferentes y tenemos nuestras
+        con &quot;las medidas perfectas&quot;; todos somos diferentes y tenemos nuestras
         propias proporciones perfectas. Recordá que la salud y el bienestar no
         se definen únicamente por medidas corporales. Lo más importante es
         cómo te sentís en tu propio cuerpo y tu progreso hacia un estilo de

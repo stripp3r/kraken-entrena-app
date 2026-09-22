@@ -54,12 +54,10 @@ function PanelMetrica({
   titulo,
   puntos,
   sufijo = "",
-  decimales = 1,
 }: {
   titulo: string;
   puntos: Punto[];
   sufijo?: string;
-  decimales?: number;
 }) {
   if (puntos.length === 0) return null;
 
@@ -186,7 +184,7 @@ export function ProgresoSalud({
       <PanelMetrica titulo="IMC (Índice de masa corporal)" puntos={imcPuntos} />
       <PanelMetrica titulo="Grasa corporal (%)" puntos={grasaPuntos} sufijo="%" />
       <PanelMetrica titulo="Masa magra" puntos={masaMagraPuntos} sufijo=" kg" />
-      <PanelMetrica titulo="Índice de grasa visceral" puntos={indicePuntos} decimales={2} />
+      <PanelMetrica titulo="Índice de grasa visceral" puntos={indicePuntos} />
 
       {datosContextura && (
         <div className="rounded-lg border border-border bg-bg-card p-4">

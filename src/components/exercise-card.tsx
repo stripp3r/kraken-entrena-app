@@ -97,9 +97,11 @@ export function ExerciseCard({
   // queda texto sin guardar de un intento anterior, y reaparece cuando la
   // tarjeta vuelve a activarse.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setSetActivo(emptyRow);
     setJustSaved(false);
     setError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [activo]);
 
   async function registrarSetDeSesion() {
@@ -257,7 +259,6 @@ export function ExerciseCard({
       {mostrarComoHacerlo && exercise.como_hacerlo && (
         <div className="mt-3 rounded-md bg-bg p-3">
           {exercise.video_url && (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
             <video
               src={exercise.video_url}
               autoPlay

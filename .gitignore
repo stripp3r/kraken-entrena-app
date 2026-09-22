@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# staging temporal para altas de clientes (gifs/videos a subir a Storage,
+# datos de clientes para scripts/alta-cliente.js) -- nunca se commitea
+/gifs-*/
+/videos-*/
+/clientes/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

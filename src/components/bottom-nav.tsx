@@ -25,7 +25,7 @@ export function BottomNav({ genero }: { genero: "femenino" | "masculino" }) {
     },
     {
       href: "/progreso",
-      label: "Progreso",
+      label: "Análisis",
       match: (path: string) => path.startsWith("/progreso"),
       icon: "/section-icons/progreso.png",
     },

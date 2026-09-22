@@ -308,6 +308,57 @@ ojo:
   Glúteos en vez de Abductores).
   **Cuando se agregue cualquier ejercicio nuevo de acá en adelante, poner
   el grupo muscular en el mismo momento -- no dejarlo para después.**
+- **Bug encontrado 2026-09-22 y migración 056 -- segunda ronda de
+  duplicados**: el usuario encontró en "Crea tu rutina" que "sentadilla con
+  barra y sentadilla" (y variantes similares) seguían apareciendo repetidas
+  pese a la limpieza de la 053. Causa real: la 053 comparó los 126
+  ejercicios originales por hash exacto de archivo; la 054 agregó 65
+  ejercicios nuevos DESPUÉS de esa limpieza y nunca se los comparó contra
+  el catálogo ya existente (solo se chequeó que no se repitieran entre
+  ellos) -- así volvieron a entrar, con nombre distinto, 7 GIFs que eran el
+  mismo ejercicio que uno ya existente: Estocadas/Estocadas para glúteos,
+  Extensión de tríceps en polea/Tríceps en polea alta a un brazo, Press de
+  banco/banca con mancuernas, Sentadilla en máquina Smith/Sentadilla Smith,
+  Elevación de talón sentado en máquina/de talones sentado, Sentadilla con
+  mancuerna/Sentadilla Goblet, Elevación de rodillas al pecho/Crunch
+  inverso. Detectados esta vez con **perceptual hash de varios frames de la
+  animación** (no MD5 de archivo exacto -- dos re-exports del mismo GIF casi
+  nunca son bit-a-bit idénticos, por eso el método de la 053 no alcanzaba
+  para esta ronda) -- descargar todos los GIFs, comparar frame por frame
+  con `PIL.ImageSequence`, distancia de Hamming ~0 en todos los frames
+  muestreados = mismo GIF. Corregido en `migration_056_deduplicar_catalogo_
+  ronda2.sql`, mismo patrón de redirect+delete que la 053.
+  **Regla de proceso nueva, para no repetir esto una tercera vez: cualquier
+  ejercicio que se agregue al catálogo de acá en adelante (uno solo o en
+  tanda) se compara por contenido de imagen contra TODO el catálogo
+  existente en ese momento, no solo contra los que se están agregando en la
+  misma tanda.**
+- **Migración 057 (2026-09-22)**: Antebrazos y Cuello eran los únicos 2
+  grupos de `GRUPOS_MUSCULARES` con 0 ejercicios (no por bug -- simplemente
+  no existía ninguno todavía). A pedido del usuario se cargaron 4 básicos
+  de cada uno (no el listado completo), cada GIF comparado por contenido
+  contra los 188 ya existentes antes de subirlo (regla de la 056, ya
+  aplicada). Antebrazos: Curl de muñeca con barra, Curl de muñeca invertida
+  con mancuernas, Curl con barra agarre invertido, Prensión manual. Cuello:
+  Extensión/Flexión de cuello acostado con peso, Extensión/Flexión de
+  cuello en polea con arnés.
+- **Migración 058 (2026-09-22)**: 3 correcciones más encontradas por el
+  usuario probando "Crea tu rutina":
+  1. "Abducción de cadera en polea" y "Abductores externos en polea" eran
+     el mismo ejercicio con el mismo GIF filmado con dos modelos distintos
+     (hombre / mujer) -- se fusionaron, queda la versión con el hombre.
+  2. "Peso muerto rumano" tenía cargado por error el mismo GIF de "Peso
+     muerto" (peso muerto convencional, no rumano) filmado desde otro
+     ángulo -- mala clasificación original desde la carpeta FEMORALES de la
+     biblioteca. Se reemplazó por un GIF real de peso muerto rumano (con
+     mancuernas en la biblioteca, pero el usuario confirmó que la
+     biomecánica es idéntica a la variante con barra) -- **por eso el
+     nombre de un ejercicio de este tipo no debe especificar el implemento
+     cuando el movimiento es el mismo con barra o mancuernas: un solo GIF
+     alcanza para representar ambas variantes.**
+  3. "Sentadilla con barra" y "Sentadillas" eran el mismo ejercicio
+     (sentadilla trasera con barra) con dos ilustraciones -- se fusionaron,
+     queda "Sentadilla con barra" (nombre más descriptivo).
 - **Selector de grupos musculares por día**: pasó de chips sueltos a un
   desplegable (pedido explícito del usuario) -- se abre/cierra con
   `gruposAbierto`, y cambiar de día (`irADia`) lo cierra automáticamente.

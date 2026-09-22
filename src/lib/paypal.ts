@@ -248,9 +248,9 @@ export async function verificarFirmaWebhookPaypal(params: {
   transmissionId: string | null;
   transmissionSig: string | null;
   transmissionTime: string | null;
-  webhookEvent: unknown;
+  webhookEventRaw: string;
 }) {
-  const { authAlgo, certUrl, transmissionId, transmissionSig, transmissionTime, webhookEvent } =
+  const { authAlgo, certUrl, transmissionId, transmissionSig, transmissionTime, webhookEventRaw } =
     params;
 
   if (!authAlgo || !certUrl || !transmissionId || !transmissionSig || !transmissionTime) {
@@ -259,21 +259,20 @@ export async function verificarFirmaWebhookPaypal(params: {
 
   const accessToken = await obtenerAccessToken();
 
+  // `webhookEventRaw` se empalma tal cual llegó en el body, sin pasar por
+  // JSON.parse + JSON.stringify -- PayPal firma el cuerpo crudo original, y
+  // un parseo/reserializado intermedio puede reordenar claves o reformatear
+  // números de forma distinta, haciendo que se verifique algo distinto de lo
+  // que en verdad se firmó.
+  const body = `{"auth_algo":${JSON.stringify(authAlgo)},"cert_url":${JSON.stringify(certUrl)},"transmission_id":${JSON.stringify(transmissionId)},"transmission_sig":${JSON.stringify(transmissionSig)},"transmission_time":${JSON.stringify(transmissionTime)},"webhook_id":${JSON.stringify(process.env.PAYPAL_WEBHOOK_ID ?? null)},"webhook_event":${webhookEventRaw}}`;
+
   const res = await fetch(`${apiBase()}/v1/notifications/verify-webhook-signature`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      auth_algo: authAlgo,
-      cert_url: certUrl,
-      transmission_id: transmissionId,
-      transmission_sig: transmissionSig,
-      transmission_time: transmissionTime,
-      webhook_id: process.env.PAYPAL_WEBHOOK_ID,
-      webhook_event: webhookEvent,
-    }),
+    body,
   });
 
   if (!res.ok) return false;

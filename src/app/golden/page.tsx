@@ -7,7 +7,7 @@ import { SelectorPlanGolden } from "@/components/selector-plan-golden";
 
 const INCLUYE = [
   "Todas las rutinas del catálogo (y las que se sumen)",
-  "Registro de series y todo el análisis de Progreso",
+  "Registro de series y todo el Análisis de entrenamiento",
   "Medidas corporales, Salud y Evolución con fotos",
   "Cardio",
   "Los PDF de los planes y los videos de cursos",

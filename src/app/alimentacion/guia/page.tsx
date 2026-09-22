@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { DisclaimerGate } from "@/components/disclaimer-gate";
+import { DescargarGuiaBoton } from "@/components/descargar-guia-boton";
 import { esGoldenTier, esMentoria } from "@/lib/premium";
 
 const WHATSAPP_MENTORIA =
@@ -65,6 +66,15 @@ export default async function GuiaAlimenticiaPage() {
 
   const disclaimerPendiente = !profile?.disclaimer_guia_aceptado_at;
 
+  // El coach carga esto a mano por cuenta (tabla guias_alimenticias, ver
+  // migración 050) -- no hay flujo de compra acá, es 1 fila si ya se la
+  // asignó a este usuario puntual.
+  const { data: guia } = await supabase
+    .from("guias_alimenticias")
+    .select("actualizada_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   return (
     <>
       {disclaimerPendiente && (
@@ -94,9 +104,18 @@ export default async function GuiaAlimenticiaPage() {
             </p>
           </div>
 
-          <p className="mt-6 text-center text-sm text-gray-500">
-            Todavía no tenés una guía alimenticia asignada. Tu coach te la va a cargar acá.
-          </p>
+          {guia ? (
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <p className="text-center text-sm text-gray-400">
+                Tu coach te preparó una guía alimenticia personalizada.
+              </p>
+              <DescargarGuiaBoton />
+            </div>
+          ) : (
+            <p className="mt-6 text-center text-sm text-gray-500">
+              Todavía no tenés una guía alimenticia asignada. Tu coach te la va a cargar acá.
+            </p>
+          )}
         </div>
       </main>
     </>

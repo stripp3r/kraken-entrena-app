@@ -17,11 +17,9 @@ import {
 // Un solo webhook para PayPal: pagos únicos (PAYMENT.CAPTURE.COMPLETED) y
 // suscripciones Golden (BILLING.SUBSCRIPTION.* / PAYMENT.SALE.COMPLETED).
 export async function POST(request: NextRequest) {
-  const payload = await request.json().catch(() => null);
-
-  if (!payload) {
-    return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
-  }
+  // Se guarda el cuerpo crudo y se verifica la firma ANTES de parsearlo --
+  // ver el comentario en verificarFirmaWebhookPaypal para el por qué.
+  const rawBody = await request.text();
 
   const firmaOk = await verificarFirmaWebhookPaypal({
     authAlgo: request.headers.get("paypal-auth-algo"),
@@ -29,11 +27,18 @@ export async function POST(request: NextRequest) {
     transmissionId: request.headers.get("paypal-transmission-id"),
     transmissionSig: request.headers.get("paypal-transmission-sig"),
     transmissionTime: request.headers.get("paypal-transmission-time"),
-    webhookEvent: payload,
+    webhookEventRaw: rawBody,
   });
 
   if (!firmaOk) {
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
   }
 
   const tipo = payload.event_type as string;

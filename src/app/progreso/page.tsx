@@ -25,7 +25,7 @@ export default async function ProgresoPage() {
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
         <h1 className="mb-8 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          PROGRESO
+          ANÁLISIS
         </h1>
 
         <div className="flex flex-col gap-3">

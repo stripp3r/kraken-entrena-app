@@ -31,7 +31,7 @@ export default async function MedidasPage() {
           </h1>
         </div>
         <p className="mb-6 text-center text-sm text-gray-500">
-          No te obsesiones con "la medida perfecta" — la salud y el bienestar
+          No te obsesiones con &quot;la medida perfecta&quot; — la salud y el bienestar
           no se definen únicamente por medidas corporales. Enfocate en tu
           propio progreso, no en un ideal.
         </p>
