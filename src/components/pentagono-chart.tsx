@@ -119,7 +119,7 @@ export function PentagonoChart({ series }: { series: SerieEnPentagono[] }) {
         </div>
       )}
 
-      <div className="mt-2 flex w-full flex-col gap-0.5 text-right">
+      <div className="mt-2 flex w-full flex-col gap-0.5 text-left">
         {EJES.map((eje) => (
           <p key={eje.clave} className="text-[10px] text-gray-500">
             <span className="text-gray-400">
