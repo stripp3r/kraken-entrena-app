@@ -70,15 +70,17 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
 
         <div className="mt-5">
           <p className="mb-2 text-sm text-gray-400">
-            Series por semana, por grupo muscular <span className="text-gray-500">(vs. MRV)</span>
+            Series por semana, por grupo muscular <span className="text-gray-500">(vs. MEV-MAV)</span>
           </p>
           <div className="flex flex-col gap-1 rounded-md border border-border bg-bg-card p-3">
-            {volumenPorGrupo.map(({ grupo, series, mrv }) => (
+            {volumenPorGrupo.map(({ grupo, series, mev, mav }) => (
               <div key={grupo} className="flex justify-between text-sm">
                 <span className="text-gray-300">{grupo}</span>
                 <span className="text-white">
                   {Number.isInteger(series) ? series : series.toFixed(1)}{" "}
-                  <span className="text-gray-500">/ {mrv}</span>
+                  <span className="text-gray-500">
+                    / {mev}-{mav}
+                  </span>
                 </span>
               </div>
             ))}

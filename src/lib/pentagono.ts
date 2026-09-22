@@ -1,6 +1,6 @@
 import { segundosEntreSeries, type TipoEsfuerzo } from "@/lib/descanso";
 import type { GrupoMuscular } from "@/lib/grupos-musculares";
-import { mrvDeGrupo } from "@/lib/volumen-landmarks";
+import { landmarksDeGrupo } from "@/lib/volumen-landmarks";
 
 export type EjercicioBorrador = {
   exerciseDefinitionId: number;
@@ -82,17 +82,30 @@ const diasPorGrupo = (dias: DiaBorrador[]): Map<string, number[]> => {
   return mapa;
 };
 
-// Cada grupo tiene su propio techo de volumen productivo (MRV, distinto
-// para pecho que para bíceps -- ver src/lib/volumen-landmarks.ts), así que
-// "cuánto volumen hiciste" se mide en % de TU MRV por grupo, no en una
-// escala pareja de "series totales" para todos. Un grupo por encima de su
-// MRV se tapa en 100% (no da puntos extra por pasarse -- volumen basura),
-// y se promedia el % entre los grupos que la rutina realmente toca.
+// Cada grupo tiene su propia banda de volumen productivo (MEV-MAV, distinta
+// para pecho que para bíceps -- ver src/lib/volumen-landmarks.ts). El MRV
+// NO se usa acá como techo: es el límite de recuperación, altamente
+// individual, y para la gran mayoría de los naturales acercarse al MRV
+// tabulado ya es sobreentrenamiento, no la zona óptima. La zona defendible
+// a nivel general es MEV-MAV, así que el score de cada grupo es piecewise:
+// - por debajo del MEV: 0-50 (claramente subdosificado)
+// - entre MEV y MAV: 50-100 (zona bien dosificada, el "sweet spot")
+// - en o por encima del MAV: 100 (pasarse no suma puntos extra en este eje
+//   -- volumen extra no es gratis, pero tampoco se penaliza acá)
+function scorePorGrupo(series: number, mev: number, mav: number): number {
+  if (series <= mev) return mapear(series, 0, mev) * 0.5;
+  if (series <= mav) return 50 + mapear(series, mev, mav) * 0.5;
+  return 100;
+}
+
 function calcularVolumen(dias: DiaBorrador[]): number {
   const porGrupo = [...seriesPorGrupo(dias).entries()];
   if (porGrupo.length === 0) return 0;
-  const porcentajes = porGrupo.map(([grupo, series]) => Math.min(100, (series / mrvDeGrupo(grupo)) * 100));
-  const promedio = porcentajes.reduce((a, b) => a + b, 0) / porcentajes.length;
+  const puntajes = porGrupo.map(([grupo, series]) => {
+    const { mev, mav } = landmarksDeGrupo(grupo);
+    return scorePorGrupo(series, mev, mav);
+  });
+  const promedio = puntajes.reduce((a, b) => a + b, 0) / puntajes.length;
   return Math.round(promedio);
 }
 
@@ -130,15 +143,15 @@ function calcularRecuperacion(dias: DiaBorrador[]): number {
   return mapear(promedio, 0, 3);
 }
 
+// Solo RIR (proximidad al fallo) -- no reps. Mezclar rango de reps acá
+// confundía intensidad de ESFUERZO (lo que de verdad maneja el estímulo de
+// hipertrofia) con intensidad de CARGA (%1RM): reps bajas no dan más
+// hipertrofia que reps altas si el esfuerzo está igualado, son proxies de
+// cosas distintas (RIR -> hipertrofia, rango de reps -> sesgo a fuerza).
 function calcularIntensidad(dias: DiaBorrador[]): number {
   const ejercicios = dias.flatMap((d) => d.ejercicios);
   if (ejercicios.length === 0) return 0;
-  const puntajes = ejercicios.map((e) => {
-    const porRir = mapear(5 - e.rirObjetivo, 0, 5);
-    const repsMedio = (e.repsMin + e.repsMax) / 2;
-    const porReps = mapear(repsMedio, 20, 3);
-    return (porRir + porReps) / 2;
-  });
+  const puntajes = ejercicios.map((e) => mapear(5 - e.rirObjetivo, 0, 5));
   return Math.round(puntajes.reduce((a, b) => a + b, 0) / puntajes.length);
 }
 
@@ -168,8 +181,8 @@ export function calcularPentagono(dias: DiaBorrador[]): PentagonoScores {
 
 export function calcularVolumenPorGrupo(
   dias: DiaBorrador[]
-): { grupo: string; series: number; mrv: number }[] {
+): { grupo: string; series: number; mev: number; mav: number; mrv: number }[] {
   return [...seriesPorGrupo(dias).entries()]
-    .map(([grupo, series]) => ({ grupo, series, mrv: mrvDeGrupo(grupo) }))
-    .sort((a, b) => b.series / b.mrv - a.series / a.mrv);
+    .map(([grupo, series]) => ({ grupo, series, ...landmarksDeGrupo(grupo) }))
+    .sort((a, b) => b.series / b.mav - a.series / a.mav);
 }

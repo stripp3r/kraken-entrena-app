@@ -1,7 +1,12 @@
 import type { PentagonoScores } from "@/lib/pentagono";
 
 const EJES: { clave: keyof PentagonoScores; sigla: string; etiqueta: string; referencia: string }[] = [
-  { clave: "volumen", sigla: "V", etiqueta: "Volumen", referencia: "100 = 30 series/semana por grupo" },
+  {
+    clave: "volumen",
+    sigla: "V",
+    etiqueta: "Volumen",
+    referencia: "100 = en tu zona MAV (varía por grupo, ver tabla)",
+  },
   { clave: "frecuencia", sigla: "F", etiqueta: "Frecuencia", referencia: "100 = 4 veces/semana por grupo" },
   {
     clave: "recuperacion",
@@ -9,7 +14,7 @@ const EJES: { clave: keyof PentagonoScores; sigla: string; etiqueta: string; ref
     etiqueta: "Recuperación",
     referencia: "100 = 3+ días entre estímulos del mismo grupo",
   },
-  { clave: "intensidad", sigla: "I", etiqueta: "Intensidad", referencia: "100 = RIR 0 con reps bajas" },
+  { clave: "intensidad", sigla: "I", etiqueta: "Intensidad", referencia: "100 = RIR 0 (al fallo)" },
   {
     clave: "sostenibilidad",
     sigla: "S",

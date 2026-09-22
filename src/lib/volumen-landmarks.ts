@@ -1,43 +1,71 @@
-// MRV (Maximum Recoverable Volume) por grupo muscular -- series semanales
-// "difíciles" (working sets) que ese músculo puede tolerar y todavía
-// recuperarse a tiempo para la próxima sesión. Es el techo de volumen
-// productivo, no un objetivo a superar: más allá de esto se considera
-// volumen basura (fatiga sin estímulo extra de crecimiento).
+// Landmarks de volumen semanal por grupo muscular -- framework de
+// Renaissance Periodization (Dr. Mike Israetel), la referencia más citada
+// en la industria para esto, no números inventados para esta app.
 //
-// Framework de Renaissance Periodization (Dr. Mike Israetel), la
-// referencia más citada en la industria para esto -- no es un número
-// inventado para esta app. Fuentes:
+// MEV (Minimum Effective Volume): el piso -- menos que esto y no hay
+// estímulo suficiente para crecer.
+// MAV (Maximum Adaptive Volume): el "sweet spot" -- la zona de mejor
+// relación estímulo/fatiga, donde vive el volumen bien dosificado para la
+// gran mayoría de la gente.
+// MRV (Maximum Recoverable Volume): el techo de recuperación, MUY
+// individual (edad de entrenamiento, genética, sueño, estrés, natural vs.
+// no natural). NO es un objetivo -- para la mayoría de los naturales,
+// acercarse al MRV tabulado ya es sobreentrenamiento. Se guarda acá porque
+// referencia útil, pero el scoring de Volumen (ver src/lib/pentagono.ts)
+// usa la banda MEV-MAV, no el MRV, como zona "bien dosificada".
+//
+// Convención: MEV = extremo inferior del rango publicado, MAV/MRV =
+// extremo superior (mismo criterio ya usado para fijar el MRV original).
+//
+// Fuentes:
 // - Pecho/Espalda/Hombros/Cuádriceps/Isquiotibiales/Bíceps/Tríceps/
-//   Pantorrillas: extremo superior del rango de MRV publicado en
+//   Pantorrillas: rango completo (MEV/MAV/MRV) publicado en
 //   https://arvo.guru/resources/volume-landmarks (compilación de las
-//   guías de RP Strength).
-// - Glúteos (16), Abdominales (25), Trapecio (26): cifra explícita de
-//   RP Strength (Mike Israetel Training Landmarks), vía
-//   https://help.rpstrength.com/hc/en-us/articles/32433132961431-Glutes
-//   y guías equivalentes de abs/trapecio.
+//   guías de RP Strength) -- los 3 valores están confirmados contra esa
+//   fuente.
+// - Glúteos, Abdominales, Trapecio: el MRV (16/25/26) viene de una guía
+//   anterior de RP Strength citada al fijar este archivo originalmente.
+//   MEV/MAV acá son *estimados* por proporción (MEV ≈ 25% del MRV, MAV ≈
+//   73% del MRV, el promedio observado en los 8 grupos con rango
+//   completo de arriba) -- al verificar contra las guías de
+//   rpstrength.com/blogs/articles/{glute,ab,trap}-hypertrophy-training-
+//   tips vigentes hoy, esas páginas dan números bastante MÁS BAJOS para
+//   el programa "whole body" estándar (ej. traps MRV 12-20, abs MRV
+//   12-20) y coinciden mejor con el tier "Primary Priority" de RP
+//   (especialización en ese músculo) que con el estándar -- o sea, el
+//   MRV=16/25/26 ya cargado acá probablemente corresponde a una versión
+//   distinta/más vieja de la tabla de RP, no a la vigente. No se tocó
+//   (fuera de alcance de este cambio), pero vale la pena revisarlo en
+//   algún momento.
 // - Abductores, Antebrazos, Cuello: RP no publica landmarks propios para
-//   estos (son secundarios/de bajo volumen directo en la mayoría de los
-//   programas) -- valor estimado por similitud con grupos chicos de
-//   recuperación rápida (pantorrillas/glúteos). Ajustar si hace falta.
-export const MRV_POR_GRUPO: Record<string, number> = {
-  Pecho: 24,
-  Espalda: 26,
-  Hombros: 22,
-  Cuádriceps: 24,
-  Isquiotibiales: 20,
-  Bíceps: 20,
-  Tríceps: 18,
-  Pantorrillas: 24,
-  Glúteos: 16,
-  Abdominales: 25,
-  Trapecio: 26,
-  Abductores: 16,
-  Antebrazos: 20,
-  Cuello: 20,
+//   estos. Los 3 valores (MEV, MAV y el MRV ya existente) son estimados
+//   por similitud con grupos chicos de recuperación rápida. Ajustar si
+//   hace falta.
+export type LandmarksGrupo = { mev: number; mav: number; mrv: number };
+
+export const LANDMARKS_POR_GRUPO: Record<string, LandmarksGrupo> = {
+  Pecho: { mev: 6, mav: 18, mrv: 24 },
+  Espalda: { mev: 8, mav: 20, mrv: 26 },
+  Hombros: { mev: 6, mav: 16, mrv: 22 },
+  Cuádriceps: { mev: 6, mav: 18, mrv: 24 },
+  Isquiotibiales: { mev: 4, mav: 14, mrv: 20 },
+  Bíceps: { mev: 4, mav: 14, mrv: 20 },
+  Tríceps: { mev: 4, mav: 12, mrv: 18 },
+  Pantorrillas: { mev: 6, mav: 16, mrv: 24 },
+  Glúteos: { mev: 4, mav: 12, mrv: 16 },
+  Abdominales: { mev: 6, mav: 20, mrv: 25 },
+  Trapecio: { mev: 6, mav: 20, mrv: 26 },
+  Abductores: { mev: 4, mav: 12, mrv: 16 },
+  Antebrazos: { mev: 5, mav: 14, mrv: 20 },
+  Cuello: { mev: 5, mav: 14, mrv: 20 },
 };
 
-const MRV_POR_DEFECTO = 20;
+const LANDMARKS_POR_DEFECTO: LandmarksGrupo = { mev: 5, mav: 14, mrv: 20 };
+
+export function landmarksDeGrupo(grupo: string): LandmarksGrupo {
+  return LANDMARKS_POR_GRUPO[grupo] ?? LANDMARKS_POR_DEFECTO;
+}
 
 export function mrvDeGrupo(grupo: string): number {
-  return MRV_POR_GRUPO[grupo] ?? MRV_POR_DEFECTO;
+  return landmarksDeGrupo(grupo).mrv;
 }
