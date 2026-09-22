@@ -852,6 +852,24 @@ nombre genérico sin marca, días sin relación aparente entre sí), vale la
 pena preguntar antes de asumir que es el contenido real de un producto
 que se vende.
 
+**Causa raíz identificada por el usuario, 2026-09-22**: estas dos rutinas
+de Anti-Flakardo se cargaron en su momento interpretando el PDF de
+marketing/venta del producto directamente (diseño visual, capturas de
+pantalla) en vez de a partir de un texto plano sin ambigüedad -- interpretar
+un PDF visual es justamente lo que produjo estos errores.
+
+**Regla nueva para productos autoguiados futuros**: cuando el usuario dé de
+alta un producto autoguiado nuevo, va a dejar un bloc de notas (texto
+plano) con la rutina escrita explícitamente dentro de la carpeta del
+producto, pensado para que Claude la cargue sin margen de interpretación.
+**Cuando ese archivo exista, es la fuente autoritativa para dar de alta la
+rutina -- no el PDF de venta/marketing del producto**, aunque el PDF
+también esté disponible. Si en algún momento solo está el PDF (sin el bloc
+de notas), tratar cualquier ejercicio que no esté 100% claro (ej. qué
+máquina exacta, con o sin abs, cuántos días repite cada template) como una
+pregunta para el usuario, no como una inferencia a completar solo -- así
+no vuelve a pasar esto.
+
 ## Qué NO hacer sin preguntarle antes al usuario
 
 - No correr ninguna migración SQL contra la base de producción -- se
