@@ -290,6 +290,24 @@ ojo:
   `.webp` animado, convertirlo a `.gif` (con PIL, `ImageSequence` +
   `save_all`) antes de subirlo, nunca subir el `.webp` ni una foto
   estática como reemplazo.
+- **Bug encontrado 2026-09-22 y migración 055**: la migración 054 solo le
+  puso `grupos_musculares` a los 65 ejercicios NUEVOS -- los 115 que ya
+  existían antes se quedaron con el array vacío, sin nadie darse cuenta
+  hasta que el usuario probó "Crea tu rutina" y vio Abdominales/Gemelos/
+  Cuádriceps casi vacíos aunque el catálogo sí tenía esos ejercicios.
+  Corregido clasificando los 115 uno por uno. **Regla del usuario, sin
+  excepción**: el grupo muscular de un ejercicio es SIEMPRE el nombre de
+  la carpeta de la que salió su GIF en la biblioteca de referencia -- la
+  lista fija (`GRUPOS_MUSCULARES` en `src/lib/grupos-musculares.ts`) tiene
+  que calcar 1 a 1 esas carpetas. Se amplió de 10 a 14 grupos agregando
+  **Trapecio, Abductores, Antebrazos, Cuello** (existían como carpetas
+  reales -- `CARDIO` se excluye a propósito, no es un grupo muscular). De
+  paso se corrigieron 5 ejercicios de la migración 054 que habían quedado
+  mal clasificados por no tener estos 4 grupos todavía (encogimientos de
+  hombros iban a Espalda en vez de Trapecio; las 3 abducciones iban a
+  Glúteos en vez de Abductores).
+  **Cuando se agregue cualquier ejercicio nuevo de acá en adelante, poner
+  el grupo muscular en el mismo momento -- no dejarlo para después.**
 - **Selector de grupos musculares por día**: pasó de chips sueltos a un
   desplegable (pedido explícito del usuario) -- se abre/cierra con
   `gruposAbierto`, y cambiar de día (`irADia`) lo cierra automáticamente.
