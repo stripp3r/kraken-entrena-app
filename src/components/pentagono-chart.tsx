@@ -32,7 +32,7 @@ export function PentagonoChart({ scores }: { scores: PentagonoScores }) {
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 260 260" className="w-full max-w-[280px]">
+      <svg viewBox="-100 -20 460 300" className="w-full max-w-[280px]">
         {[0.25, 0.5, 0.75, 1].map((frac) => (
           <polygon
             key={frac}

@@ -26,6 +26,7 @@ type EjercicioDia = {
   repsMin: number;
   repsMax: number;
   rirObjetivo: number;
+  gruposMusculares: string[];
 };
 
 type DiaWizard = {
@@ -89,6 +90,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
                   repsMin: 8,
                   repsMax: 12,
                   rirObjetivo: 2,
+                  gruposMusculares: ex.grupos_musculares ?? [],
                 },
               ],
             }
@@ -116,7 +118,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
     );
   }
 
-  const gruposDelDia = dias[diaActivo]?.gruposMusculares ?? [];
+  const gruposDelDia = useMemo(() => dias[diaActivo]?.gruposMusculares ?? [], [dias, diaActivo]);
 
   const ejerciciosFiltrados = useMemo(() => {
     if (gruposDelDia.length === 0) return [];
@@ -144,6 +146,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
           repsMin: e.repsMin,
           repsMax: e.repsMax,
           rirObjetivo: e.rirObjetivo,
+          gruposMusculares: e.gruposMusculares,
         })),
       })),
     [dias]
@@ -453,7 +456,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
           {volumenPorGrupo.map(({ grupo, series }) => (
             <div key={grupo} className="flex justify-between text-sm">
               <span className="text-gray-300">{grupo}</span>
-              <span className="text-white">{series}</span>
+              <span className="text-white">{Number.isInteger(series) ? series : series.toFixed(1)}</span>
             </div>
           ))}
         </div>

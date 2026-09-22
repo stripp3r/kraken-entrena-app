@@ -8,6 +8,10 @@ export type EjercicioBorrador = {
   repsMin: number;
   repsMax: number;
   rirObjetivo: number;
+  // Grupos musculares del ejercicio, en orden de importancia real (viene de
+  // exercise_definitions.grupos_musculares): el primero es el músculo
+  // objetivo/principal, el resto son secundarios -- ver `pesoPorGrupo`.
+  gruposMusculares: string[];
 };
 
 export type DiaBorrador = {
@@ -33,21 +37,42 @@ function mapear(valor: number, desde: number, hasta: number): number {
   return Math.round(Math.min(1, Math.max(0, t)) * 100);
 }
 
-const seriesPorGrupo = (dias: DiaBorrador[]): Map<GrupoMuscular, number> => {
-  const mapa = new Map<GrupoMuscular, number>();
+// Músculo objetivo de un ejercicio (primero del array) = crédito completo de
+// la serie; secundarios (sinergistas) = media serie. Ej.: un press inclinado
+// con mancuernas clasificado ['Pecho','Hombros','Tríceps'] le suma 1 serie
+// entera a Pecho y media a Hombros y a Tríceps -- no una serie entera a los
+// tres, que es lo que hacía el cálculo viejo (agrupaba por día, no por
+// ejercicio) y disparaba números como "Hombros: 42 series/semana".
+const PESO_PRINCIPAL = 1;
+const PESO_SECUNDARIO = 0.5;
+
+function pesoPorGrupo(gruposMusculares: string[]): [string, number][] {
+  return gruposMusculares.map((grupo, i) => [grupo, i === 0 ? PESO_PRINCIPAL : PESO_SECUNDARIO]);
+}
+
+const seriesPorGrupo = (dias: DiaBorrador[]): Map<string, number> => {
+  const mapa = new Map<string, number>();
   for (const dia of dias) {
-    const seriesDelDia = dia.ejercicios.reduce((acc, e) => acc + e.series, 0);
-    for (const grupo of dia.gruposMusculares) {
-      mapa.set(grupo, (mapa.get(grupo) ?? 0) + seriesDelDia);
+    for (const ejercicio of dia.ejercicios) {
+      for (const [grupo, peso] of pesoPorGrupo(ejercicio.gruposMusculares)) {
+        mapa.set(grupo, (mapa.get(grupo) ?? 0) + ejercicio.series * peso);
+      }
     }
   }
   return mapa;
 };
 
-const diasPorGrupo = (dias: DiaBorrador[]): Map<GrupoMuscular, number[]> => {
-  const mapa = new Map<GrupoMuscular, number[]>();
+// A diferencia del volumen, frecuencia/recuperación son "¿este grupo recibió
+// estímulo ese día?" -- ahí no pesa si fue principal o secundario, cualquiera
+// de los dos cuenta como estímulo real a efectos de cuánto descanso necesita.
+const diasPorGrupo = (dias: DiaBorrador[]): Map<string, number[]> => {
+  const mapa = new Map<string, number[]>();
   dias.forEach((dia, indice) => {
-    for (const grupo of dia.gruposMusculares) {
+    const gruposDelDia = new Set<string>();
+    for (const ejercicio of dia.ejercicios) {
+      for (const grupo of ejercicio.gruposMusculares) gruposDelDia.add(grupo);
+    }
+    for (const grupo of gruposDelDia) {
       const lista = mapa.get(grupo) ?? [];
       lista.push(indice);
       mapa.set(grupo, lista);
@@ -120,7 +145,7 @@ export function calcularPentagono(dias: DiaBorrador[]): PentagonoScores {
   };
 }
 
-export function calcularVolumenPorGrupo(dias: DiaBorrador[]): { grupo: GrupoMuscular; series: number }[] {
+export function calcularVolumenPorGrupo(dias: DiaBorrador[]): { grupo: string; series: number }[] {
   return [...seriesPorGrupo(dias).entries()]
     .map(([grupo, series]) => ({ grupo, series }))
     .sort((a, b) => b.series - a.series);
