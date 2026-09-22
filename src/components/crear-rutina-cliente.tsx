@@ -219,7 +219,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
   const diaCompleto = (d: DiaWizard) => d.gruposMusculares.length > 0 && d.ejercicios.length > 0;
   const todosLosDiasCompletos = dias.every(diaCompleto);
 
-  async function guardar() {
+  async function guardar(activar: boolean) {
     setError(null);
     if (!nombreRutina.trim()) {
       setError("Ponele un nombre a tu rutina.");
@@ -237,7 +237,8 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
           repsMax: e.repsMax,
           rirObjetivo: e.rirObjetivo,
         })),
-      }))
+      })),
+      activar
     );
     setGuardando(false);
 
@@ -547,12 +548,20 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
         <button
           type="button"
           disabled={guardando}
-          onClick={guardar}
+          onClick={() => guardar(true)}
           className="flex-1 rounded-md bg-emerald-500 py-2.5 text-sm font-medium text-black disabled:opacity-50"
         >
           {guardando ? "Guardando..." : "Guardar y usar"}
         </button>
       </div>
+      <button
+        type="button"
+        disabled={guardando}
+        onClick={() => guardar(false)}
+        className="text-center text-xs text-gray-400 underline disabled:opacity-50"
+      >
+        Guardar sin activarla (seguir con mi rutina actual)
+      </button>
     </div>
   );
 }

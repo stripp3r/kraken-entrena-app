@@ -25,7 +25,7 @@ export type DiaGuardar = {
 // routine_dias/profile_routine_access, mismo patrón que el desbloqueo
 // manual de rutinas -- ver migración 021) -- todo pasa por acá, que valida
 // y arma la rutina completa con el cliente admin (service role).
-export async function guardarRutinaCreada(nombre: string, dias: DiaGuardar[]) {
+export async function guardarRutinaCreada(nombre: string, dias: DiaGuardar[], activar: boolean = true) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -110,10 +110,14 @@ export async function guardarRutinaCreada(nombre: string, dias: DiaGuardar[]) {
   // Reutiliza el mismo flujo que "Cambiar rutina activa" (cierra el stint
   // vigente en profile_routine_history y abre uno nuevo) en vez de tocar
   // profiles.routine_id directo -- así Progreso > Historial también refleja
-  // esta rutina como cualquier otra.
-  const resultadoActivar = await cambiarRutinaActiva(routineId);
-  if (resultadoActivar.error) {
-    return { error: resultadoActivar.error };
+  // esta rutina como cualquier otra. Es opcional: guardar una rutina no
+  // tiene por qué significar "dejá de usar la que ya tenés activa" -- el
+  // usuario puede guardarla para más adelante y seguir con la actual.
+  if (activar) {
+    const resultadoActivar = await cambiarRutinaActiva(routineId);
+    if (resultadoActivar.error) {
+      return { error: resultadoActivar.error };
+    }
   }
 
   return { ok: true, routineId };
