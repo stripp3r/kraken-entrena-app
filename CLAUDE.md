@@ -809,6 +809,36 @@ que Kraken Split) y también en la columna `rir_objetivo`.
   C/F = legs (piernas completo / glúteo-isquios+pantorrilla), doble
   frecuencia por grupo en la semana.
 
+## Anti-Flakardo: nombres reales y corrección del Torso Pierna (2026-09-22)
+
+El usuario confirmó que **"3 días - Fullbody" y "Entreno 4 días" son las
+dos rutinas reales del producto Anti-Flakardo** (ver hallazgo de
+`producto_rutinas` más arriba) -- se renombraron a **"Anti-Flakardo
+Fullbody"** y **"Anti-Flakardo Torso Pierna"** (SQL directo, no quedó en
+una migración archivada -- si hace falta reproducir:
+`update routines set nombre = '...' where nombre = '...';`).
+
+Además, "Entreno 4 días" (ahora "Anti-Flakardo Torso Pierna") tenía
+cargado un split genérico Push/Pull/Piernas/Full que **no correspondía al
+protocolo real** -- el usuario mandó capturas del PDF (2 plantillas: "Día
+Torso" y "Día Piernas") y confirmó la estructura de la semana: **A=Torso,
+B=Piernas, C=Torso (repite A), D=Piernas (repite B)**. Corregido en
+`migration_061_anti_flakardo_torso_pierna_correccion.sql` -- delete +
+reinsert de los `routine_exercises` de esa rutina (no toca `workout_logs`,
+esos apuntan a `exercise_definitions` directo, no a `routine_exercises`).
+Series/reps/RIR no estaban en las capturas del PDF -- el usuario pidió
+usar criterio propio, igual que con Torso-Pierna/Push Pull Legs de la
+migración 060.
+
+**Regla para el futuro: antes de tocar/confiar en el contenido de
+cualquier rutina vieja del catálogo, no asumir que está bien armada solo
+porque existe** -- ya van dos casos esta sesión (Volumen/Recuperación mal
+calculados, y ahora un split de "Entreno 4 días" que ni siquiera
+correspondía al nombre/producto real). Si algo se ve raro (0
+`series_reps`, nombre genérico tipo "Entreno 4 días" sin marca), vale la
+pena preguntar antes de asumir que es el contenido real de un producto que
+se vende.
+
 ## Qué NO hacer sin preguntarle antes al usuario
 
 - No correr ninguna migración SQL contra la base de producción -- se
