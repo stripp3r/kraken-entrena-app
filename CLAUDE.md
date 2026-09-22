@@ -830,14 +830,27 @@ Series/reps/RIR no estaban en las capturas del PDF -- el usuario pidió
 usar criterio propio, igual que con Torso-Pierna/Push Pull Legs de la
 migración 060.
 
+"Anti-Flakardo Fullbody" (antes "3 días - Fullbody") tenía el mismo
+problema -- cada uno de sus 3 días tenía una selección distinta y
+genérica (nada que ver entre sí), no el template real. El usuario mandó
+la captura del PDF: UN solo template de 6 ejercicios (Sentadillas, Peso
+muerto, Press militar, Press de banca plano, Dominadas en polea, Remo en
+polea) que se repite en los 3 días. Corregido en
+`migration_062_anti_flakardo_fullbody_correccion.sql`, mismo patrón
+delete+reinsert. A diferencia de la carga vieja, esta versión NO agrega
+ejercicios de abs por criterio propio -- son los 6 exactos del PDF, sin
+más ni menos (el PDF de Fullbody no muestra abs, a diferencia del de
+Torso Pierna).
+
 **Regla para el futuro: antes de tocar/confiar en el contenido de
 cualquier rutina vieja del catálogo, no asumir que está bien armada solo
-porque existe** -- ya van dos casos esta sesión (Volumen/Recuperación mal
-calculados, y ahora un split de "Entreno 4 días" que ni siquiera
-correspondía al nombre/producto real). Si algo se ve raro (0
-`series_reps`, nombre genérico tipo "Entreno 4 días" sin marca), vale la
-pena preguntar antes de asumir que es el contenido real de un producto que
-se vende.
+porque existe** -- ya van tres casos esta sesión (Volumen/Recuperación mal
+calculados, "Entreno 4 días" con un split que no correspondía al
+producto, y "3 días - Fullbody" con 3 días completamente distintos entre
+sí en vez de un template repetido). Si algo se ve raro (0 `series_reps`,
+nombre genérico sin marca, días sin relación aparente entre sí), vale la
+pena preguntar antes de asumir que es el contenido real de un producto
+que se vende.
 
 ## Qué NO hacer sin preguntarle antes al usuario
 
