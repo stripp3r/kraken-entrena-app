@@ -80,12 +80,18 @@ export default async function RutinaPreviewPage({
           ))}
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col gap-3">
           <CambiarAEstaRutinaBoton
             routineId={routine.id}
             nombre={routine.nombre}
             esActiva={routine.id === profile?.routine_id}
           />
+          <Link
+            href={`/entrenamiento/rutinas/${routine.id}/analisis`}
+            className="rounded-lg border border-border bg-bg-card px-5 py-3 text-center text-sm text-gray-300 transition-colors hover:border-border-strong"
+          >
+            Ver análisis de esta rutina
+          </Link>
         </div>
       </div>
     </main>
