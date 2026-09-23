@@ -1,5 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { calcularPentagono, calcularVolumenPorGrupo, type DiaBorrador, type PentagonoScores } from "@/lib/pentagono";
+import {
+  calcularPentagono,
+  calcularVolumenPorGrupo,
+  calcularFrecuenciaPorGrupo,
+  calcularRecuperacionPorGrupo,
+  calcularIntensidadPorDia,
+  calcularSostenibilidadPorDia,
+  type DiaBorrador,
+  type PentagonoScores,
+} from "@/lib/pentagono";
 import { parsearSeriesReps } from "@/lib/parsear-series-reps";
 import type { TipoEsfuerzo } from "@/lib/descanso";
 
@@ -15,6 +24,10 @@ type FilaRutina = {
 export type AnalisisRutina = {
   pentagono: PentagonoScores;
   volumenPorGrupo: { grupo: string; series: number; mev: number; mav: number; mrv: number }[];
+  frecuenciaPorGrupo: { grupo: string; vecesPorSemana: number }[];
+  recuperacionPorGrupo: { grupo: string; diasDescanso: number | null }[];
+  intensidadPorDia: { dia: string; rirPromedio: number }[];
+  sostenibilidadPorDia: { dia: string; minutos: number }[];
 };
 
 // Las rutinas del coach guardan series/reps/RIR como texto libre, no como
@@ -57,5 +70,9 @@ export async function calcularAnalisisRutina(
   return {
     pentagono: calcularPentagono(dias),
     volumenPorGrupo: calcularVolumenPorGrupo(dias),
+    frecuenciaPorGrupo: calcularFrecuenciaPorGrupo(dias),
+    recuperacionPorGrupo: calcularRecuperacionPorGrupo(dias),
+    intensidadPorDia: calcularIntensidadPorDia(dias),
+    sostenibilidadPorDia: calcularSostenibilidadPorDia(dias),
   };
 }

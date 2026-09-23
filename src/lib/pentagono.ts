@@ -186,3 +186,57 @@ export function calcularVolumenPorGrupo(
     .map(([grupo, series]) => ({ grupo, series, ...landmarksDeGrupo(grupo) }))
     .sort((a, b) => b.series / b.mav - a.series / a.mav);
 }
+
+export function calcularFrecuenciaPorGrupo(dias: DiaBorrador[]): { grupo: string; vecesPorSemana: number }[] {
+  return [...diasPorGrupo(dias).entries()]
+    .map(([grupo, indices]) => ({ grupo, vecesPorSemana: indices.length }))
+    .sort((a, b) => b.vecesPorSemana - a.vecesPorSemana);
+}
+
+// `diasDescanso: null` = el grupo no se repite en la semana -- no hay gap
+// que promediar, y es la mejor recuperación posible (cada estímulo tiene
+// toda la semana para asentarse).
+export function calcularRecuperacionPorGrupo(
+  dias: DiaBorrador[]
+): { grupo: string; diasDescanso: number | null }[] {
+  const n = dias.length;
+  const separacionDias = n > 0 ? 7 / n : 0;
+  const resultado: { grupo: string; diasDescanso: number | null }[] = [];
+  for (const [grupo, indices] of diasPorGrupo(dias).entries()) {
+    if (indices.length < 2) {
+      resultado.push({ grupo, diasDescanso: null });
+      continue;
+    }
+    const gaps: number[] = [];
+    for (let i = 1; i < indices.length; i++) {
+      gaps.push((indices[i] - indices[i - 1]) * separacionDias - 1);
+    }
+    const promedio = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    resultado.push({ grupo, diasDescanso: Math.round(promedio * 10) / 10 });
+  }
+  return resultado.sort((a, b) => (a.diasDescanso ?? 99) - (b.diasDescanso ?? 99));
+}
+
+// Intensidad y Sostenibilidad no son "por grupo muscular" (no hay un RIR ni
+// una duración por músculo) -- son del programa completo, así que acá el
+// desglose que tiene sentido es por día, no por grupo.
+export function calcularIntensidadPorDia(dias: DiaBorrador[]): { dia: string; rirPromedio: number }[] {
+  return dias
+    .filter((d) => d.ejercicios.length > 0)
+    .map((d) => ({
+      dia: d.dia,
+      rirPromedio:
+        Math.round((d.ejercicios.reduce((a, e) => a + e.rirObjetivo, 0) / d.ejercicios.length) * 10) / 10,
+    }));
+}
+
+export function calcularSostenibilidadPorDia(dias: DiaBorrador[]): { dia: string; minutos: number }[] {
+  return dias
+    .filter((d) => d.ejercicios.length > 0)
+    .map((d) => ({
+      dia: d.dia,
+      minutos: Math.round(
+        d.ejercicios.reduce((acc, e) => acc + (e.series * (segundosEntreSeries(e.tipoEsfuerzo) + 45)) / 60, 0)
+      ),
+    }));
+}

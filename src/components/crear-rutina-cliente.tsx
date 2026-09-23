@@ -4,8 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GRUPOS_MUSCULARES, type GrupoMuscular } from "@/lib/grupos-musculares";
-import { calcularPentagono, calcularVolumenPorGrupo, type DiaBorrador } from "@/lib/pentagono";
+import {
+  calcularPentagono,
+  calcularVolumenPorGrupo,
+  calcularFrecuenciaPorGrupo,
+  calcularRecuperacionPorGrupo,
+  calcularIntensidadPorDia,
+  calcularSostenibilidadPorDia,
+  type DiaBorrador,
+} from "@/lib/pentagono";
 import { PentagonoChart } from "@/components/pentagono-chart";
+import { TablaMetrica } from "@/components/tabla-metrica";
+import { filasFrecuencia, filasRecuperacion, filasIntensidad, filasSostenibilidad } from "@/lib/formato-metricas";
 import type { TipoEsfuerzo } from "@/lib/descanso";
 import { guardarRutinaCreada } from "@/app/entrenamiento/crear-rutina/actions";
 
@@ -198,8 +208,8 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
 
   const diasParaCalculo: DiaBorrador[] = useMemo(
     () =>
-      dias.map((d) => ({
-        dia: "",
+      dias.map((d, i) => ({
+        dia: String.fromCharCode(65 + i),
         gruposMusculares: d.gruposMusculares,
         ejercicios: d.ejercicios.map((e) => ({
           exerciseDefinitionId: e.exerciseDefinitionId,
@@ -216,6 +226,16 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
 
   const pentagono = useMemo(() => calcularPentagono(diasParaCalculo), [diasParaCalculo]);
   const volumenPorGrupo = useMemo(() => calcularVolumenPorGrupo(diasParaCalculo), [diasParaCalculo]);
+  const frecuenciaPorGrupo = useMemo(() => calcularFrecuenciaPorGrupo(diasParaCalculo), [diasParaCalculo]);
+  const recuperacionPorGrupo = useMemo(
+    () => calcularRecuperacionPorGrupo(diasParaCalculo),
+    [diasParaCalculo]
+  );
+  const intensidadPorDia = useMemo(() => calcularIntensidadPorDia(diasParaCalculo), [diasParaCalculo]);
+  const sostenibilidadPorDia = useMemo(
+    () => calcularSostenibilidadPorDia(diasParaCalculo),
+    [diasParaCalculo]
+  );
 
   const diaCompleto = (d: DiaWizard) => d.gruposMusculares.length > 0 && d.ejercicios.length > 0;
   const todosLosDiasCompletos = dias.every(diaCompleto);
@@ -549,6 +569,14 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
           ))}
         </div>
       </div>
+
+      <TablaMetrica titulo="Frecuencia, por grupo muscular" filas={filasFrecuencia(frecuenciaPorGrupo)} />
+      <TablaMetrica
+        titulo="Recuperación, por grupo muscular"
+        filas={filasRecuperacion(recuperacionPorGrupo)}
+      />
+      <TablaMetrica titulo="Intensidad (RIR), por día" filas={filasIntensidad(intensidadPorDia)} />
+      <TablaMetrica titulo="Sostenibilidad, por día" filas={filasSostenibilidad(sostenibilidadPorDia)} />
 
       {error && <p className="text-center text-xs text-red-400">{error}</p>}
 

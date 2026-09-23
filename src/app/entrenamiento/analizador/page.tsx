@@ -29,8 +29,8 @@ export default async function AnalizadorPage() {
 
   const rutinas = await Promise.all(
     adquiridas.map(async (r) => {
-      const { pentagono, volumenPorGrupo } = await calcularAnalisisRutina(supabase, r.id);
-      return { id: r.id, nombre: r.nombre, dias: r.dias, pentagono, volumenPorGrupo };
+      const analisis = await calcularAnalisisRutina(supabase, r.id);
+      return { id: r.id, nombre: r.nombre, dias: r.dias, ...analisis };
     })
   );
 
