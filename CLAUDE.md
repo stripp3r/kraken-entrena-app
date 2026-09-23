@@ -701,6 +701,33 @@ estaba cerrada, se trata como si hubiese terminado normalmente -- si era
 "Descanso entre lados" se avanza el lado igual, para no dejar la puerta
 abierta a repetir el mismo lado.
 
+**Segunda causa del mismo síntoma, encontrada 2026-09-23**: el bug de
+arriba no era la única forma de terminar cargando el mismo lado dos veces
+-- `DescansoTimer` (`src/components/descanso-timer.tsx`) tenía una carrera
+entre el cronómetro y el botón "Saltar descanso": ambos llaman al mismo
+`avanzarLado()` del padre (un simple toggle derecho↔izquierdo), pero solo
+el `setInterval` tenía el guard `terminadoRef` -- el botón no lo
+chequeaba. Si el usuario tocaba "Saltar" justo cuando el cronómetro
+llegaba a 0 (o lo tocaba dos veces rápido antes de que React desmonte el
+componente), los DOS disparaban `avanzarLado()` por separado -> dos
+toggles se cancelan entre sí -> el lado queda IGUAL que antes, y el
+usuario termina cargando el mismo lado otra vez sin darse cuenta (a veces
+con `series_reps`/RIR distinto, así que ni siquiera se ve como un
+duplicado exacto). Fix: el botón "Saltar descanso" ahora chequea y setea
+el mismo `terminadoRef` que el intervalo -- el que dispare primero gana,
+el otro se vuelve no-op.
+
+**Se encontraron y corrigieron 2 casos reales** en la cuenta de prueba del
+usuario (ezequiel.arce@outlook.com, ids de `workout_logs` 215/244/245,
+fecha 2026-09-22) -- confirmados comparando peso/reps entre pares
+consecutivos (el peso/reps se repite entre los dos lados de un mismo set,
+así que sirve para saber cuál era realmente el par correcto incluso
+cuando el RIR cargado difiere entre lados). Si en el futuro aparece un
+reclamo similar, la consulta para detectarlo en cualquier cuenta es: pedir
+por cada `exercise_definition_id`+`fecha`, ordenar por `created_at`, y
+buscar dos filas consecutivas con el mismo `lado` (`lag(lado) over
+(partition by exercise_definition_id, fecha order by created_at)`).
+
 ## Analizador de rutinas y pentágono (2026-09-22)
 
 El pentágono dejó de ser solo parte del wizard de "Crea tu rutina" -- ahora
