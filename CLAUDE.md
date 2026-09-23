@@ -789,6 +789,68 @@ uno con su color).
   más, solo la sigla (el valor no tiene sentido con varias rutinas
   superpuestas) más una leyenda de colores debajo del gráfico.
 
+### Desglose por grupo/día de los otros 4 ejes (2026-09-22/23)
+
+Solo Volumen tenía una tabla de soporte ("series por semana, por grupo
+muscular") -- el usuario notó que quedaba desbalanceado: "todo el resto no
+se analiza". Se agregaron desgloses equivalentes para los otros 4 ejes, en
+las 3 pantallas que muestran el pentágono (análisis individual, wizard de
+"Crea tu rutina", comparador):
+
+- **`src/lib/pentagono.ts`**: `calcularFrecuenciaPorGrupo`,
+  `calcularRecuperacionPorGrupo` (por grupo muscular, mismo eje que
+  Volumen/Frecuencia) y `calcularIntensidadPorDia`,
+  `calcularSostenibilidadPorDia` (por DÍA, no por grupo -- no hay un RIR ni
+  una duración por músculo, así que ahí el desglose que tiene sentido es
+  por día).
+- **`src/lib/formato-metricas.ts`** (nuevo): funciones puras
+  `filasFrecuencia`/`filasRecuperacion`/`filasIntensidad`/
+  `filasSostenibilidad` que convierten la salida cruda de `pentagono.ts` al
+  formato `{label, valor}[]` que espera `<TablaMetrica>` (nuevo,
+  `src/components/tabla-metrica.tsx`) -- mismo criterio de texto reusado en
+  las 3 pantallas.
+- **Comparador** (`analizador-cliente.tsx`): mismo componente
+  `TablaComparativa` que ya existía para Volumen, reusado para los 4 ejes
+  nuevos. Para Intensidad y Sostenibilidad se pasa **`resaltarGanador={false}`**
+  a propósito -- ahí "el número más alto" no es "mejor" (RIR más alto no es
+  más "ganador"; una sesión más larga no es más sostenible, es al revés),
+  así que resaltar el máximo como si fuera un ganador sería engañoso. Solo
+  Volumen/Frecuencia/Recuperación resaltan el máximo de cada fila con el
+  color de esa rutina (empate = blanco), igual que ya hacía Volumen.
+- El wizard de "Crea tu rutina" tenía un bug latente que quedó expuesto acá:
+  `DiaBorrador.dia` se armaba como `""` (string vacío) en vez de la letra
+  real del día -- no rompía nada antes porque nada mostraba el día por
+  nombre, pero las tablas nuevas de Intensidad/Sostenibilidad por día sí lo
+  necesitan. Se corrigió derivando `dia: String.fromCharCode(65 + i)` del
+  índice del día en el array (misma convención `LETRAS_DIA` que ya usa el
+  comparador).
+
+### Recuperación por grupo asume ciclo semanal, no "Nunca repite" (2026-09-23)
+
+`calcularRecuperacionPorGrupo` mostraba **"Nunca repite"** (`diasDescanso:
+null`) para cualquier grupo entrenado una sola vez en el ciclo (ej. Hombros
+en una rutina de 3 días donde solo se toca una vez). El usuario lo marcó
+como incorrecto: **todas las rutinas de la app se arman sobre un ciclo
+semanal de 7 días** -- ese grupo no "nunca" vuelve a entrenarse, vuelve
+cuando arranca la semana siguiente, a los 7 días. Esto además ya era el
+supuesto que usa `calcularRecuperacion` (el eje global del pentágono, no el
+desglose) con `separación = 7/N` -- el desglose por grupo simplemente no
+cerraba el ciclo de vuelta al día 1.
+
+**Fix**: se reemplazó el caso especial `null`/"Nunca repite" por un valor
+fijo `diasDescanso: 7` (constante `CICLO_DIAS`) para grupos con una sola
+aparición en el ciclo. El tipo de `recuperacionPorGrupo` pasó de
+`{diasDescanso: number | null}` a `{diasDescanso: number}` en las 3 capas
+que lo consumen (`pentagono.ts`, `analisis-rutina.ts`,
+`analizador-cliente.tsx`, `formato-metricas.ts`) -- ya no hay `null` que
+manejar en ningún lado.
+
+No se contempló la posibilidad de ciclos no semanales (rutinas que no se
+repiten cada 7 días): ningún otro lugar de la app soporta eso hoy (Frecuencia
+también asume semana de 7 días vía "vecesPorSemana", igual que
+`calcularRecuperacion` global) -- agregar esa flexibilidad sería
+inconsistente con el resto del modelo sin que nadie lo haya pedido.
+
 ## Borrado de rutinas (2026-09-22)
 
 Solo se pueden borrar rutinas con `routines.creada_por_usuario = true` (las
