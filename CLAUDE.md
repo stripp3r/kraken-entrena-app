@@ -851,6 +851,74 @@ también asume semana de 7 días vía "vecesPorSemana", igual que
 `calcularRecuperacion` global) -- agregar esa flexibilidad sería
 inconsistente con el resto del modelo sin que nadie lo haya pedido.
 
+## Ejercicios repetidos en varios días de la misma rutina: salvaguarda preventiva (2026-09-23)
+
+El usuario preguntó si un ejercicio agendado en más de un día de la misma
+rutina (ej. "Fondo en paralelas" en Día A y Día B) podía mezclar su
+historial entre esos días de forma incorrecta -- puntualmente le
+preocupaba el caso de Anti-Flakardo, donde varios ejercicios se repiten en
+A/B/C. Se auditó el código real antes de tocar nada:
+
+- **A nivel de datos no hay riesgo**: cada set se guarda como fila
+  independiente en `workout_logs` con su propio `created_at` -- nunca se
+  sobreescribe. Los "sets ya cargados hoy" que se ven al registrar se
+  filtran por fecha real de HOY (`entrenamiento/[dia]/page.tsx`), así que
+  nunca se mezclan sets de sesiones de días distintos.
+- **Donde sí se mezcla, por diseño**: el histórico de progreso (gráfico de
+  1RM, PRs) y la sugerencia de peso (`ultimoTopSet`/`pesoSugerido`) juntan
+  TODAS las sesiones de un `exercise_definition_id`, sin importar en qué
+  día de la rutina estaba agendado -- porque `workout_logs` solo identifica
+  el ejercicio, no el día. Esto es intencional (arquitectura de
+  `exercise_definitions` canónicos, ver sección de arquitectura del plan:
+  "que el progreso de un movimiento no se corte"). Se verificó en las
+  migraciones reales (061, 062) que tanto Anti-Flakardo Fullbody (A/B/C)
+  como Torso Pierna (A=C, B=D) usan la **misma prescripción exacta**
+  (series/reps/RIR) en los días que se repiten -- ahí mezclar el histórico
+  es correcto, es el mismo estímulo entrenado varias veces por semana.
+- **El riesgo real es hipotético, no actual**: si algún día se carga una
+  rutina donde el mismo ejercicio se repite con una prescripción DISTINTA
+  según el día (ej. Día A fuerza 5x5, Día B hipertrofia 3x15), mezclar el
+  histórico sí daría una sugerencia de peso engañosa. El usuario pidió
+  explícitamente dejar esto resuelto de antemano aunque hoy no aplique.
+
+**Salvaguarda implementada (no cambia el comportamiento actual, solo lo
+protege hacia adelante)**:
+
+- **Migración 063**: `workout_logs.dia` (text, nullable, sin backfill --
+  los registros viejos quedan en `null` y siguen participando del
+  histórico combinado como siempre). Desde que existe la columna, cada set
+  nuevo guarda de qué día vino (`registrarSets(exerciseDefinitionId, sets,
+  dia)` en `entrenamiento/actions.ts`, con `dia` propagado desde
+  `EntrenamientoDiaCliente` → `ExerciseCard`).
+- **`src/lib/divergencia-dia.ts`** (`ejerciciosQueDivergenPorDia`): dado el
+  conjunto de instancias de `routine_exercises` de una rutina, devuelve el
+  set de `exercise_definition_id` que aparecen en más de un día con una
+  firma distinta (`series_reps` + `rir_objetivo`). Si todas las instancias
+  del ejercicio comparten la misma firma (caso de hoy), no diverge y nada
+  cambia.
+- **`entrenamiento/[dia]/page.tsx`**: la sugerencia de peso
+  (`sugerenciaPorEjercicio`) solo filtra `logsPrevios` por `dia === diaActual`
+  cuando el ejercicio diverge; si no diverge, sigue mezclando todos los
+  días como siempre.
+- **`progreso/entrenamiento/page.tsx` + `progreso-analitica.tsx` +
+  `grafico-volumen-ejercicios.tsx`**: `logsByExercise` pasó de
+  `Record<number, SetLog[]>` a `Record<string, SetLog[]>`, indexado por
+  `claveEjercicioDia(id, dia)` (`src/lib/clave-ejercicio-dia.ts`). Para
+  ejercicios que no divergen, todas sus claves (una por día que lo
+  agenda) apuntan al mismo historial combinado -- el usuario sigue viendo
+  exactamente lo mismo que antes bajo cada pestaña de día. Para
+  ejercicios que diverjan en el futuro, cada día queda con su propio
+  balde de logs.
+- **`entrenamiento/rutinas/[id]/[dia]/page.tsx`** (preview de rutina
+  ajena/no activa, sin registro real): solo necesitó recibir `dia` como
+  prop nueva de `<ExerciseCard>` porque el tipo lo exige ahora: no registra
+  sets, así que el valor es cosmético ahí.
+
+No se tocó `src/lib/analytics.ts` (`ultimoTopSet`, `pesoSugerido`,
+`calcularEstadisticasEjercicio`) -- esas funciones ya reciben `SetLog[]`
+pre-filtrado por el caller, así que la lógica de "cuándo separar por día"
+vive enteramente en las dos páginas server-side, no en el cálculo.
+
 ## Borrado de rutinas (2026-09-22)
 
 Solo se pueden borrar rutinas con `routines.creada_por_usuario = true` (las
