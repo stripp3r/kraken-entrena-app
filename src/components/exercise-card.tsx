@@ -69,6 +69,7 @@ function labelLado(lado: Lado | null) {
 
 export function ExerciseCard({
   exercise,
+  dia,
   logsDeHoy,
   activo = false,
   compacto = false,
@@ -76,6 +77,7 @@ export function ExerciseCard({
   sesion,
 }: {
   exercise: Exercise;
+  dia: string;
   logsDeHoy: WorkoutLog[];
   activo?: boolean;
   compacto?: boolean;
@@ -112,14 +114,18 @@ export function ExerciseCard({
     setSaving(true);
     setError(null);
 
-    const result = await registrarSets(exercise.id, [
-      {
-        peso: setActivo.peso ? Number(setActivo.peso) : null,
-        reps: setActivo.reps ? Number(setActivo.reps) : null,
-        rir: setActivo.rir ? Number(setActivo.rir) : null,
-        lado: sesion.lado,
-      },
-    ]);
+    const result = await registrarSets(
+      exercise.id,
+      [
+        {
+          peso: setActivo.peso ? Number(setActivo.peso) : null,
+          reps: setActivo.reps ? Number(setActivo.reps) : null,
+          rir: setActivo.rir ? Number(setActivo.rir) : null,
+          lado: sesion.lado,
+        },
+      ],
+      dia
+    );
     setSaving(false);
 
     if (result.error) {

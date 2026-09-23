@@ -2,6 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { serieDeVolumen, type SetLog } from "@/lib/analytics";
+import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
 
 const COLORES = ["#7a7a7a", "#e7e7e7", "#f97316", "#38bdf8", "#a3e635", "#e879f9", "#facc15"];
 
@@ -14,12 +15,14 @@ export function GraficoVolumenEjercicios({
   exercises,
   logsByExercise,
 }: {
-  exercises: { id: number; nombre: string }[];
-  logsByExercise: Record<number, SetLog[]>;
+  exercises: { id: number; nombre: string; dia: string }[];
+  logsByExercise: Record<string, SetLog[]>;
 }) {
   const fechas = [
     ...new Set(
-      exercises.flatMap((ex) => serieDeVolumen(logsByExercise[ex.id] ?? []).map((p) => p.fecha))
+      exercises.flatMap((ex) =>
+        serieDeVolumen(logsByExercise[claveEjercicioDia(ex.id, ex.dia)] ?? []).map((p) => p.fecha)
+      )
     ),
   ].sort();
 
@@ -33,7 +36,7 @@ export function GraficoVolumenEjercicios({
 
   const datos = exercises.map((ex) => {
     const fila: Record<string, string | number> = { ejercicio: ex.nombre };
-    for (const punto of serieDeVolumen(logsByExercise[ex.id] ?? [])) {
+    for (const punto of serieDeVolumen(logsByExercise[claveEjercicioDia(ex.id, ex.dia)] ?? [])) {
       fila[fechaCorta(punto.fecha)] = punto.valor;
     }
     return fila;

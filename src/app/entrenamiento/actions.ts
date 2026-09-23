@@ -11,7 +11,7 @@ export type SetInput = {
   lado?: "derecho" | "izquierdo" | null;
 };
 
-export async function registrarSets(exerciseDefinitionId: number, sets: SetInput[]) {
+export async function registrarSets(exerciseDefinitionId: number, sets: SetInput[], dia?: string) {
   const supabase = await createClient();
 
   const {
@@ -31,6 +31,7 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
       reps: s.reps,
       rir: s.rir,
       lado: s.lado ?? null,
+      dia: dia ?? null,
     }));
 
   if (filas.length === 0) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GlosarioEstadisticas } from "./glosario-estadisticas";
 import { calcularEstadisticasEjercicio, serieDeUnaRM, type SetLog } from "@/lib/analytics";
+import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
 import { GraficoVolumenEjercicios } from "./grafico-volumen-ejercicios";
 import {
   Line,
@@ -118,7 +119,7 @@ export function ProgresoAnalitica({
 }: {
   dias: string[];
   exercises: Exercise[];
-  logsByExercise: Record<number, SetLog[]>;
+  logsByExercise: Record<string, SetLog[]>;
 }) {
   const [vista, setVista] = useState<string>("GLOBAL");
 
@@ -179,7 +180,11 @@ export function ProgresoAnalitica({
               </p>
             ) : (
               ejerciciosVista.map((ex) => (
-                <TarjetaEjercicio key={ex.id} nombre={ex.nombre} logs={logsByExercise[ex.id] ?? []} />
+                <TarjetaEjercicio
+                  key={ex.id}
+                  nombre={ex.nombre}
+                  logs={logsByExercise[claveEjercicioDia(ex.id, ex.dia)] ?? []}
+                />
               ))
             )}
           </div>

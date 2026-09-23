@@ -229,7 +229,7 @@ export function EntrenamientoDiaCliente({
         </div>
         <div className="grid grid-cols-2 gap-3">
           {exercises.map((ex) => (
-            <ExerciseCard key={ex.id} exercise={ex} logsDeHoy={[]} compacto />
+            <ExerciseCard key={ex.id} exercise={ex} dia={dia} logsDeHoy={[]} compacto />
           ))}
         </div>
       </div>
@@ -261,6 +261,7 @@ export function EntrenamientoDiaCliente({
             <ExerciseCard
               key={ex.id}
               exercise={ex}
+              dia={dia}
               logsDeHoy={logsPorEjercicio[ex.id] ?? []}
               activo={esActivo}
               compacto={!sesionActiva}

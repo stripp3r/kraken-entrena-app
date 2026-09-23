@@ -4,6 +4,8 @@ import { ProgresoAnalitica } from "@/components/progreso-analitica";
 import { BackLink } from "@/components/back-link";
 import type { SetLog } from "@/lib/analytics";
 import { inicioDelDiaArgentinaUTC } from "@/lib/fecha";
+import { ejerciciosQueDivergenPorDia } from "@/lib/divergencia-dia";
+import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -46,7 +48,7 @@ export default async function ProgresoPage() {
 
   const { data: routineExercises } = await supabase
     .from("routine_exercises")
-    .select("dia, orden, exercise_definition_id, exercise_definitions(nombre)")
+    .select("dia, orden, exercise_definition_id, series_reps, rir_objetivo, exercise_definitions(nombre)")
     .eq("routine_id", profile.routine_id)
     .order("orden", { ascending: true });
 
@@ -63,6 +65,13 @@ export default async function ProgresoPage() {
     });
 
   const exerciseIds = exercises.map((e) => e.id);
+
+  // Si el mismo ejercicio aparece en más de un día de ESTA rutina con una
+  // prescripción distinta, su historial no debe mezclarse entre días --
+  // ver src/lib/divergencia-dia.ts. Hoy ningún ejercicio real diverge
+  // (Anti-Flakardo repite la misma prescripción en los días que repite),
+  // pero la separación queda lista por si algún día pasa.
+  const divergenPorDia = ejerciciosQueDivergenPorDia(routineExercises ?? []);
 
   // El análisis es sobre ESTA rutina activa, no sobre toda la vida del
   // ejercicio -- si el mismo ejercicio ya se usó en una rutina anterior
@@ -82,7 +91,7 @@ export default async function ProgresoPage() {
     ? await (() => {
         let query = supabase
           .from("workout_logs")
-          .select("exercise_definition_id, peso, reps, created_at")
+          .select("exercise_definition_id, peso, reps, created_at, dia")
           .eq("user_id", user.id)
           .in("exercise_definition_id", exerciseIds)
           .order("created_at", { ascending: true });
@@ -95,13 +104,20 @@ export default async function ProgresoPage() {
           peso: number | null;
           reps: number | null;
           created_at: string;
+          dia: string | null;
         }[],
       };
 
-  const logsByExercise: Record<number, SetLog[]> = {};
+  // Caso común: todas las instancias del ejercicio comparten la misma
+  // clave (`${id}:${dia}` distinto por día, pero el mismo balde de logs
+  // mezclados) -- se sigue viendo el historial combinado en cada pestaña
+  // de día, como siempre. Cuando diverge, cada día se queda solo con sus
+  // propios sets.
+  const logsByExercise: Record<string, SetLog[]> = {};
   for (const ex of exercises) {
-    logsByExercise[ex.id] = (logs ?? [])
+    logsByExercise[claveEjercicioDia(ex.id, ex.dia)] = (logs ?? [])
       .filter((l) => l.exercise_definition_id === ex.id)
+      .filter((l) => !divergenPorDia.has(ex.id) || l.dia === ex.dia)
       .map((l) => ({ peso: l.peso, reps: l.reps, created_at: l.created_at }));
   }
 
