@@ -25,7 +25,7 @@ export type AnalisisRutina = {
   pentagono: PentagonoScores;
   volumenPorGrupo: { grupo: string; series: number; mev: number; mav: number; mrv: number }[];
   frecuenciaPorGrupo: { grupo: string; vecesPorSemana: number }[];
-  recuperacionPorGrupo: { grupo: string; diasDescanso: number | null }[];
+  recuperacionPorGrupo: { grupo: string; diasDescanso: number }[];
   intensidadPorDia: { dia: string; rirPromedio: number }[];
   sostenibilidadPorDia: { dia: string; minutos: number }[];
 };

@@ -12,7 +12,7 @@ type RutinaAnalizada = {
   pentagono: PentagonoScores;
   volumenPorGrupo: { grupo: string; series: number; mev: number; mav: number; mrv: number }[];
   frecuenciaPorGrupo: { grupo: string; vecesPorSemana: number }[];
-  recuperacionPorGrupo: { grupo: string; diasDescanso: number | null }[];
+  recuperacionPorGrupo: { grupo: string; diasDescanso: number }[];
   intensidadPorDia: { dia: string; rirPromedio: number }[];
   sostenibilidadPorDia: { dia: string; minutos: number }[];
 };
@@ -192,7 +192,6 @@ export function AnalizadorCliente({ rutinas }: { rutinas: RutinaAnalizada[] }) {
               elegidas.map((r) => {
                 const dato = r.recuperacionPorGrupo.find((x) => x.grupo === grupo);
                 if (!dato) return { numero: null, texto: "–" };
-                if (dato.diasDescanso === null) return { numero: 99, texto: "Nunca repite" };
                 return { numero: dato.diasDescanso, texto: `${dato.diasDescanso}d` };
               })
             }

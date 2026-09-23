@@ -13,7 +13,7 @@ export function filasFrecuencia(datos: AnalisisRutina["frecuenciaPorGrupo"]) {
 export function filasRecuperacion(datos: AnalisisRutina["recuperacionPorGrupo"]) {
   return datos.map(({ grupo, diasDescanso }) => ({
     label: grupo,
-    valor: diasDescanso === null ? "No se repite" : `${diasDescanso} días`,
+    valor: `${diasDescanso} días`,
   }));
 }
 

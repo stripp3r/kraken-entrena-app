@@ -193,18 +193,21 @@ export function calcularFrecuenciaPorGrupo(dias: DiaBorrador[]): { grupo: string
     .sort((a, b) => b.vecesPorSemana - a.vecesPorSemana);
 }
 
-// `diasDescanso: null` = el grupo no se repite en la semana -- no hay gap
-// que promediar, y es la mejor recuperación posible (cada estímulo tiene
-// toda la semana para asentarse).
+// Toda rutina de esta app se arma sobre un ciclo semanal (7 días) -- ver el
+// mismo supuesto en `calcularRecuperacion` de arriba. Un grupo que se
+// entrena una sola vez en el ciclo no "nunca se repite": vuelve a
+// entrenarse cuando arranca la semana siguiente, a los 7 días.
+const CICLO_DIAS = 7;
+
 export function calcularRecuperacionPorGrupo(
   dias: DiaBorrador[]
-): { grupo: string; diasDescanso: number | null }[] {
+): { grupo: string; diasDescanso: number }[] {
   const n = dias.length;
   const separacionDias = n > 0 ? 7 / n : 0;
-  const resultado: { grupo: string; diasDescanso: number | null }[] = [];
+  const resultado: { grupo: string; diasDescanso: number }[] = [];
   for (const [grupo, indices] of diasPorGrupo(dias).entries()) {
     if (indices.length < 2) {
-      resultado.push({ grupo, diasDescanso: null });
+      resultado.push({ grupo, diasDescanso: CICLO_DIAS });
       continue;
     }
     const gaps: number[] = [];
@@ -214,7 +217,7 @@ export function calcularRecuperacionPorGrupo(
     const promedio = gaps.reduce((a, b) => a + b, 0) / gaps.length;
     resultado.push({ grupo, diasDescanso: Math.round(promedio * 10) / 10 });
   }
-  return resultado.sort((a, b) => (a.diasDescanso ?? 99) - (b.diasDescanso ?? 99));
+  return resultado.sort((a, b) => a.diasDescanso - b.diasDescanso);
 }
 
 // Intensidad y Sostenibilidad no son "por grupo muscular" (no hay un RIR ni
