@@ -975,6 +975,54 @@ exacta a implementar -- se implementó tal cual, sin re-litigar el criterio.
   explícito), pero Glúteos queda marcado como el candidato más probable a
   revisar primero si se ajusta esta tabla más adelante.
 
+## Volumen: denominador fijo + peso Terciario + catálogo completado (2026-09-24)
+
+Con la curva de 3 tramos del fix anterior, Fullbody (74→61) y PPL (79→65)
+seguían casi empatando en Volumen -- el usuario pidió investigar más a
+fondo y aparecieron dos causas distintas, no una:
+
+1. **`calcularVolumen()` promediaba solo sobre grupos tocados.** Una
+   rutina incompleta (Fullbody nunca entrena Bíceps/Tríceps/Pantorrillas/
+   Abdominales) no promediaba esos puntajes bajos; una completa con algún
+   grupo por debajo de su landmark sí veía ese número arrastrando el
+   promedio. Fix: `GRUPOS_VOLUMEN_NUCLEO` (10 grupos fijos, sin Trapecio/
+   Abductores/Antebrazos/Cuello -- la mayoría de programas serios no los
+   entrena directo) como denominador fijo; un grupo no tocado ahora cuenta
+   como 0. `calcularVolumenPorGrupo()` también muestra los 10 núcleo aunque
+   tengan 0 series (flag `nucleo: boolean`, sin uso en la UI todavía --
+   queda disponible para distinguir visualmente más adelante).
+2. **Hueco real de etiquetado en el catálogo**: Trapecio no estaba tageado
+   en NINGÚN ejercicio compuesto (remos, peso muerto, dominadas, face
+   pull), solo en los 4 encogimientos dedicados, a pesar de intervenir
+   biomecánicamente. Más una inconsistencia lisa ("Remo con barra parado"
+   vs. "Remo parado con barra agarre cerrado", mismo movimiento con
+   distinta ficha). No se arregla con más fórmula, se arregla completando
+   el dato -- **migración 064** (25 `exercise_definitions` corregidos,
+   verificados 1 a 1 contra nombre real antes de correr, y contra
+   producción después). De paso se agregó un nivel **Terciario (0.25)**
+   en `pesoPorGrupo()` para la posición 3+ del array (las posiciones 1 y 2
+   siguen compartiendo Secundario a propósito, para no romper Peso muerto
+   que ya usaba 3 grupos).
+- **Verificado con datos reales tras el deploy completo** (ojo: el primer
+  chequeo dio V=57 para Fullbody -- resultó ser el deploy de Vercel
+  todavía propagándose, no un bug; con más espera dio el valor correcto):
+  Volumen Fullbody 61→**43**, PPL 65→**71** -- la brecha pasa de 4 a 28
+  puntos, mucho más allá de lo pedido. Trapecio en PPL sube de 3 a
+  **14** series/semana (crédito terciario desde remos/peso
+  muerto/dominadas/face pull), sin mover el score de Volumen (queda fuera
+  del núcleo, como corresponde).
+- **Desvío real respecto a lo que predecía el criterio de aceptación,
+  vale la pena tenerlo anotado**: el prompt esperaba que la tabla de
+  Fullbody mostrara **0** en Bíceps (además de Tríceps/Pantorrillas/
+  Abdominales). Tríceps/Pantorrillas/Abdominales sí dan 0, pero **Bíceps
+  da 9**, no 0 -- porque dos de los 6 ejercicios de Fullbody ("Dorsales en
+  polea alta" y "Remo en máquina sentado") son justamente dos de los que
+  la migración 064 corrigió para sumarles Bíceps secundario. No es un bug:
+  es una consecuencia real y rastreable de que Fullbody y el fix de
+  catálogo comparten ejercicios -- el criterio de aceptación no lo había
+  anticipado porque se escribió sin cruzar qué ejercicios específicos usa
+  cada rutina.
+
 ## Borrado de rutinas (2026-09-22)
 
 Solo se pueden borrar rutinas con `routines.creada_por_usuario = true` (las
