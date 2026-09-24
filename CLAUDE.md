@@ -1201,6 +1201,18 @@ marcando él, no asumir un orden fijo).
   encontrar duplicados exactos entre grupos musculares distintos (ej. un
   ejercicio que biomecánicamente pega en dos grupos y se cargó dos veces
   con nombres distintos, uno por cada grupo).
+- **Segunda tanda (Bíceps, migración 066)**: 2 nombres pasados, los 2
+  eran ejercicios reales faltantes -- **Curl spider con barra EZ** (ya
+  existía "Curl spider con mancuernas", esta es la variante con barra EZ,
+  no un duplicado) y **Curl Scott a un brazo agarre invertido**. Este
+  último se clasificó `[Antebrazos, Bíceps]` (Antebrazos primero, no solo
+  Bíceps) -- el agarre pronado (reverse grip) le saca protagonismo al
+  bíceps braquial y se lo da al braquiorradial, y el propio archivo de la
+  biblioteca lo etiqueta `_Forearms_`, no `_Upper-Arms_` como el resto de
+  los de Bíceps -- señal a prestar atención cuando el nombre de archivo la
+  trae. Vuelto a correr el hash MD5 sobre el catálogo completo (186 en
+  este punto) después de agregar: sigue sin aparecer ningún duplicado
+  nuevo, solo el mismo de siempre (id 91/93).
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
