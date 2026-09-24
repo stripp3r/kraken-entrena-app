@@ -1380,6 +1380,13 @@ marcando él, no asumir un orden fijo).
   piso con rodillo (rango extendido). Hash MD5 sobre el catálogo
   completo (241): sin duplicados nuevos (solo el ya conocido id91/id93
   de Abdominales).
+- **Oncena tanda (Trapecio, migración 076), 2 nombres**: los 2 eran
+  ejercicios reales faltantes -- Encogimiento de hombros acostado en
+  polea, Encogimiento de hombros con banda elástica (posición/equipo
+  distintos a los 4 encogimientos ya cargados: barra, mancuernas, polea
+  de pie, banco inclinado), ninguno duplicado. Hash MD5 sobre el
+  catálogo completo (243): sin duplicados nuevos (solo el ya conocido
+  id91/id93 de Abdominales).
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
