@@ -1281,6 +1281,26 @@ marcando él, no asumir un orden fijo).
   en camilla unilateral" = "Curl femoral tumbado unilateral" id 130 ya
   cargado). Hash MD5 sobre el catálogo completo (212): sin duplicados
   nuevos.
+- **Sexta tanda (Pantorrillas, migración 070), 3 nombres**: los 3 eran
+  ejercicios reales faltantes, ninguno duplicado -- Elevación de talón
+  tipo burro (donkey) en máquina, Elevación de talón en prensa de piernas
+  45°, Elevación de talón en prensa de piernas horizontal. Hash MD5 sobre
+  el catálogo completo (215): sin duplicados nuevos.
+  - **Hallazgo aparte, no relacionado a los 3 nombres pasados**: al
+    revisar la lista existente de Pantorrillas para comparar, aparecieron
+    dos entradas PREEXISTENTES con nombres casi idénticos -- id 10
+    "Elevación de talón en máquina Smith" e id 202 "Elevación de talón en
+    Smith". El hash MD5 no los detecta como duplicados (son dos
+    ilustraciones distintas, un hombre y una mujer, no el mismo archivo),
+    pero visualmente es el mismo ejercicio real. id 10 está en uso
+    (`routine_exercises` id 164, rutina 8, día D); id 202 no tiene
+    ninguna referencia (ni rutinas ni `workout_logs`). Queda pendiente de
+    decisión del usuario borrar id 202 -- documentado en la migración 070
+    pero sin tocar la base todavía. **Este tipo de hallazgo es la razón
+    por la que el chequeo de duplicados no puede ser solo hash MD5** -- el
+    hash pesca copias exactas del archivo, pero no pesca "mismo ejercicio,
+    dos ilustraciones distintas"; para eso hace falta mirar la lista
+    completa del grupo a ojo cada vez, no solo correr el script.
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
