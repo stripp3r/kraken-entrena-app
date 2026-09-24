@@ -1351,6 +1351,35 @@ marcando él, no asumir un orden fijo).
   con el codo liderando), documentado por si el usuario prefiere
   fusionarlos. Hash MD5 sobre el catálogo completo (232): sin
   duplicados nuevos (solo el ya conocido id91/id93 de Abdominales).
+- **Correcciones confirmadas por el usuario (migración 074)**: se borró
+  id 202 "Elevación de talón en Smith" (duplicado exacto de id 10, sin
+  referencias -- ver hallazgo de la migración 070). Sobre id 107
+  "Patada de glúteo cruzada Fire Hydrant" (hallazgo de la migración
+  071): se había renombrado por error a "Puente de glúteos unilateral"
+  sospechando que el nombre estaba mal puesto por la imagen -- se
+  revirtió al notar que el `como_hacerlo` y el `video_url` ya cargados
+  sí describen correctamente un fire hydrant; el bug real es que el
+  GIF (`imagen_url`) tiene el archivo equivocado, pendiente de
+  reemplazo.
+- **Décima tanda (Pecho, migración 075), 14 nombres**: 2 duplicados
+  exactos (hash MD5 idéntico) descartados -- "Supien máquina máquina
+  Smith" = id 72 "Press banca en Smith"; "oie_Vrzmr9YBX68H" (dumbbell
+  bench press) = id 33 "Press de banco con mancuernas". 2
+  near-duplicates preexistentes (mismo ejercicio real, distinta
+  ilustración, mismo patrón que id10/id202) NO agregados, pendientes de
+  revisión si el usuario quiere confirmarlos: "00471301-Barbell-
+  Incline-Bench-Press" ~ id 155 "Press banco inclinado con barra";
+  "00301301-Barbell-Close-Grip-Bench-Press" ~ id 162 "Press de banca
+  agarre cerrado supino". Los otros 10 eran ejercicios reales faltantes
+  -- Flexión de brazos con agarres (parallettes), Flexión de brazos
+  abierta (agarre ancho), Flexión de brazos declinada (pies elevados),
+  Press de banca agarre cerrado con barra EZ, Flexión de brazos cerrada
+  (diamante), Press banco plano con barra agarre ancho, Press de banco
+  declinado con mancuernas, Press de banca con barra (pies en el
+  banco), Floor press con mancuernas, Aperturas con mancuernas en el
+  piso con rodillo (rango extendido). Hash MD5 sobre el catálogo
+  completo (241): sin duplicados nuevos (solo el ya conocido id91/id93
+  de Abdominales).
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
