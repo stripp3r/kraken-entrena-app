@@ -1213,6 +1213,32 @@ marcando él, no asumir un orden fijo).
   trae. Vuelto a correr el hash MD5 sobre el catálogo completo (186 en
   este punto) después de agregar: sigue sin aparecer ningún duplicado
   nuevo, solo el mismo de siempre (id 91/93).
+- **Tercera tanda (Cuádriceps, migración 067) -- la más grande hasta
+  ahora, 18 nombres**: acá el chequeo visual pagó fuerte --
+  - **4 duplicados exactos** (mismo GIF byte a byte, confirmado con
+    `md5sum`, no solo "se parecen"): Sled-Full-Hack-Squat = Hack Squat (id
+    81) ya cargado, Assisted-Pistol-Squat-with-Bed-Sheet = Sentadilla
+    pistol asistida (id 188), `bulgara.gif` = Estocada búlgara en el banco
+    (id 18), Prensa de piernas horizontal (GIF pack) = Prensa de piernas
+    horizontal (id 124).
+  - **1 mal ubicado, no se cargó**: Landmine-Romanian-Deadlift es
+    Isquiotibiales/Glúteos (bisagra de cadera, el GIF resalta esos
+    músculos), no Cuádriceps -- el usuario lo había pasado en la tanda de
+    Cuádriceps por error de carpeta. Va a cargarse cuando llegue el turno
+    de Isquiotibiales/Glúteos, no antes.
+  - **13 nuevos genuinos**: Estocada búlgara con barra, Salto de zancada
+    con mancuernas, Sentadilla con salto y mancuernas, Sentadilla con
+    mancuernas, Extensión de cuádriceps con banda sentado, Zancada lateral
+    con mancuerna, Estocada hacia atrás con landmine, Sentadilla frontal
+    con landmine, Farmer's Walk, Estocada búlgara sin peso, Extensión de
+    cuádriceps unilateral en máquina, Prensa de piernas 45° unilateral,
+    Sentadilla frontal con barra.
+  - Patrón de grupos musculares seguido (mirando cómo ya estaba tageado
+    el resto de Cuádriceps): estocadas/zancadas/sentadillas con
+    desplazamiento → `[Cuádriceps, Glúteos]` (secundario), extensiones y
+    ejercicios de máquina aislados → `[Cuádriceps]` solo.
+  - Hash MD5 sobre el catálogo completo (199 en este punto) después de
+    agregar: sin duplicados nuevos, solo el mismo de siempre.
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
