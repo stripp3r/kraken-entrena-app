@@ -1387,6 +1387,31 @@ marcando él, no asumir un orden fijo).
   de pie, banco inclinado), ninguno duplicado. Hash MD5 sobre el
   catálogo completo (243): sin duplicados nuevos (solo el ya conocido
   id91/id93 de Abdominales).
+- **Doceava tanda (Tríceps, migración 077), 13 nombres -- última tanda,
+  cierra la revisión músculo por músculo**: la de mayor densidad de
+  duplicados hasta ahora, incluyendo duplicados ENTRE los propios
+  nombres que pasó el usuario (confirmó su propia advertencia: "puede
+  que incluso entre lo que yo mismo te pasé existan duplicaciones").
+  1 duplicado EXACTO (hash MD5 idéntico): "oie_vIZuHJIrxzsP" (fondos
+  entre dos bancos) = id 27 "Fondos en banco". 5 near-duplicates (mismo
+  ejercicio real, distinta ilustración o redacción) NO agregados,
+  pendientes de revisión si el usuario quiere confirmarlos: "triceps
+  polea.gif", "12271301-Cable-Standing-One-Arm-Tricep-Pushdown-Overhand-
+  Grip" y "Tríceps pulley pronado" -- los 3 apuntan al mismo ejercicio
+  real que id 22 "Tríceps en polea alta a un brazo" (duplicados también
+  entre sí); "17241301-Cable-Rope-High-Pulley-Overhead-Tricep-Extension"
+  ~ id 77 "Extensión de tríceps sobre la cabeza en polea" (su texto ya
+  describe cuerda + polea alta + a dos manos); "16061301-Cable-Reverse-
+  Grip-Triceps-Pushdown-SZ-bar" ~ id 163 "Tríceps agarre supino en polea
+  alta a un brazo". Los otros 7 eran ejercicios reales faltantes --
+  Extensión de tríceps sobre la cabeza en polea a un brazo, Extensión de
+  tríceps en polea cruzada (cross), Extensión de tríceps en polea
+  lateral a un brazo, Extensión de tríceps con polea por detrás (Rear
+  Drive), Extensión de tríceps acostado en polea (press francés en
+  polea acostado), Press francés unilateral sentado con mancuerna,
+  Press francés unilateral en polea cruzada (cross). Hash MD5 sobre el
+  catálogo completo (250): sin duplicados nuevos (solo el ya conocido
+  id91/id93 de Abdominales).
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
