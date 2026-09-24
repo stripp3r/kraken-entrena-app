@@ -1148,6 +1148,60 @@ usando sin el total -- sumar RIR entre días no tiene sentido) y
 calculándolo dentro de la misma función `filas` cuando la etiqueta
 coincide.
 
+## Revisión del catálogo músculo por músculo (2026-09-24, en curso)
+
+El usuario arrancó una revisión sistemática: por cada grupo muscular, pasa
+los nombres de archivo de la biblioteca de referencia (`D:\PROYECTO
+FITNESS\VIDEOS\RECURSOS\TECNICAS DE EJERCICIOS\EJERCICIOS\<GRUPO>\`) y hay
+que chequear cuáles ya están cargados en `exercise_definitions` y cuáles
+faltan. Empezó por Abdominales, sigue por el resto (el orden lo va
+marcando él, no asumir un orden fijo).
+
+- **Los nombres de archivo NO son descriptivos** (vienen de un banco de
+  GIFs de stock, ej. `05081301-Janda-Sit-up_Waist_720.gif`) -- no alcanza
+  con leer el nombre para saber qué ejercicio es ni para saber si ya está
+  cargado (los `imagen_url` en Storage tienen nombres en español, no
+  conservan el nombre original del archivo de la biblioteca). **Hay que
+  abrir el GIF con el tool Read y mirarlo** -- funciona bien, Read
+  renderiza el primer frame de un `.gif` como imagen. Comparar contra la
+  lista de `nombre` + `imagen_url` de ese grupo muscular (traída de
+  Supabase, no de memoria).
+- **Primera tanda (Abdominales)**: de 7 nombres pasados, 2 eran el mismo
+  ejercicio bajo 2 archivos distintos (elevación de piernas en banco
+  declinado), 1 se descartó por solapar con "Crunch abdominal"/"Crunch
+  básico" ya cargados (Elbow-to-Knee-Sit-up), y los otros 5 conceptos
+  (contando el duplicado como 1) se cargaron -- **migración 065**: Crunch
+  en polea de rodillas, Sit-up completo, Patada de tijera sentado,
+  Abdominales en banco plano, Elevación de piernas en banco declinado.
+  GIFs subidos al bucket `ejercicios` de Storage (mismo patrón kebab-case),
+  `como_hacerlo` redactado seguiendo el mismo template de las entradas
+  existentes (Paso inicial / Posición inicial / Movimiento / Contracción /
+  Regreso / Consejo como Entrenador). Inserción hecha por REST API
+  directo (POST a `exercise_definitions`) en vez de tipear el SQL en el
+  editor -- el texto largo con tildes y saltos de línea es propenso a
+  errores de tipeo en ese editor; la migración igual quedó archivada en
+  el repo con el mismo INSERT, por las dudas de necesitar reproducirlo.
+- **Auditoría de duplicados pedida explícitamente ("cualquier ejercicio",
+  no solo Abdominales)**: se re-corrió el mismo método de la auditoría
+  original (2026-09-21) -- hash MD5 de los 184 `imagen_url` del catálogo
+  completo (no solo el grupo que se está revisando), agrupar por hash
+  idéntico. Resultado: **un solo grupo de duplicado exacto**, ya conocido
+  y documentado desde la auditoría original -- `id 91` "Elevación de
+  piernas sentado con apoyo de manos" e `id 93` "Elevación de rodillas
+  sentado con apoyo de manos" comparten el mismo GIF (el de pierna recta).
+  Se buscó de nuevo en toda la carpeta ABDOMINALES (180 archivos) algo que
+  matchee la postura real de `id 93` (sentado en banco, apoyado de manos,
+  rodilla flexionada) -- lo más parecido encontrado
+  (`05701301-Leg-Pull-In-Flat-Bench`) es acostado, no sentado, no es un
+  match real. Sigue sin resolverse, igual que antes -- no inventar un
+  reemplazo que no sea el movimiento correcto.
+- **Repetir este método (hash MD5 sobre TODO el catálogo, no solo el grupo
+  nuevo) cada vez que se agreguen ejercicios nuevos** en esta revisión --
+  es rápido (~184 descargas en paralelo) y es la única forma confiable de
+  encontrar duplicados exactos entre grupos musculares distintos (ej. un
+  ejercicio que biomecánicamente pega en dos grupos y se cargó dos veces
+  con nombres distintos, uno por cada grupo).
+
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
 Hasta ahora solo se podían borrar las rutinas de "Crea tu rutina", no
