@@ -1321,6 +1321,24 @@ marcando él, no asumir un orden fijo).
   de hombro en máquina agarre martillo, Elevación lateral con banda
   elástica. Hash MD5 sobre el catálogo completo (224): sin duplicados
   nuevos (solo el ya conocido id91/id93 de Abdominales).
+- **Novena tanda (Hombros, segunda parte, migración 073), 9 nombres**:
+  8 eran ejercicios reales faltantes -- Apertura con banda para
+  deltoide posterior, Press de hombro detrás de nuca con banda, Remo al
+  mentón con banda, Remo de pie con banda para deltoide posterior,
+  Flexión en parada de manos (Handstand Push-Up), Vuelo posterior con
+  mancuernas sentado inclinado, Elevación frontal en banco inclinado
+  con mancuerna, Remo al mentón con barra. 1 quedó afuera por
+  near-duplicate preexistente (no hash-idéntico, misma posición/equipo/
+  músculo real): "Dumbbell-Incline-Rear-Lateral-Raise" = id 8
+  "Deltoides posteriores en banco inclinado con mancuernas" -- mismo
+  patrón que el caso id10/id202 de la migración 070. Nota aparte: "Vuelo
+  posterior con mancuernas sentado inclinado" (nuevo) parte de una
+  postura muy similar a "Remo con mancuernas sentado inclinado para
+  deltoide posterior" (id 250, migración 072) -- se mantuvieron
+  separados por diferencia real de técnica (vuelo con codo fijo vs remo
+  con el codo liderando), documentado por si el usuario prefiere
+  fusionarlos. Hash MD5 sobre el catálogo completo (232): sin
+  duplicados nuevos (solo el ya conocido id91/id93 de Abdominales).
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
