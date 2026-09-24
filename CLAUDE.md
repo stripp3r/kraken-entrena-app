@@ -1312,6 +1312,15 @@ marcando él, no asumir un orden fijo).
   -- Patada de glúteo parada en banco, Patada de glúteo en máquina de
   cuadrupedia. Hash MD5 sobre el catálogo completo (217): sin duplicados
   nuevos (solo el ya conocido id91/id93 de Abdominales).
+- **Octava tanda (Hombros, migración 072), 7 nombres**: los 7 eran
+  ejercicios reales faltantes (aparatos/variantes distintos a los ya
+  cargados), ninguno duplicado -- Elevación frontal acostada en polea,
+  Remo con mancuernas sentado inclinado para deltoide posterior, Remo en
+  polea de rodillas con cuerda para deltoide posterior, Elevación
+  lateral en máquina con agarre, Elevación lateral con landmine, Press
+  de hombro en máquina agarre martillo, Elevación lateral con banda
+  elástica. Hash MD5 sobre el catálogo completo (224): sin duplicados
+  nuevos (solo el ya conocido id91/id93 de Abdominales).
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
