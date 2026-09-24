@@ -919,6 +919,62 @@ No se tocó `src/lib/analytics.ts` (`ultimoTopSet`, `pesoSugerido`,
 pre-filtrado por el caller, así que la lógica de "cuándo separar por día"
 vive enteramente en las dos páginas server-side, no en el cálculo.
 
+## Volumen: curva de 3 tramos (MEV-MAV-MRV) y Frecuencia: curva de 2 tramos (2026-09-24)
+
+El usuario detectó, comparando rutinas reales en el comparador, que la
+Anti-Flakardo Fullbody (3 días) y la Push Pull Legs (6 días) quedaban casi
+empatadas en Volumen y que la brecha de Frecuencia se veía desproporcionada
+(un salto enorme, no un matiz). Llegó un prompt técnico detallado de otra
+sesión (mismo patrón que la corrección MEV-MAV original) con la fórmula
+exacta a implementar -- se implementó tal cual, sin re-litigar el criterio.
+
+- **Volumen** (`scorePorGrupo` en `pentagono.ts`): el techo plano en MAV
+  (cualquier cosa ≥MAV puntuaba 100 parejo) empataba una rutina que apenas
+  toca el MAV con una que lo triplica. Ahora es una curva de 3 tramos que
+  sigue diferenciando hasta el MRV real de cada grupo: 0..MEV → 0-40,
+  MEV..MAV → 40-80, MAV..MRV → 80-100, ≥MRV → 100 tope (ahí sí es volumen
+  basura franco, no debe seguir sumando). `calcularVolumenPorGrupo` ya
+  devolvía `mev`/`mav`/`mrv` juntos (no hizo falta tocar el tipo
+  `AnalisisRutina`); se agregaron `mevDeGrupo()`/`mavDeGrupo()` en
+  `volumen-landmarks.ts` junto al `mrvDeGrupo()` que ya existía, y el sort
+  de `calcularVolumenPorGrupo` pasó de `series/mav` a `series/mrv` para ser
+  consistente con la nueva referencia mostrada en UI.
+- **Frecuencia** (`scoreFrecuencia` en `pentagono.ts`): el mapeo lineal
+  1→4 le daba el mismo peso a cada salto de frecuencia. Reemplazado por
+  una curva de 2 tramos (1→20, 2→80, 4→100) que refleja que el salto que
+  de verdad importa es 1x→2x/semana (meta-análisis de Schoenfeld sobre
+  frecuencia) -- de 2x en adelante los rendimientos son marginales.
+- **UI**: los 3 lugares que muestran "series por grupo vs. referencia"
+  (`analizador-cliente.tsx`, `rutinas/[id]/analisis/page.tsx`,
+  `crear-rutina-cliente.tsx`) volvieron a referenciar **MRV** en vez de
+  MAV/MEV-MAV -- es de nuevo el número que define el 100 del eje con la
+  curva de 3 tramos. Los textos de referencia en `pentagono-chart.tsx`
+  (Volumen, Frecuencia, Recuperación) se actualizaron para explicar esto;
+  Intensidad y Sostenibilidad quedaron sin cambios de texto ni de fórmula.
+- **Intensidad, Recuperación, Sostenibilidad**: sin cambios de fórmula
+  (confirmado leyendo el código antes de tocar nada -- Intensidad ya era
+  solo-RIR desde la sesión anterior). Recuperación y Sostenibilidad miden
+  dos conceptos de recuperación distintos y complementarios a propósito
+  (local por músculo vs. sistémica/logística) -- fusionarlos duplicaría la
+  señal y perdería poder diagnóstico, no se tocan.
+- **Verificado con datos reales** (Anti-Flakardo Fullbody vs. Push Pull
+  Legs, las rutinas que expusieron el problema): Volumen 74→61 (Fullbody)
+  y 79→65 (PPL) -- PPL sigue arriba, ya no comprimido contra el techo.
+  Frecuencia 67→90 (Fullbody) y 36→81 (PPL) -- Fullbody sigue ganando pero
+  la brecha pasa de 31 a 9 puntos. Recuperación/Intensidad/Sostenibilidad
+  sin cambios (44/67 -- 67/73 -- 75/30). Coincide exacto con lo pedido en
+  el criterio de aceptación del prompt.
+- **Verificación de fuente pedida explícitamente antes de dar por buena la
+  tabla**: `help.rpstrength.com` está detrás de login de cliente, no se
+  pudo leer. Se verificó contra el blog público vigente
+  (`rpstrength.com/blogs/articles/{glute,ab,trap}-hypertrophy-training-tips`)
+  en su lugar -- documentado en `volumen-landmarks.ts`: Abdominales y
+  Trapecio calzan con el tier "Priority" de RP (no el estándar), Glúteos
+  queda más bajo que incluso el tier estándar vigente hoy (MRV=16 cargado
+  vs. 24-30 que publica el blog). No se tocó ningún MRV existente (pedido
+  explícito), pero Glúteos queda marcado como el candidato más probable a
+  revisar primero si se ajusta esta tabla más adelante.
+
 ## Borrado de rutinas (2026-09-22)
 
 Solo se pueden borrar rutinas con `routines.creada_por_usuario = true` (las
