@@ -1301,6 +1301,17 @@ marcando él, no asumir un orden fijo).
     hash pesca copias exactas del archivo, pero no pesca "mismo ejercicio,
     dos ilustraciones distintas"; para eso hace falta mirar la lista
     completa del grupo a ojo cada vez, no solo correr el script.
+- **Séptima tanda (Glúteos, migración 071), 4 nombres**: 2 duplicados
+  exactos (hash MD5 idéntico) descartados -- "Extensão de cadera 01" =
+  id 106 "Patada de glúteo con pierna extendida"; "Elevação pélvica
+  unilateral" = id 107 "Patada de glúteo cruzada Fire Hydrant" (**ojo**:
+  el nombre de la id 107 en la base no coincide con la imagen real -- la
+  imagen muestra un puente de glúteos unilateral acostado, no un fire
+  hydrant en cuadrupedia; queda documentado como posible error de nombre
+  preexistente, no se tocó). Los otros 2 eran ejercicios reales faltantes
+  -- Patada de glúteo parada en banco, Patada de glúteo en máquina de
+  cuadrupedia. Hash MD5 sobre el catálogo completo (217): sin duplicados
+  nuevos (solo el ya conocido id91/id93 de Abdominales).
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
