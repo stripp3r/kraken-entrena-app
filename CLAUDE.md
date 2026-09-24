@@ -1073,34 +1073,13 @@ exacta a implementar -- se implementó tal cual, sin re-litigar el criterio.
   explícito), pero Glúteos queda marcado como el candidato más probable a
   revisar primero si se ajusta esta tabla más adelante.
 
-## Volumen: denominador fijo + peso Terciario + catálogo completado (2026-09-24)
+## Volumen: verificación en producción del denominador fijo + Terciario (2026-09-24)
 
-Con la curva de 3 tramos del fix anterior, Fullbody (74→61) y PPL (79→65)
-seguían casi empatando en Volumen -- el usuario pidió investigar más a
-fondo y aparecieron dos causas distintas, no una:
+Ver la sección "Volumen: denominador fijo + trabajo indirecto de 3 niveles
+(2026-09-24)" más arriba para el fix completo (causa, código, migración
+064) -- esto es el resultado de verificarlo con datos reales después de
+desplegarlo, que vale la pena tener registrado aparte:
 
-1. **`calcularVolumen()` promediaba solo sobre grupos tocados.** Una
-   rutina incompleta (Fullbody nunca entrena Bíceps/Tríceps/Pantorrillas/
-   Abdominales) no promediaba esos puntajes bajos; una completa con algún
-   grupo por debajo de su landmark sí veía ese número arrastrando el
-   promedio. Fix: `GRUPOS_VOLUMEN_NUCLEO` (10 grupos fijos, sin Trapecio/
-   Abductores/Antebrazos/Cuello -- la mayoría de programas serios no los
-   entrena directo) como denominador fijo; un grupo no tocado ahora cuenta
-   como 0. `calcularVolumenPorGrupo()` también muestra los 10 núcleo aunque
-   tengan 0 series (flag `nucleo: boolean`, sin uso en la UI todavía --
-   queda disponible para distinguir visualmente más adelante).
-2. **Hueco real de etiquetado en el catálogo**: Trapecio no estaba tageado
-   en NINGÚN ejercicio compuesto (remos, peso muerto, dominadas, face
-   pull), solo en los 4 encogimientos dedicados, a pesar de intervenir
-   biomecánicamente. Más una inconsistencia lisa ("Remo con barra parado"
-   vs. "Remo parado con barra agarre cerrado", mismo movimiento con
-   distinta ficha). No se arregla con más fórmula, se arregla completando
-   el dato -- **migración 064** (25 `exercise_definitions` corregidos,
-   verificados 1 a 1 contra nombre real antes de correr, y contra
-   producción después). De paso se agregó un nivel **Terciario (0.25)**
-   en `pesoPorGrupo()` para la posición 3+ del array (las posiciones 1 y 2
-   siguen compartiendo Secundario a propósito, para no romper Peso muerto
-   que ya usaba 3 grupos).
 - **Verificado con datos reales tras el deploy completo** (ojo: el primer
   chequeo dio V=57 para Fullbody -- resultó ser el deploy de Vercel
   todavía propagándose, no un bug; con más espera dio el valor correcto):
