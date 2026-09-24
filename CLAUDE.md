@@ -1366,11 +1366,16 @@ marcando él, no asumir un orden fijo).
   Smith" = id 72 "Press banca en Smith"; "oie_Vrzmr9YBX68H" (dumbbell
   bench press) = id 33 "Press de banco con mancuernas". 2
   near-duplicates preexistentes (mismo ejercicio real, distinta
-  ilustración, mismo patrón que id10/id202) NO agregados, pendientes de
-  revisión si el usuario quiere confirmarlos: "00471301-Barbell-
-  Incline-Bench-Press" ~ id 155 "Press banco inclinado con barra";
-  "00301301-Barbell-Close-Grip-Bench-Press" ~ id 162 "Press de banca
-  agarre cerrado supino". Los otros 10 eran ejercicios reales faltantes
+  ilustración, mismo patrón que id10/id202) señalados en su momento:
+  "00471301-Barbell-Incline-Bench-Press" ~ id 155 "Press banco
+  inclinado con barra" (sigue sin agregar, pendiente de revisión si el
+  usuario quiere confirmarlo); "00301301-Barbell-Close-Grip-Bench-Press"
+  ~ id 162 "Press de banca agarre cerrado supino" -- **el usuario
+  corrigió esto (migración 078)**: el ancho de agarre (cerrado vs.
+  amplio) es en sí mismo lo que distingue variantes de press de banca,
+  no corresponde tratarlo como duplicado -- se agregó como "Press de
+  banca agarre cerrado con barra recta" (id 283). Los otros 10 eran
+  ejercicios reales faltantes
   -- Flexión de brazos con agarres (parallettes), Flexión de brazos
   abierta (agarre ancho), Flexión de brazos declinada (pies elevados),
   Press de banca agarre cerrado con barra EZ, Flexión de brazos cerrada
@@ -1394,16 +1399,17 @@ marcando él, no asumir un orden fijo).
   que incluso entre lo que yo mismo te pasé existan duplicaciones").
   1 duplicado EXACTO (hash MD5 idéntico): "oie_vIZuHJIrxzsP" (fondos
   entre dos bancos) = id 27 "Fondos en banco". 5 near-duplicates (mismo
-  ejercicio real, distinta ilustración o redacción) NO agregados,
-  pendientes de revisión si el usuario quiere confirmarlos: "triceps
-  polea.gif", "12271301-Cable-Standing-One-Arm-Tricep-Pushdown-Overhand-
-  Grip" y "Tríceps pulley pronado" -- los 3 apuntan al mismo ejercicio
-  real que id 22 "Tríceps en polea alta a un brazo" (duplicados también
-  entre sí); "17241301-Cable-Rope-High-Pulley-Overhead-Tricep-Extension"
-  ~ id 77 "Extensión de tríceps sobre la cabeza en polea" (su texto ya
-  describe cuerda + polea alta + a dos manos); "16061301-Cable-Reverse-
-  Grip-Triceps-Pushdown-SZ-bar" ~ id 163 "Tríceps agarre supino en polea
-  alta a un brazo". Los otros 7 eran ejercicios reales faltantes --
+  ejercicio real, distinta ilustración o redacción) NO agregados --
+  **confirmado por el usuario, quedan afuera definitivamente, no
+  pendiente**: "triceps polea.gif", "12271301-Cable-Standing-One-Arm-
+  Tricep-Pushdown-Overhand-Grip" y "Tríceps pulley pronado" -- los 3
+  apuntan al mismo ejercicio real que id 22 "Tríceps en polea alta a un
+  brazo" (duplicados también entre sí); "17241301-Cable-Rope-High-
+  Pulley-Overhead-Tricep-Extension" ~ id 77 "Extensión de tríceps sobre
+  la cabeza en polea" (su texto ya describe cuerda + polea alta + a dos
+  manos); "16061301-Cable-Reverse-Grip-Triceps-Pushdown-SZ-bar" ~ id 163
+  "Tríceps agarre supino en polea alta a un brazo". Los otros 7 eran
+  ejercicios reales faltantes --
   Extensión de tríceps sobre la cabeza en polea a un brazo, Extensión de
   tríceps en polea cruzada (cross), Extensión de tríceps en polea
   lateral a un brazo, Extensión de tríceps con polea por detrás (Rear
