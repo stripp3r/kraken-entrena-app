@@ -1267,6 +1267,20 @@ marcando él, no asumir un orden fijo).
     tanda, avisar si el usuario prefiere fusionarlos.
   - Hash MD5 sobre el catálogo completo (209 en este punto): sin
     duplicados nuevos.
+- **Quinta tanda (Isquiotibiales, migración 069), 3 nombres + 1 arrastrado
+  de Cuádriceps**: Peso muerto sumo (`[Isquiotibiales, Glúteos,
+  Cuádriceps]` -- la postura sumo le suma cuádriceps de verdad, no es
+  solo isquios/glúteos como el peso muerto convencional), Hiperextensión
+  inversa en máquina (`[Glúteos, Isquiotibiales]`, Glúteos primero porque
+  es lo que resalta más el GIF -- distinto de "Hiperextensiones" normal,
+  ahí se mueve el torso con las piernas fijas, acá es al revés), y el
+  **Peso muerto rumano con landmine** que había quedado afuera de la
+  migración 067 por estar mal ubicado en Cuádriceps -- el usuario
+  confirmó explícitamente que la clasificación Isquiotibiales/Glúteos
+  estaba bien y pidió sumarlo acá. Un duplicado descartado ("Curl femoral
+  en camilla unilateral" = "Curl femoral tumbado unilateral" id 130 ya
+  cargado). Hash MD5 sobre el catálogo completo (212): sin duplicados
+  nuevos.
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
