@@ -30,3 +30,15 @@ export function filasSostenibilidad(datos: AnalisisRutina["sostenibilidadPorDia"
     valor: `~${minutos} min`,
   }));
 }
+
+// Suma de los minutos de todos los días de entreno de la semana -- separado
+// del desglose por día porque responde una pregunta distinta ("¿cuánto
+// tiempo de gimnasio me pide esta rutina en total?"), no "por sesión".
+export function minutosTotalesSemana(datos: AnalisisRutina["sostenibilidadPorDia"]): number {
+  return datos.reduce((acc, d) => acc + d.minutos, 0);
+}
+
+export function formatearMinutosSemana(minutos: number): string {
+  const horas = Math.round((minutos / 60) * 10) / 10;
+  return `~${minutos} min (~${horas} h)`;
+}

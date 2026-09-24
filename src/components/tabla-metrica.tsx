@@ -6,9 +6,11 @@
 export function TablaMetrica({
   titulo,
   filas,
+  total,
 }: {
   titulo: React.ReactNode;
   filas: { label: string; valor: string; detalle?: string }[];
+  total?: { label: string; valor: string };
 }) {
   return (
     <div className="mt-5">
@@ -22,6 +24,12 @@ export function TablaMetrica({
             </span>
           </div>
         ))}
+        {total && (
+          <div className="mt-1 flex justify-between border-t border-border pt-2 text-sm font-medium">
+            <span className="text-gray-300">{total.label}</span>
+            <span className="text-white">{total.valor}</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,14 @@ import { BackLink } from "@/components/back-link";
 import { PentagonoChart } from "@/components/pentagono-chart";
 import { TablaMetrica } from "@/components/tabla-metrica";
 import { calcularAnalisisRutina } from "@/lib/analisis-rutina";
-import { filasFrecuencia, filasRecuperacion, filasIntensidad, filasSostenibilidad } from "@/lib/formato-metricas";
+import {
+  filasFrecuencia,
+  filasRecuperacion,
+  filasIntensidad,
+  filasSostenibilidad,
+  minutosTotalesSemana,
+  formatearMinutosSemana,
+} from "@/lib/formato-metricas";
 import { esPremium } from "@/lib/premium";
 
 export default async function AnalisisRutinaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -94,7 +101,14 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
           filas={filasRecuperacion(recuperacionPorGrupo)}
         />
         <TablaMetrica titulo="Intensidad (RIR), por día" filas={filasIntensidad(intensidadPorDia)} />
-        <TablaMetrica titulo="Sostenibilidad, por día" filas={filasSostenibilidad(sostenibilidadPorDia)} />
+        <TablaMetrica
+          titulo="Sostenibilidad, por día"
+          filas={filasSostenibilidad(sostenibilidadPorDia)}
+          total={{
+            label: "Total semanal",
+            valor: formatearMinutosSemana(minutosTotalesSemana(sostenibilidadPorDia)),
+          }}
+        />
 
         <div className="mt-6">
           <Link

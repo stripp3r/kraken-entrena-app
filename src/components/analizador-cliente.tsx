@@ -20,6 +20,7 @@ type RutinaAnalizada = {
 const COLORES = ["#10b981", "#38bdf8", "#f59e0b"];
 const MAX_SELECCION = 3;
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
+const LETRAS_DIA_Y_TOTAL = [...LETRAS_DIA, "Total semanal"];
 
 // Tabla comparativa genérica: una fila por grupo muscular (o por día),
 // una columna por rutina elegida, con el número más alto de cada fila
@@ -212,11 +213,15 @@ export function AnalizadorCliente({ rutinas }: { rutinas: RutinaAnalizada[] }) {
 
           <TablaComparativa
             titulo="Sostenibilidad (duración), por día"
-            etiquetas={LETRAS_DIA}
+            etiquetas={LETRAS_DIA_Y_TOTAL}
             colores={colores}
             resaltarGanador={false}
             filas={(dia) =>
               elegidas.map((r) => {
+                if (dia === "Total semanal") {
+                  const total = r.sostenibilidadPorDia.reduce((acc, d) => acc + d.minutos, 0);
+                  return { numero: total, texto: `${total} min` };
+                }
                 const dato = r.sostenibilidadPorDia.find((x) => x.dia === dia);
                 return dato ? { numero: dato.minutos, texto: `${dato.minutos} min` } : { numero: null, texto: "–" };
               })

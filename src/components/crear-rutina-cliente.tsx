@@ -15,7 +15,14 @@ import {
 } from "@/lib/pentagono";
 import { PentagonoChart } from "@/components/pentagono-chart";
 import { TablaMetrica } from "@/components/tabla-metrica";
-import { filasFrecuencia, filasRecuperacion, filasIntensidad, filasSostenibilidad } from "@/lib/formato-metricas";
+import {
+  filasFrecuencia,
+  filasRecuperacion,
+  filasIntensidad,
+  filasSostenibilidad,
+  minutosTotalesSemana,
+  formatearMinutosSemana,
+} from "@/lib/formato-metricas";
 import type { TipoEsfuerzo } from "@/lib/descanso";
 import { guardarRutinaCreada } from "@/app/entrenamiento/crear-rutina/actions";
 
@@ -574,7 +581,14 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
         filas={filasRecuperacion(recuperacionPorGrupo)}
       />
       <TablaMetrica titulo="Intensidad (RIR), por día" filas={filasIntensidad(intensidadPorDia)} />
-      <TablaMetrica titulo="Sostenibilidad, por día" filas={filasSostenibilidad(sostenibilidadPorDia)} />
+      <TablaMetrica
+        titulo="Sostenibilidad, por día"
+        filas={filasSostenibilidad(sostenibilidadPorDia)}
+        total={{
+          label: "Total semanal",
+          valor: formatearMinutosSemana(minutosTotalesSemana(sostenibilidadPorDia)),
+        }}
+      />
 
       {error && <p className="text-center text-xs text-red-400">{error}</p>}
 
