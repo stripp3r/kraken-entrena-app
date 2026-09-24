@@ -75,7 +75,10 @@ export default async function RutinasAdquiridasPage() {
                   <span className="text-xs text-gray-500">Ver →</span>
                 </Link>
                 {r.creada_por_usuario && (
-                  <div className="flex justify-end border-t border-border px-4 py-2">
+                  <div className="flex justify-end gap-3 border-t border-border px-4 py-2">
+                    <Link href={`/entrenamiento/rutinas/${r.id}/editar`} className="text-xs text-gray-400 underline">
+                      Editar
+                    </Link>
                     <BorrarRutinaBoton routineId={r.id} />
                   </div>
                 )}

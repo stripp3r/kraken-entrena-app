@@ -122,3 +122,115 @@ export async function guardarRutinaCreada(nombre: string, dias: DiaGuardar[], ac
 
   return { ok: true, routineId };
 }
+
+// Edita una rutina ya creada por el propio usuario -- mismo criterio de
+// ownership que borrarRutinaCreada (creada_por_usuario + acceso en
+// profile_routine_access), revalidado acá server-side. Reemplaza TODO el
+// contenido (borra y recarga routine_exercises/routine_dias) en vez de
+// intentar un diff fila por fila -- es mucho más simple y no hay riesgo
+// para el historial: workout_logs apunta a exercise_definition_id, nunca a
+// routine_exercises.id, así que borrar y recrear las filas de scheduling
+// no corta el progreso de ningún ejercicio.
+export async function actualizarRutinaCreada(
+  routineId: number,
+  nombre: string,
+  dias: DiaGuardar[],
+  activar: boolean
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Tenés que iniciar sesión de nuevo." };
+  }
+
+  const [{ data: rutina }, { data: acceso }] = await Promise.all([
+    supabase.from("routines").select("id, creada_por_usuario").eq("id", routineId).maybeSingle(),
+    supabase
+      .from("profile_routine_access")
+      .select("routine_id")
+      .eq("user_id", user.id)
+      .eq("routine_id", routineId)
+      .maybeSingle(),
+  ]);
+
+  if (!rutina || !rutina.creada_por_usuario) {
+    return { error: "Esta rutina no se puede editar." };
+  }
+  if (!acceso) {
+    return { error: "Esta rutina no te pertenece." };
+  }
+
+  const nombreLimpio = nombre.trim();
+  if (!nombreLimpio) {
+    return { error: "Ponele un nombre a tu rutina." };
+  }
+  if (dias.length < 1 || dias.length > 7) {
+    return { error: "Tiene que tener entre 1 y 7 días." };
+  }
+  if (dias.some((d) => d.gruposMusculares.length === 0)) {
+    return { error: "Marcá al menos un grupo muscular en cada día." };
+  }
+  if (dias.some((d) => d.ejercicios.length === 0)) {
+    return { error: "Agregá al menos un ejercicio en cada día." };
+  }
+
+  const admin = createAdminClient();
+
+  const [{ error: errorBorrarEjercicios }, { error: errorBorrarDias }] = await Promise.all([
+    admin.from("routine_exercises").delete().eq("routine_id", routineId),
+    admin.from("routine_dias").delete().eq("routine_id", routineId),
+  ]);
+
+  if (errorBorrarEjercicios || errorBorrarDias) {
+    return {
+      error: errorBorrarEjercicios?.message ?? errorBorrarDias?.message ?? "No se pudo actualizar.",
+    };
+  }
+
+  const filasEjercicios = dias.flatMap((dia, indiceDia) =>
+    dia.ejercicios.map((ej, indiceEjercicio) => ({
+      routine_id: routineId,
+      dia: LETRAS_DIA[indiceDia],
+      orden: indiceEjercicio + 1,
+      exercise_definition_id: ej.exerciseDefinitionId,
+      series_reps: `${ej.series} x ${ej.repsMin}-${ej.repsMax}`,
+      rir_objetivo: ej.rirObjetivo,
+    }))
+  );
+
+  const filasDias = dias.map((dia, indiceDia) => ({
+    routine_id: routineId,
+    dia: LETRAS_DIA[indiceDia],
+    grupos_musculares: dia.gruposMusculares,
+  }));
+
+  const [{ error: errorEjercicios }, { error: errorDias }] = await Promise.all([
+    admin.from("routine_exercises").insert(filasEjercicios),
+    admin.from("routine_dias").insert(filasDias),
+  ]);
+
+  if (errorEjercicios || errorDias) {
+    return { error: errorEjercicios?.message ?? errorDias?.message ?? "No se pudo guardar." };
+  }
+
+  const { error: errorRutina } = await admin
+    .from("routines")
+    .update({ nombre: nombreLimpio, dias: dias.length })
+    .eq("id", routineId);
+
+  if (errorRutina) {
+    return { error: errorRutina.message };
+  }
+
+  if (activar) {
+    const resultadoActivar = await cambiarRutinaActiva(routineId);
+    if (resultadoActivar.error) {
+      return { error: resultadoActivar.error };
+    }
+  }
+
+  return { ok: true, routineId };
+}

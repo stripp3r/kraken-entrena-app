@@ -98,7 +98,10 @@ export default async function RutinaPreviewPage({
             Ver análisis de esta rutina
           </Link>
           {routine.creada_por_usuario && (
-            <div className="flex justify-center pt-1">
+            <div className="flex justify-center gap-4 pt-1">
+              <Link href={`/entrenamiento/rutinas/${routine.id}/editar`} className="text-xs text-gray-400 underline">
+                Editar
+              </Link>
               <BorrarRutinaBoton routineId={routine.id} />
             </div>
           )}

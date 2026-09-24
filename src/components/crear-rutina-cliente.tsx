@@ -24,7 +24,7 @@ import {
   formatearMinutosSemana,
 } from "@/lib/formato-metricas";
 import type { TipoEsfuerzo } from "@/lib/descanso";
-import { guardarRutinaCreada } from "@/app/entrenamiento/crear-rutina/actions";
+import { guardarRutinaCreada, actualizarRutinaCreada } from "@/app/entrenamiento/crear-rutina/actions";
 
 type ExerciseCatalogo = {
   id: number;
@@ -97,21 +97,37 @@ function borrarBorrador() {
   }
 }
 
-export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] }) {
+export type RutinaExistente = { id: number; nombre: string; dias: DiaWizard[] };
+
+export function CrearRutinaCliente({
+  catalogo,
+  rutinaExistente,
+}: {
+  catalogo: ExerciseCatalogo[];
+  rutinaExistente?: RutinaExistente;
+}) {
   const router = useRouter();
-  const [paso, setPaso] = useState<"cantidad" | "dias" | "resumen">("cantidad");
-  const [dias, setDias] = useState<DiaWizard[]>([]);
+  const [paso, setPaso] = useState<"cantidad" | "dias" | "resumen">(
+    rutinaExistente ? "dias" : "cantidad"
+  );
+  const [dias, setDias] = useState<DiaWizard[]>(rutinaExistente?.dias ?? []);
   const [diaActivo, setDiaActivo] = useState(0);
   const [busqueda, setBusqueda] = useState("");
   const [filtroGrupo, setFiltroGrupo] = useState<string>(FILTRO_TODOS);
-  const [nombreRutina, setNombreRutina] = useState("");
+  const [nombreRutina, setNombreRutina] = useState(rutinaExistente?.nombre ?? "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gruposAbierto, setGruposAbierto] = useState(false);
   const [filtroAbierto, setFiltroAbierto] = useState(false);
   const [cantidadAbierta, setCantidadAbierta] = useState(false);
 
+  // Editar una rutina ya creada arranca directo en "dias", con el contenido
+  // real cargado desde el servidor -- no tiene sentido restaurar un borrador
+  // de localStorage (que podría ser de una sesión de "crear" completamente
+  // distinta) ni guardar uno nuevo mientras se edita, cada edición es una
+  // sesión corta y autocontenida.
   useEffect(() => {
+    if (rutinaExistente) return;
     /* eslint-disable react-hooks/set-state-in-effect */
     const borrador = cargarBorrador();
     if (!borrador) return;
@@ -121,12 +137,16 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
     setPaso(borrador.paso);
     /* eslint-enable react-hooks/set-state-in-effect */
     // Solo al montar -- es una restauración única, no una sincronización continua.
+    // rutinaExistente no cambia durante la vida del componente (viene de props
+    // fijas del server), no hace falta re-ejecutar si "cambiara".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    if (rutinaExistente) return;
     if (paso === "cantidad") return;
     guardarBorrador({ paso, dias, diaActivo, nombreRutina });
-  }, [paso, dias, diaActivo, nombreRutina]);
+  }, [rutinaExistente, paso, dias, diaActivo, nombreRutina]);
 
   function elegirCantidad(n: number) {
     setDias(Array.from({ length: n }, diaVacio));
@@ -254,20 +274,19 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
       return;
     }
     setGuardando(true);
-    const result = await guardarRutinaCreada(
-      nombreRutina,
-      dias.map((d) => ({
-        gruposMusculares: d.gruposMusculares,
-        ejercicios: d.ejercicios.map((e) => ({
-          exerciseDefinitionId: e.exerciseDefinitionId,
-          series: e.series,
-          repsMin: e.repsMin,
-          repsMax: e.repsMax,
-          rirObjetivo: e.rirObjetivo,
-        })),
+    const diasParaGuardar = dias.map((d) => ({
+      gruposMusculares: d.gruposMusculares,
+      ejercicios: d.ejercicios.map((e) => ({
+        exerciseDefinitionId: e.exerciseDefinitionId,
+        series: e.series,
+        repsMin: e.repsMin,
+        repsMax: e.repsMax,
+        rirObjetivo: e.rirObjetivo,
       })),
-      activar
-    );
+    }));
+    const result = rutinaExistente
+      ? await actualizarRutinaCreada(rutinaExistente.id, nombreRutina, diasParaGuardar, activar)
+      : await guardarRutinaCreada(nombreRutina, diasParaGuardar, activar);
     setGuardando(false);
 
     if (result.error) {
@@ -275,8 +294,8 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
       return;
     }
 
-    borrarBorrador();
-    router.push("/entrenamiento");
+    if (!rutinaExistente) borrarBorrador();
+    router.push(rutinaExistente ? `/entrenamiento/rutinas/${rutinaExistente.id}` : "/entrenamiento");
     router.refresh();
   }
 
@@ -606,7 +625,7 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
           onClick={() => guardar(true)}
           className="flex-1 rounded-md bg-emerald-500 py-2.5 text-sm font-medium text-black disabled:opacity-50"
         >
-          {guardando ? "Guardando..." : "Guardar y usar"}
+          {guardando ? "Guardando..." : rutinaExistente ? "Guardar cambios" : "Guardar y usar"}
         </button>
       </div>
       <button
