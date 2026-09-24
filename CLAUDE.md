@@ -1239,6 +1239,34 @@ marcando él, no asumir un orden fijo).
     ejercicios de máquina aislados → `[Cuádriceps]` solo.
   - Hash MD5 sobre el catálogo completo (199 en este punto) después de
     agregar: sin duplicados nuevos, solo el mismo de siempre.
+- **Cuarta tanda (Espalda, migración 068), 15 nombres**:
+  - **5 duplicados**, dos de ellos con dos archivos-fuente distintos
+    apuntando al mismo ejercicio ya cargado: Cable-seated-row y el GIF sin
+    nombre (`tumblr_...`) son los dos el mismo "Remo sentado agarre
+    cerrado" (id 66); Cable-one-arm-lat-pulldown = "Jalón lateral con
+    polea a un brazo" (id 30); `pull ups cerradas.gif` = "Dorsales en
+    polea alta agarre cerrado" (id 142) pese al nombre (es jalón en polea,
+    no dominada real); `tirage-vertical-poitrine-min.gif` (francés, "tiro
+    vertical al pecho") = "Dorsales en polea alta" (id 65).
+  - **10 nuevos genuinos**: Jalón cruzado en polea doble, Pullover en
+    polea sentado en banco inclinado, Remo invertido con correas, Remo
+    sentado a un brazo con banda y giro, Remo en máquina T con pecho
+    apoyado, Remo con barra en máquina Smith agarre invertido, Remo en
+    máquina sentado con placas, Remo horizontal a un brazo para deltoide
+    posterior, Jalón dorsal de rodillas con agarre paralelo, Remo landmine
+    con barra.
+  - **Remo horizontal a un brazo para deltoide posterior** se clasificó
+    `[Hombros, Espalda, Trapecio]` (Hombros primero, no Espalda) -- mismo
+    criterio que Face pull: el archivo lo etiqueta `_Shoulder_` y el
+    músculo resaltado en el GIF es el deltoide posterior, no la espalda
+    media.
+  - **Remo landmine con barra** vs. "Remo en máquina T landmine" (id 41)
+    ya existente: se evaluó como variante real, no duplicado -- agarre
+    directo de la barra (manos juntas) vs. agarre en T con manija, cambia
+    el énfasis dentro de la espalda. Es el caso más al límite de esta
+    tanda, avisar si el usuario prefiere fusionarlos.
+  - Hash MD5 sobre el catálogo completo (209 en este punto): sin
+    duplicados nuevos.
 
 ## Edición de rutinas creadas por el usuario (2026-09-24)
 
