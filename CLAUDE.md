@@ -1294,24 +1294,36 @@ marcando él, no asumir un orden fijo).
     ilustraciones distintas, un hombre y una mujer, no el mismo archivo),
     pero visualmente es el mismo ejercicio real. id 10 está en uso
     (`routine_exercises` id 164, rutina 8, día D); id 202 no tiene
-    ninguna referencia (ni rutinas ni `workout_logs`). Queda pendiente de
-    decisión del usuario borrar id 202 -- documentado en la migración 070
-    pero sin tocar la base todavía. **Este tipo de hallazgo es la razón
-    por la que el chequeo de duplicados no puede ser solo hash MD5** -- el
-    hash pesca copias exactas del archivo, pero no pesca "mismo ejercicio,
-    dos ilustraciones distintas"; para eso hace falta mirar la lista
-    completa del grupo a ojo cada vez, no solo correr el script.
+    ninguna referencia (ni rutinas ni `workout_logs`). **Resuelto
+    2026-09-24 (migración 074)**: el usuario confirmó que es el mismo
+    ejercicio y pidió borrar el duplicado -- se borró id 202, queda solo
+    id 10. **Este tipo de hallazgo es la razón por la que el chequeo de
+    duplicados no puede ser solo hash MD5** -- el hash pesca copias
+    exactas del archivo, pero no pesca "mismo ejercicio, dos
+    ilustraciones distintas"; para eso hace falta mirar la lista completa
+    del grupo a ojo cada vez, no solo correr el script.
 - **Séptima tanda (Glúteos, migración 071), 4 nombres**: 2 duplicados
   exactos (hash MD5 idéntico) descartados -- "Extensão de cadera 01" =
   id 106 "Patada de glúteo con pierna extendida"; "Elevação pélvica
-  unilateral" = id 107 "Patada de glúteo cruzada Fire Hydrant" (**ojo**:
-  el nombre de la id 107 en la base no coincide con la imagen real -- la
-  imagen muestra un puente de glúteos unilateral acostado, no un fire
-  hydrant en cuadrupedia; queda documentado como posible error de nombre
-  preexistente, no se tocó). Los otros 2 eran ejercicios reales faltantes
+  unilateral" = id 107 "Patada de glúteo cruzada Fire Hydrant". Los
+  otros 2 eran ejercicios reales faltantes
   -- Patada de glúteo parada en banco, Patada de glúteo en máquina de
   cuadrupedia. Hash MD5 sobre el catálogo completo (217): sin duplicados
   nuevos (solo el ya conocido id91/id93 de Abdominales).
+  - **Hallazgo aparte sobre id 107, corregido 2026-09-24 (migración
+    074)**: en el momento de comparar contra "Elevação pélvica
+    unilateral" se notó que la imagen (GIF) de id 107 mostraba un puente
+    de glúteos unilateral, no un fire hydrant -- se sospechó nombre mal
+    puesto y se renombró a "Puente de glúteos unilateral". Al revisar
+    más a fondo se encontró que el `como_hacerlo` y el `video_url`
+    guardados para id 107 SÍ describen correctamente un fire hydrant en
+    cuadrupedia (texto técnico completo, consistente con el nombre
+    original) -- el error real no es el nombre, es que el archivo GIF
+    (`imagen_url`) está pisado/cambiado por el de otro ejercicio. Se
+    revirtió el nombre a "Patada de glúteo cruzada Fire Hydrant" (el
+    original). **Pendiente**: conseguir/subir un GIF que muestre
+    realmente el fire hydrant para reemplazar el actual; no se tocó
+    todavía porque no hay una imagen correcta a mano.
 - **Octava tanda (Hombros, migración 072), 7 nombres**: los 7 eran
   ejercicios reales faltantes (aparatos/variantes distintos a los ya
   cargados), ninguno duplicado -- Elevación frontal acostada en polea,
