@@ -753,41 +753,139 @@ uno con su color).
   real, nunca del texto, así que ese dato es exacto sin importar qué tan
   prolijo esté el `series_reps`.
 - **`src/lib/pentagono.ts` -- fórmulas actuales de los 5 ejes** (reescritas
-  varias veces esta sesión, esto es lo que hay HOY, no lo que decía la
-  sección vieja de "Crea tu rutina" más arriba):
-  - **Volumen**: cada grupo muscular tiene su propia banda MEV-MAV (Minimum
-    Effective Volume / Maximum Adaptive Volume, framework de Renaissance
-    Periodization -- `src/lib/volumen-landmarks.ts`, fuentes citadas ahí).
-    **NO usa MRV como techo** -- eso se probó primero y quedó mal (MRV es
-    el límite de recuperación, muy individual, y para la mayoría de los
-    naturales acercarse a eso ya es sobreentrenamiento, no la zona óptima).
-    Score piecewise por grupo: 0..MEV → 0..50, MEV..MAV → 50..100, ≥MAV →
-    100 tope (pasarse no suma ni resta en este eje). Se promedia el score
-    entre los grupos que la rutina toca.
-  - **Frecuencia**: promedio de veces/semana por grupo muscular (sin
-    cambios).
+  varias veces, esto es lo que hay HOY -- ver también la sección "Volumen:
+  denominador fijo + trabajo indirecto de 3 niveles (2026-09-24)" más abajo
+  para la revisión más reciente):
+  - **Volumen**: cada grupo muscular tiene su propia banda MEV-MAV-MRV
+    (framework de Renaissance Periodization -- `src/lib/volumen-landmarks.ts`,
+    fuentes citadas ahí). Score piecewise por grupo: 0..MEV → 0..40,
+    MEV..MAV → 40..80, MAV..MRV → 80..100, ≥MRV → 100 tope (pasarse del
+    techo real de recuperación no suma más).
+    **Ojo, esto reemplaza un diseño intermedio que se probó y se
+    descartó**: un techo plano en MAV (0..MEV → 0..50, MEV..MAV → 50..100,
+    ≥MAV → 100 sin más tramos) parecía correcto en teoría (MRV es muy
+    individual, acercarse a él ya es sobreentrenamiento para la mayoría de
+    los naturales) pero en la práctica **igualaba cualquier rutina de
+    volumen "generoso" con cualquier volumen "excesivo"** -- rutinas de 3 y
+    6 días terminaban con scores de Volumen casi idénticos porque ambas
+    saturaban el techo (MAV) en la mayoría de sus grupos. El techo de 3
+    tramos con MRV como tope final recupera esa diferenciación sin volver a
+    premiar volumen basura sin límite.
+    **El promedio NO se calcula sobre los grupos que la rutina toca** -- se
+    calcula siempre sobre una lista FIJA de 10 "grupos núcleo"
+    (`GRUPOS_VOLUMEN_NUCLEO` en `pentagono.ts`: Pecho, Espalda, Hombros,
+    Cuádriceps, Isquiotibiales, Glúteos, Bíceps, Tríceps, Pantorrillas,
+    Abdominales), con 0 para el grupo que no se entrena. Motivo: promediar
+    solo lo que se toca dejaba que una rutina incompleta (ej. una Full Body
+    que nunca entrena bíceps/tríceps/pantorrillas/abdominales) "escondiera"
+    esa debilidad simplemente no promediándola, mientras una rutina completa
+    que sí entrena esos grupos (aunque sea un poco por debajo de su
+    landmark) veía esos números bajos arrastrando su promedio -- la rutina
+    incompleta terminaba compitiendo cabeza a cabeza con la completa.
+    Trapecio, Abductores, Antebrazos y Cuello quedan A PROPÓSITO fuera de
+    este promedio ("auxiliares") -- la mayoría de los programas serios no
+    los entrena de forma directa, no debería ser un defecto no hacerlo.
+  - **Frecuencia**: curva de 2 tramos con rendimientos decrecientes
+    (`scoreFrecuencia` en `pentagono.ts`), NO un mapeo lineal 1→4. El salto
+    1x→2x/semana vale mucho (evidencia: Schoenfeld et al., meta-análisis de
+    frecuencia), de 2x en adelante el beneficio marginal es chico. Un mapeo
+    lineal exageraba visualmente la diferencia entre rutinas de frecuencia 2
+    y 3 -- se veía como un tercio de la escala completa cuando en la
+    práctica esa diferencia es mucho menos relevante.
   - **Recuperación**: los días de la rutina (Día A, B, C...) se reparten
     parejo en una semana de 7 días (separación = 7/N) para convertir
     "posición en la lista" en "días de descanso reales" -- sin esto,
     cualquier Full Body daba 0 en este eje (interpretaba "todos los días de
-    la lista" como "todos los días de la semana sin descanso").
+    la lista" como "todos los días de la semana sin descanso"). Mide la
+    distancia entre estímulos al MISMO grupo muscular -- **NO son días de
+    descanso totales en la semana**, eso lo mide Sostenibilidad por
+    separado, a propósito no se fusionan (ver el punto de Sostenibilidad).
   - **Intensidad**: **solo RIR objetivo**, ya NO promedia con rango de
     reps. Mezclar reps ahí confundía intensidad de ESFUERZO (RIR, lo que
     maneja el estímulo de hipertrofia) con intensidad de CARGA (%1RM) --
     reps bajas no dan más hipertrofia que reps altas a esfuerzo igual.
     `repsMin`/`repsMax` se mantienen en el modelo de datos (se usan para
     mostrar la rutina), solo dejaron de influir en este score.
-  - **Sostenibilidad**: sin cambios (días/semana + duración estimada).
-  - Cada grupo pesa según sea principal (primer elemento de
-    `grupos_musculares`, crédito completo) o secundario (el resto, media
-    serie) -- ver `PESO_PRINCIPAL`/`PESO_SECUNDARIO` en `pentagono.ts`, sin
-    tocar en ninguna de estas revisiones.
+  - **Sostenibilidad**: sin cambios (días/semana + duración estimada). Mide
+    recuperación SISTÉMICA (días libres totales + duración de sesión), a
+    propósito distinto de Recuperación (que mide recuperación LOCAL por
+    músculo) -- fusionarlas haría que las dos puntas se muevan juntas por la
+    misma razón, perdiendo poder diagnóstico. Juntas cubren la idea
+    completa: una rutina de 6 días gana en Recuperación (buen espaciado por
+    músculo) pero pierde en Sostenibilidad (casi no tiene días libres).
+  - Cada grupo pesa según su posición en `grupos_musculares`: principal
+    (índice 0, crédito completo), secundario (índices 1 y 2, media serie) o
+    terciario (índice 3 en adelante, cuarto de serie) -- ver
+    `PESO_PRINCIPAL`/`PESO_SECUNDARIO`/`PESO_TERCIARIO` en `pentagono.ts`.
+    Nivel Terciario agregado 2026-09-24, ver sección de abajo.
 - **`src/components/pentagono-chart.tsx`**: acepta una LISTA de series
   (`{label, color, scores}[]`), no un solo `scores` -- con una sola serie
   se comporta como el pentágono clásico (sigla + valor en cada eje: V/F/R/
   I/S, con la referencia completa abajo alineada a la izquierda); con dos o
   más, solo la sigla (el valor no tiene sentido con varias rutinas
   superpuestas) más una leyenda de colores debajo del gráfico.
+
+### Volumen: denominador fijo + trabajo indirecto de 3 niveles (2026-09-24)
+
+Testeando con rutinas reales (Anti-Flakardo Fullbody 3 días vs. Push Pull
+Legs 6 días) el usuario notó que el eje Volumen seguía casi empatando pese
+al fix de la curva de 3 tramos de arriba -- era ilógico que una rutina de 3
+días empatara con una de 6. Se investigó con los datos reales de Supabase
+(no a ojo del gráfico) y eran DOS causas distintas, ambas corregidas:
+
+1. **El denominador del promedio** -- ver "el promedio NO se calcula sobre
+   los grupos que la rutina toca" en la sección de arriba. Sin esto,
+   Anti-Flakardo Fullbody (que directamente no entrena Bíceps/Tríceps/
+   Pantorrillas/Abdominales) escondía esa debilidad del promedio.
+2. **Trapecio no estaba tageado en NINGÚN ejercicio compuesto** del catálogo
+   -- solo en los 4 encogimientos de hombros dedicados, pese a que
+   biomecánicamente remos/peso muerto/dominadas/face pull sí lo trabajan.
+   Además había una inconsistencia real: "Remo parado con barra agarre
+   cerrado" tenía `[Espalda, Bíceps]` pero "Remo con barra parado" (mismo
+   movimiento) tenía solo `[Espalda]`.
+
+**Se descartó explícitamente ir a un modelo fraccional continuo** (tipo
+"sentadilla = 0.7 cuádriceps / 0.1 glúteo / 0.15 isquiotibial", que el
+usuario propuso y él mismo dudó si era "ponerse demasiado fino") -- esos
+números no existen con respaldo real en ningún lado, sería precisión
+inventada con decimales falsos. En su lugar, se agregó un TERCER nivel
+categórico:
+
+- `PESO_PRINCIPAL = 1`, `PESO_SECUNDARIO = 0.5` (ya existían) +
+  `PESO_TERCIARIO = 0.25` (nuevo).
+- Por posición en el array `grupos_musculares`: índice 0 = principal,
+  índices 1 y 2 = secundario, índice 3 en adelante = terciario. Las
+  posiciones 1 y 2 comparten el nivel Secundario a propósito -- así no se
+  rompe el único ejercicio que ya usaba 3 grupos antes de este cambio (Peso
+  muerto: Isquiotibiales principal, Glúteos Y Espalda ambos secundarios,
+  como ya funcionaba).
+- **`migration_064_completar_grupos_secundarios.sql`**: 25 ejercicios
+  actualizados agregando Bíceps y/o Trapecio (y Antebrazos en Peso muerto)
+  donde faltaban -- remos horizontales, pulldowns, dominadas, face pull. Se
+  reclasificó también "Remo al mentón en polea" (era `[Hombros, Espalda]`,
+  pasó a `[Hombros, Trapecio]` -- es un upright row, el dorsal casi no
+  interviene ahí).
+- **A propósito NO se hizo una auditoría completa de los 179 ejercicios del
+  catálogo** buscando cualquier otro hueco similar (tríceps en cada press de
+  banco, aductores en cada sentadilla, etc.) -- esos grupos ya están bien
+  representados por ejercicios dedicados, agregar terciarios ahí no
+  cambiaría ningún score de forma perceptible. Si en el futuro se detecta
+  otro grupo sistemáticamente invisible como le pasó a Trapecio, corregirlo
+  puntualmente, no re-auditar todo el catálogo de nuevo "por las dudas".
+- **Nota de precisión, no bug**: por la regla de posición de arriba, el
+  Trapecio agregado a remos/dominadas/face pull en la migración 064 queda en
+  nivel Secundario (0.5, posición 2), no Terciario (0.25) como decía el
+  prompt original que se usó para armar esa migración -- es una discrepancia
+  de redacción, no de código. Se decidió dejarlo así a propósito: en esos
+  ejercicios el trapecio hace retracción escapular ACTIVA (dinámico, no solo
+  estabiliza), a diferencia de Peso muerto donde el trabajo es isométrico
+  (sostener la postura bajo carga) -- ahí sí se mantiene en Terciario. Esa
+  distinción (dinámico vs. isométrico) es el criterio para decidir el nivel
+  de un grupo agregado a futuro, no "cuánto se nota a ojo".
+- Trapecio quedó fuera del promedio de Volumen (grupo "auxiliar", ver
+  arriba) incluso después de este fix -- el usuario lo confirmó
+  explícitamente: aunque el dato ahora es mucho más representativo, la
+  mayoría de los programas igual no lo entrena de forma dedicada.
 
 ### Desglose por grupo/día de los otros 4 ejes (2026-09-22/23)
 
@@ -1052,6 +1150,65 @@ era genuinamente huérfana (0 cuentas, 0 productos) y se borró
 (`migration_060`... en realidad se borró antes, por SQL directo, no quedó
 en una migración archivada -- si hace falta reproducir: `delete from
 routines where nombre = '5 días - hipertrofia';`).
+
+## Total semanal en Sostenibilidad (2026-09-24)
+
+El usuario pidió agregar cuánto tiempo total de gimnasio pide una rutina
+por semana, no solo el desglose por día que ya había. `TablaMetrica`
+(`src/components/tabla-metrica.tsx`) ganó un prop opcional `total: {label,
+valor}` que se renderiza como fila destacada al pie de la tabla (borde
+separador, texto en negrita) -- no se mezcla con las filas por día porque
+responde una pregunta distinta. Helpers nuevos en `formato-metricas.ts`:
+`minutosTotalesSemana()` (suma) y `formatearMinutosSemana()` (formato
+"~X min (~Y h)"). Usado en las 3 pantallas que muestran Sostenibilidad por
+día (wizard, análisis individual, comparador) -- en el comparador,
+`TablaComparativa` no tiene un concepto de "total" nativo, así que se
+resolvió agregando "Total semanal" como una etiqueta más al final de
+`LETRAS_DIA_Y_TOTAL` (array separado de `LETRAS_DIA`, que Intensidad sigue
+usando sin el total -- sumar RIR entre días no tiene sentido) y
+calculándolo dentro de la misma función `filas` cuando la etiqueta
+coincide.
+
+## Edición de rutinas creadas por el usuario (2026-09-24)
+
+Hasta ahora solo se podían borrar las rutinas de "Crea tu rutina", no
+editarlas -- para cambiar un ejercicio había que borrar todo y rearmarlo de
+cero. Se agregó edición, mismo criterio de ownership que el borrado
+(`routines.creada_por_usuario = true` + fila propia en
+`profile_routine_access`, revalidado server-side, nunca confiar en que la
+UI no muestre el link):
+
+- **`/entrenamiento/rutinas/[id]/editar`** (Server Component): valida
+  ownership, carga `routine_dias` + `routine_exercises` (join
+  `exercise_definitions`) de la rutina real, reconstruye el estado del
+  wizard con `parsearSeriesReps()` (el mismo parser que ya usa el
+  comparador para rutinas del coach) para sacar series/reps del texto de
+  `series_reps` -- el RIR sale directo de la columna `rir_objetivo`, no del
+  texto, porque las rutinas armadas por este wizard nunca lo embeben ahí.
+- **`CrearRutinaCliente`** (`src/components/crear-rutina-cliente.tsx`) gana
+  un prop opcional `rutinaExistente: {id, nombre, dias}`. Si está presente:
+  arranca directo en el paso "dias" (salta "cantidad" -- **la cantidad de
+  días de una rutina no se puede cambiar editando, por ahora**, solo
+  agregar/quitar ejercicios dentro de los días que ya tiene) con el
+  contenido real precargado, y **no lee ni escribe el borrador de
+  localStorage** (evita choque con un borrador de "crear" sin relación,
+  cada edición es una sesión corta y autocontenida). Botón final dice
+  "Guardar cambios" en vez de "Guardar y usar", y al guardar vuelve a
+  `/entrenamiento/rutinas/[id]` (la rutina editada), no a `/entrenamiento`.
+- **`actualizarRutinaCreada()`** (`src/app/entrenamiento/crear-rutina/
+  actions.ts`, junto a `guardarRutinaCreada`): reemplaza TODO el contenido
+  (borra y recarga `routine_exercises`/`routine_dias`) en vez de diffear
+  fila por fila -- mucho más simple, y sin riesgo para el historial de
+  progreso: `workout_logs` apunta a `exercise_definition_id`, nunca a
+  `routine_exercises.id`, así que borrar y recrear las filas de scheduling
+  no corta el progreso de ningún ejercicio ya registrado.
+- Link "Editar" agregado junto al de "Borrar" en `/entrenamiento/rutinas`
+  (lista) y en `/entrenamiento/rutinas/[id]` (detalle), mismo condicional
+  `creada_por_usuario`.
+- Verificado en producción de punta a punta con una rutina real: cargó el
+  contenido exacto (grupos musculares + 5 ejercicios por día con sus
+  series/reps/RIR reales), un cambio de series (3→4) se guardó y quedó
+  confirmado en la base tras volver a consultarla.
 
 ## Rutinas nuevas: Torso-Pierna y Push Pull Legs (migración 060)
 
