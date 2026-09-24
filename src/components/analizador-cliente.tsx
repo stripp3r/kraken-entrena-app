@@ -157,13 +157,13 @@ export function AnalizadorCliente({ rutinas }: { rutinas: RutinaAnalizada[] }) {
           <TablaComparativa
             titulo={
               <>
-                Series por semana, por grupo muscular <span className="text-gray-500">(vs. MAV)</span>
+                Series por semana, por grupo muscular <span className="text-gray-500">(vs. MRV)</span>
               </>
             }
-            columnaExtra="MAV"
+            columnaExtra="MRV"
             etiquetas={[...GRUPOS_MUSCULARES]}
             colores={colores}
-            referencia={(grupo) => elegidas[0]?.volumenPorGrupo.find((v) => v.grupo === grupo)?.mav}
+            referencia={(grupo) => elegidas[0]?.volumenPorGrupo.find((v) => v.grupo === grupo)?.mrv}
             filas={(grupo) =>
               elegidas.map((r) => {
                 const v = r.volumenPorGrupo.find((x) => x.grupo === grupo)?.series ?? 0;

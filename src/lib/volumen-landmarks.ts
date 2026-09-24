@@ -41,6 +41,24 @@
 //   estos. Los 3 valores (MEV, MAV y el MRV ya existente) son estimados
 //   por similitud con grupos chicos de recuperación rápida. Ajustar si
 //   hace falta.
+//
+// Verificación 2026-09-24 (pedida explícitamente antes de dar por buenos
+// los MAV de Glúteos/Abdominales/Trapecio): help.rpstrength.com está detrás
+// de login de cliente, no se pudo leer. Se verificó contra el blog público
+// (rpstrength.com/blogs/articles/{glute,ab,trap}-hypertrophy-training-tips,
+// vigente a esta fecha) en su lugar:
+// - Abdominales y Trapecio: el blog da MEV 0-4, MAV 4-12, MRV 12-20 en el
+//   tier estándar, y MAV 16-24, MRV 24-32+ en el tier "Priority" (foco
+//   dedicado en ese músculo). Los valores ya cargados acá (MAV 20, MRV
+//   25/26) encajan con el tier Priority, no con el estándar -- confirma la
+//   sospecha que ya tenía este comentario.
+// - Glúteos: acá SÍ hay una discrepancia más grande que en los otros dos.
+//   El blog da MEV 6-8, MAV 8-24, MRV 24-30 (estándar) -- el MRV=16 ya
+//   cargado queda incluso por debajo del piso del tier estándar, no solo
+//   del "Priority". No se tocó (instrucción explícita de no cambiar MRV
+//   ya existente), pero quedó documentado que Glúteos es el grupo con más
+//   diferencia contra la fuente vigente y el candidato más probable a
+//   revisar primero si se ajusta esta tabla más adelante.
 export type LandmarksGrupo = { mev: number; mav: number; mrv: number };
 
 export const LANDMARKS_POR_GRUPO: Record<string, LandmarksGrupo> = {
@@ -68,4 +86,12 @@ export function landmarksDeGrupo(grupo: string): LandmarksGrupo {
 
 export function mrvDeGrupo(grupo: string): number {
   return landmarksDeGrupo(grupo).mrv;
+}
+
+export function mevDeGrupo(grupo: string): number {
+  return landmarksDeGrupo(grupo).mev;
+}
+
+export function mavDeGrupo(grupo: string): number {
+  return landmarksDeGrupo(grupo).mav;
 }

@@ -5,14 +5,20 @@ const EJES: { clave: keyof PentagonoScores; sigla: string; etiqueta: string; ref
     clave: "volumen",
     sigla: "V",
     etiqueta: "Volumen",
-    referencia: "100 = en tu zona MAV (varía por grupo, ver tabla)",
+    referencia: "100 = cerca de tu techo de recuperación (MRV, ver tabla)",
   },
-  { clave: "frecuencia", sigla: "F", etiqueta: "Frecuencia", referencia: "100 = 4 veces/semana por grupo" },
+  {
+    clave: "frecuencia",
+    sigla: "F",
+    etiqueta: "Frecuencia",
+    referencia: "100 = 4+ veces/semana por grupo (de 2 en adelante, rendimientos decrecientes)",
+  },
   {
     clave: "recuperacion",
     sigla: "R",
     etiqueta: "Recuperación",
-    referencia: "100 = 3+ días entre estímulos del mismo grupo",
+    referencia:
+      "100 = 3+ días entre estímulos del MISMO grupo (no son días de descanso totales, eso lo mide Sostenibilidad)",
   },
   { clave: "intensidad", sigla: "I", etiqueta: "Intensidad", referencia: "100 = RIR 0 (al fallo)" },
   {

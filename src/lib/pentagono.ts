@@ -82,19 +82,22 @@ const diasPorGrupo = (dias: DiaBorrador[]): Map<string, number[]> => {
   return mapa;
 };
 
-// Cada grupo tiene su propia banda de volumen productivo (MEV-MAV, distinta
-// para pecho que para bíceps -- ver src/lib/volumen-landmarks.ts). El MRV
-// NO se usa acá como techo: es el límite de recuperación, altamente
-// individual, y para la gran mayoría de los naturales acercarse al MRV
-// tabulado ya es sobreentrenamiento, no la zona óptima. La zona defendible
-// a nivel general es MEV-MAV, así que el score de cada grupo es piecewise:
-// - por debajo del MEV: 0-50 (claramente subdosificado)
-// - entre MEV y MAV: 50-100 (zona bien dosificada, el "sweet spot")
-// - en o por encima del MAV: 100 (pasarse no suma puntos extra en este eje
-//   -- volumen extra no es gratis, pero tampoco se penaliza acá)
-function scorePorGrupo(series: number, mev: number, mav: number): number {
-  if (series <= mev) return mapear(series, 0, mev) * 0.5;
-  if (series <= mav) return 50 + mapear(series, mev, mav) * 0.5;
+// Cada grupo tiene su propia banda de volumen productivo (MEV-MAV-MRV,
+// distinta para pecho que para bíceps -- ver src/lib/volumen-landmarks.ts).
+// Curva de 3 tramos con rendimientos decrecientes: sigue diferenciando
+// rutinas de volumen muy distinto por encima del MAV (a diferencia de un
+// techo plano en MAV, que empataba cualquier volumen "generoso" contra
+// cualquier volumen "excesivo"), pero deja de premiar volumen una vez
+// pasado el MRV -- ahí ya es volumen basura franco, no debería seguir
+// sumando en este eje.
+// - 0..MEV: 0-40 (recién empezás a ver resultados)
+// - MEV..MAV: 40-80 (zona bien dosificada, el "sweet spot")
+// - MAV..MRV: 80-100 (por encima del sweet spot pero todavía recuperable)
+// - ≥MRV: 100 tope (más allá del techo real de recuperación, no suma más)
+function scorePorGrupo(series: number, mev: number, mav: number, mrv: number): number {
+  if (series <= mev) return mapear(series, 0, mev) * 0.4;
+  if (series <= mav) return 40 + mapear(series, mev, mav) * 0.4;
+  if (series <= mrv) return 80 + mapear(series, mav, mrv) * 0.2;
   return 100;
 }
 
@@ -102,18 +105,29 @@ function calcularVolumen(dias: DiaBorrador[]): number {
   const porGrupo = [...seriesPorGrupo(dias).entries()];
   if (porGrupo.length === 0) return 0;
   const puntajes = porGrupo.map(([grupo, series]) => {
-    const { mev, mav } = landmarksDeGrupo(grupo);
-    return scorePorGrupo(series, mev, mav);
+    const { mev, mav, mrv } = landmarksDeGrupo(grupo);
+    return scorePorGrupo(series, mev, mav, mrv);
   });
   const promedio = puntajes.reduce((a, b) => a + b, 0) / puntajes.length;
   return Math.round(promedio);
+}
+
+// Curva de 2 tramos en vez de un mapeo lineal 1→4: la evidencia (Schoenfeld
+// et al., meta-análisis de frecuencia) dice que el salto que de verdad
+// importa es 1x→2x/semana; de 2x en adelante el beneficio marginal es
+// bastante menor. Un mapeo lineal le daba el mismo peso a cada salto de
+// frecuencia, exagerando la diferencia visual entre rutinas de alta
+// frecuencia que en la práctica rinden parecido.
+function scoreFrecuencia(vecesPorSemana: number): number {
+  if (vecesPorSemana <= 2) return 20 + mapear(vecesPorSemana, 1, 2) * 0.6;
+  return 80 + mapear(vecesPorSemana, 2, 4) * 0.2;
 }
 
 function calcularFrecuencia(dias: DiaBorrador[]): number {
   const porGrupo = [...diasPorGrupo(dias).values()].map((d) => d.length);
   if (porGrupo.length === 0) return 0;
   const promedio = porGrupo.reduce((a, b) => a + b, 0) / porGrupo.length;
-  return mapear(promedio, 1, 4);
+  return Math.round(scoreFrecuencia(promedio));
 }
 
 function calcularRecuperacion(dias: DiaBorrador[]): number {
@@ -184,7 +198,7 @@ export function calcularVolumenPorGrupo(
 ): { grupo: string; series: number; mev: number; mav: number; mrv: number }[] {
   return [...seriesPorGrupo(dias).entries()]
     .map(([grupo, series]) => ({ grupo, series, ...landmarksDeGrupo(grupo) }))
-    .sort((a, b) => b.series / b.mav - a.series / a.mav);
+    .sort((a, b) => b.series / b.mrv - a.series / a.mrv);
 }
 
 export function calcularFrecuenciaPorGrupo(dias: DiaBorrador[]): { grupo: string; vecesPorSemana: number }[] {

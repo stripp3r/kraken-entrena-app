@@ -553,17 +553,15 @@ export function CrearRutinaCliente({ catalogo }: { catalogo: ExerciseCatalogo[] 
 
       <div>
         <p className="mb-2 text-sm text-gray-400">
-          Series por semana, por grupo muscular <span className="text-gray-500">(vs. MEV-MAV)</span>
+          Series por semana, por grupo muscular <span className="text-gray-500">(vs. MRV)</span>
         </p>
         <div className="flex flex-col gap-1 rounded-md border border-border bg-bg-card p-3">
-          {volumenPorGrupo.map(({ grupo, series, mev, mav }) => (
+          {volumenPorGrupo.map(({ grupo, series, mrv }) => (
             <div key={grupo} className="flex justify-between text-sm">
               <span className="text-gray-300">{grupo}</span>
               <span className="text-white">
                 {Number.isInteger(series) ? series : series.toFixed(1)}{" "}
-                <span className="text-gray-500">
-                  / {mev}-{mav}
-                </span>
+                <span className="text-gray-500">/ {mrv}</span>
               </span>
             </div>
           ))}
