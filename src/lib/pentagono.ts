@@ -44,11 +44,22 @@ function mapear(valor: number, desde: number, hasta: number): number {
 // entera a Pecho y media a Hombros y a Tríceps -- no una serie entera a los
 // tres, que es lo que hacía el cálculo viejo (agrupaba por día, no por
 // ejercicio) y disparaba números como "Hombros: 42 series/semana".
+// Tercer nivel (posiciones 3 en adelante) para catalogar involucramiento de
+// estabilizador sin forzarlo al mismo peso que un sinergista real -- ver
+// migración 064 (Trapecio en remos/dominadas/peso muerto, que biomecánicamente
+// interviene pero no estaba tageado en ningún ejercicio compuesto). Las
+// posiciones 1 y 2 comparten Secundario a propósito: preserva el único
+// ejercicio que ya usa 3 grupos (Peso muerto: Isquiotibiales principal,
+// Glúteos y Espalda ambos secundarios) sin cambiar su puntaje.
 const PESO_PRINCIPAL = 1;
 const PESO_SECUNDARIO = 0.5;
+const PESO_TERCIARIO = 0.25;
 
 function pesoPorGrupo(gruposMusculares: string[]): [string, number][] {
-  return gruposMusculares.map((grupo, i) => [grupo, i === 0 ? PESO_PRINCIPAL : PESO_SECUNDARIO]);
+  return gruposMusculares.map((grupo, i) => {
+    const peso = i === 0 ? PESO_PRINCIPAL : i <= 2 ? PESO_SECUNDARIO : PESO_TERCIARIO;
+    return [grupo, peso];
+  });
 }
 
 const seriesPorGrupo = (dias: DiaBorrador[]): Map<string, number> => {
@@ -101,15 +112,34 @@ function scorePorGrupo(series: number, mev: number, mav: number, mrv: number): n
   return 100;
 }
 
+// Denominador FIJO, no "lo que la rutina toca": promediar solo sobre los
+// grupos efectivamente entrenados le permitía a una rutina incompleta (ej.
+// una fullbody que nunca entrena Bíceps/Tríceps/Pantorrillas/Abdominales)
+// competir cabeza a cabeza con una completa, porque los grupos ausentes
+// simplemente no entraban al promedio en vez de contar como 0. Trapecio,
+// Abductores, Antebrazos y Cuello quedan afuera de este núcleo a propósito
+// -- la mayoría de los programas serios no los entrena de forma directa, y
+// no debería ser un defecto no hacerlo.
+const GRUPOS_VOLUMEN_NUCLEO = [
+  "Pecho",
+  "Espalda",
+  "Hombros",
+  "Cuádriceps",
+  "Isquiotibiales",
+  "Glúteos",
+  "Bíceps",
+  "Tríceps",
+  "Pantorrillas",
+  "Abdominales",
+] as const;
+
 function calcularVolumen(dias: DiaBorrador[]): number {
-  const porGrupo = [...seriesPorGrupo(dias).entries()];
-  if (porGrupo.length === 0) return 0;
-  const puntajes = porGrupo.map(([grupo, series]) => {
+  const series = seriesPorGrupo(dias);
+  const puntajes = GRUPOS_VOLUMEN_NUCLEO.map((grupo) => {
     const { mev, mav, mrv } = landmarksDeGrupo(grupo);
-    return scorePorGrupo(series, mev, mav, mrv);
+    return scorePorGrupo(series.get(grupo) ?? 0, mev, mav, mrv);
   });
-  const promedio = puntajes.reduce((a, b) => a + b, 0) / puntajes.length;
-  return Math.round(promedio);
+  return Math.round(puntajes.reduce((a, b) => a + b, 0) / puntajes.length);
 }
 
 // Curva de 2 tramos en vez de un mapeo lineal 1→4: la evidencia (Schoenfeld
@@ -195,9 +225,16 @@ export function calcularPentagono(dias: DiaBorrador[]): PentagonoScores {
 
 export function calcularVolumenPorGrupo(
   dias: DiaBorrador[]
-): { grupo: string; series: number; mev: number; mav: number; mrv: number }[] {
-  return [...seriesPorGrupo(dias).entries()]
-    .map(([grupo, series]) => ({ grupo, series, ...landmarksDeGrupo(grupo) }))
+): { grupo: string; series: number; mev: number; mav: number; mrv: number; nucleo: boolean }[] {
+  const series = seriesPorGrupo(dias);
+  const gruposAMostrar = new Set<string>([...GRUPOS_VOLUMEN_NUCLEO, ...series.keys()]);
+  return [...gruposAMostrar]
+    .map((grupo) => ({
+      grupo,
+      series: series.get(grupo) ?? 0,
+      ...landmarksDeGrupo(grupo),
+      nucleo: (GRUPOS_VOLUMEN_NUCLEO as readonly string[]).includes(grupo),
+    }))
     .sort((a, b) => b.series / b.mrv - a.series / a.mrv);
 }
 

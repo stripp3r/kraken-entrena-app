@@ -10,7 +10,7 @@ type RutinaAnalizada = {
   nombre: string;
   dias: number;
   pentagono: PentagonoScores;
-  volumenPorGrupo: { grupo: string; series: number; mev: number; mav: number; mrv: number }[];
+  volumenPorGrupo: { grupo: string; series: number; mev: number; mav: number; mrv: number; nucleo: boolean }[];
   frecuenciaPorGrupo: { grupo: string; vecesPorSemana: number }[];
   recuperacionPorGrupo: { grupo: string; diasDescanso: number }[];
   intensidadPorDia: { dia: string; rirPromedio: number }[];
