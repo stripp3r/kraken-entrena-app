@@ -1555,10 +1555,40 @@ para resolver esto rápido; un panel editable queda como posible fase 2.
   le saque su propio uso normal de la app como cliente -- confirmado:
   `role` no se leía en ningún otro lado, así que su `routine_id`/
   `workout_logs`/historial siguen intactos y accesibles como siempre.
-- **Migración 079** agrega una policy RLS adicional (permissive) en
+- **Migración 079** agregó una policy RLS adicional (permissive) en
   `profiles` para que un `role='coach'` pueda hacer `select` de
-  cualquier fila, no solo la propia. Como las policies permissive se
-  evalúan con OR, esto no cambia nada para un cliente normal.
+  cualquier fila, no solo la propia -- **pero tenía un bug grave**: el
+  `using` de la policy hacía un subquery a `public.profiles` DENTRO de
+  una policy de `public.profiles`. Postgres evalúa esa subconsulta
+  pasando otra vez por la misma policy (recursión), y el resultado fue
+  que CUALQUIER select simple a `profiles` empezó a fallar para TODOS
+  los usuarios -- no solo el coach -- incluido el chequeo de Golden/
+  premium que corre en el middleware en cada request. Efecto visible:
+  el propio founder (`golden_perpetuo=true`) vio el muro de pago
+  "Kraken Golden" apenas entró. **Fix en migración 080**: se dropeó esa
+  policy y se reemplazó por una que usa una función
+  `public.es_coach() security definer` -- al correr con los privilegios
+  de quien la creó (no del usuario que hace el select), esa función
+  corta el ciclo de recursión. Es el patrón que la propia documentación
+  de Supabase recomienda para "¿este usuario tiene tal rol?" dentro de
+  una policy de la misma tabla que se está protegiendo. **Lección: nunca
+  hacer un subquery directo a la misma tabla dentro de su propia policy
+  RLS -- siempre pasar por una función `security definer`.**
+- **Migración 081, segundo hallazgo (mismo despliegue)**: con 079/080 ya
+  arreglado, la lista de clientes en `/coach` mostraba "sin rutina
+  asignada" para clientes que sí tenían `routine_id` (ej. Rocío Pace,
+  Lorena Tobares, Santiago Pelotti). Causa: sus rutinas son **privadas**
+  (`routines.es_privada = true`, ver migración 035) -- armadas a mano
+  para esa mentoría puntual -- y la policy de `routines` (y la espejo de
+  `routine_exercises`) solo dejaba pasar una rutina privada a quien
+  tuviera una fila explícita en `profile_routine_access`. El coach no la
+  tenía para las rutinas de sus clientes, así que quedaba bloqueado
+  igual que cualquier otro usuario ajeno -- justo para las rutinas que
+  más necesita poder inspeccionar, porque son las que arma él mismo y
+  las más propensas a un error humano. Fix: se agregó `or
+  public.es_coach()` a ambas policies (`routines` y
+  `routine_exercises`), reutilizando la misma función de la migración
+  080.
 - **`src/lib/auth/coach.ts`**: helper `requireCoach()` -- redirige a
   `/login` si no hay sesión, y a `/entrenamiento` si el perfil no es
   `role='coach'`. Se llama al principio de cada página de `/coach/*`.
