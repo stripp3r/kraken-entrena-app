@@ -7,7 +7,7 @@ const PUBLIC_PATHS = ["/login", "/registro", "/compra", "/api/checkout", "/api/w
 // Rutas que un usuario logueado SIN prueba/Golden vigente todavía puede ver
 // (para pagar, ver/editar sus datos, bajar un PDF que compró, o cerrar
 // sesión). Todo lo demás lo manda a /golden cuando premium_hasta venció.
-const PATHS_SIN_PREMIUM = ["/golden", "/perfil", "/login", "/registro", "/compra", "/api"];
+const PATHS_SIN_PREMIUM = ["/golden", "/perfil", "/login", "/registro", "/compra", "/api", "/coach"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

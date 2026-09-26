@@ -1538,6 +1538,49 @@ máquina exacta, con o sin abs, cuántos días repite cada template) como una
 pregunta para el usuario, no como una inferencia a completar solo -- así
 no vuelve a pasar esto.
 
+## Vista de coach, solo lectura (2026-09-26, migración 079)
+
+El usuario entrena a varios clientes por mentoría y no tenía forma de ver
+qué le muestra la app a cada uno (rutina asignada, GIFs, texto de "cómo
+hacerlo") sin pedirle el celular -- así fue como detectó a mano que había
+GIFs mal asignados. Se agregó una vista de coach de **solo lectura**
+(sin edición de sets, sin registrar nada) en vez de un panel completo,
+para resolver esto rápido; un panel editable queda como posible fase 2.
+
+- **`profiles.role`** existía desde `schema.sql` (`'client'|'coach'`)
+  pero no se usaba en ningún lado del código -- esta es la primera vez
+  que se lee. Se marcó `role = 'coach'` únicamente en la cuenta
+  `ezequiel.arce@outlook.com` (no en `ar.cs@hotmail.es`, que sigue
+  siendo un cliente normal). El usuario pidió explícitamente que esto no
+  le saque su propio uso normal de la app como cliente -- confirmado:
+  `role` no se leía en ningún otro lado, así que su `routine_id`/
+  `workout_logs`/historial siguen intactos y accesibles como siempre.
+- **Migración 079** agrega una policy RLS adicional (permissive) en
+  `profiles` para que un `role='coach'` pueda hacer `select` de
+  cualquier fila, no solo la propia. Como las policies permissive se
+  evalúan con OR, esto no cambia nada para un cliente normal.
+- **`src/lib/auth/coach.ts`**: helper `requireCoach()` -- redirige a
+  `/login` si no hay sesión, y a `/entrenamiento` si el perfil no es
+  `role='coach'`. Se llama al principio de cada página de `/coach/*`.
+- **Rutas nuevas**: `/coach` (lista de clientes, filtra
+  `profiles.role='client'`) → `/coach/[clientId]` (elige día según
+  `routines.dias`) → `/coach/[clientId]/[dia]` (misma query de
+  `routine_exercises` + `exercise_definitions` que usa el cliente real
+  en `entrenamiento/[dia]`, pero sin nada de `workout_logs` ni registro
+  de sets -- clonado del patrón de solo-lectura que ya existía en
+  `entrenamiento/rutinas/[id]/[dia]/page.tsx`).
+- **`ExerciseCard`** ganó un prop nuevo `forzarInfo` (además de `activo`
+  y `onSeleccionar`, que ya controlaban si se mostraban los botones
+  "¿Cómo hacerlo?"/"Alternativa") para que en la vista de coach esos
+  botones aparezcan siempre, sin necesitar una sesión de entrenamiento
+  activa.
+- `/coach` se agregó a `PATHS_SIN_PREMIUM` en `middleware.ts` (si algún
+  día hay más de una cuenta coach, que no dependa de tener Golden/prueba
+  vigente para entrar) -- la seguridad real la da `requireCoach()`, no
+  el muro de pago.
+- Acceso visible: un link "Vista de coach" en `/entrenamiento`, que solo
+  aparece si `profile.role === 'coach'`.
+
 ## Qué NO hacer sin preguntarle antes al usuario
 
 - No correr ninguna migración SQL contra la base de producción -- se

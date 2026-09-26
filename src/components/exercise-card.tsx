@@ -75,6 +75,7 @@ export function ExerciseCard({
   compacto = false,
   onSeleccionar,
   sesion,
+  forzarInfo = false,
 }: {
   exercise: Exercise;
   dia: string;
@@ -83,6 +84,7 @@ export function ExerciseCard({
   compacto?: boolean;
   onSeleccionar?: () => void;
   sesion?: SesionActiva;
+  forzarInfo?: boolean;
 }) {
   const router = useRouter();
   const [setActivo, setSetActivo] = useState(emptyRow);
@@ -184,7 +186,7 @@ export function ExerciseCard({
     router.refresh();
   }
 
-  const sesionEnCurso = activo || Boolean(onSeleccionar);
+  const sesionEnCurso = activo || Boolean(onSeleccionar) || forzarInfo;
 
   return (
     <div

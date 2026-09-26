@@ -18,7 +18,7 @@ export default async function EntrenamientoPage() {
   const [{ data: profile }, { data: routines }, { data: acceso }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("routine_id, premium_hasta, golden_perpetuo, routines(nombre, dias)")
+      .select("routine_id, premium_hasta, golden_perpetuo, role, routines(nombre, dias)")
       .eq("id", user.id)
       .single(),
     supabase
@@ -73,6 +73,15 @@ export default async function EntrenamientoPage() {
           <img src="/section-icons/crear-rutina.png" alt="" className="h-14 w-14 rounded-xl" />
           Crea tu rutina
         </Link>
+
+        {profile?.role === "coach" && (
+          <Link
+            href="/coach"
+            className="mt-3 flex items-center gap-4 rounded-lg border border-sky-500/40 bg-sky-500/10 px-5 py-3 text-lg text-sky-200 transition-colors hover:border-sky-500"
+          >
+            Vista de coach
+          </Link>
+        )}
       </div>
     </main>
   );
