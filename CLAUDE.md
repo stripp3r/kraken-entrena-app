@@ -1611,6 +1611,46 @@ para resolver esto rápido; un panel editable queda como posible fase 2.
 - Acceso visible: un link "Vista de coach" en `/entrenamiento`, que solo
   aparece si `profile.role === 'coach'`.
 
+## Bug: historial "desaparecido" al reactivar la misma rutina (2026-09-27)
+
+El usuario reportó que en su propia cuenta (`ezequiel.arce`) había días
+completos con sets cargados (peso/reps/RIR) que no aparecían en
+Progreso → Entrenamiento, y que el análisis por ejercicio se veía vacío
+para la mayoría de sus ejercicios pese a haber entrenado.
+
+**Causa raíz encontrada con datos reales** (no a ojo): `progreso/
+entrenamiento/page.tsx` y `entrenamiento/[dia]/page.tsx` (sugerencia de
+"última vez"/peso sugerido) scopeaban el análisis al **último período
+abierto** de `profile_routine_history` (`fecha_fin is null`), con el
+comentario "el análisis es sobre esta rutina activa, no sobre toda la
+vida del ejercicio" -- razonable para no mezclar historial de una
+rutina DISTINTA que comparte un `exercise_definition_id`, pero con un
+agujero: si el usuario se cambia a otra rutina un par de días y **vuelve
+a la misma rutina de antes**, eso abre un período NUEVO en
+`profile_routine_history` con `fecha_inicio` de hoy -- y todo lo
+cargado en períodos anteriores de ESA MISMA rutina quedaba excluido del
+análisis, aunque sea literalmente la misma rutina y los mismos
+ejercicios. Es lo que le pasó al usuario: probó "Crea tu rutina", tocó
+"Guardar y utilizar" sin querer (activó una rutina nueva, "PPL + UL",
+del 23 al 25/09), y al volver a "Kraken Split" (su rutina de siempre)
+el 25/09, todo lo cargado entre el 21 y el 23/09 en esa misma rutina
+quedó fuera del análisis -- 68 de sus 120 sets reales.
+
+**Fix**: nuevo helper `src/lib/periodos-rutina.ts`
+(`ventanasDeRutina`/`dentroDeVentanas`/`inicioMasAntiguo`) que junta
+TODOS los períodos de `profile_routine_history` donde
+`routine_id = profile.routine_id` (no solo el que tiene `fecha_fin is
+null`) y arma una lista de ventanas de tiempo; un log cuenta si cae
+dentro de CUALQUIERA de esas ventanas. Reemplaza la lógica de "un solo
+`gte(fecha_inicio del período abierto)`" en ambos archivos. El
+`progreso/historial/[id]/page.tsx` (detalle de un período puntual del
+historial) NO se tocó -- ahí SÍ es correcto mostrar solo lo cargado en
+ESE período específico, es su propósito.
+
+**A nivel de datos no se perdió nada** -- cada set sigue en
+`workout_logs` con su `created_at` real, esto era pura lógica de
+lectura/filtrado. No hizo falta ninguna migración SQL ni tocar datos.
+
 ## Qué NO hacer sin preguntarle antes al usuario
 
 - No correr ninguna migración SQL contra la base de producción -- se

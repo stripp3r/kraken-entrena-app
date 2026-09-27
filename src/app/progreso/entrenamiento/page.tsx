@@ -3,9 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { ProgresoAnalitica } from "@/components/progreso-analitica";
 import { BackLink } from "@/components/back-link";
 import type { SetLog } from "@/lib/analytics";
-import { inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import { ejerciciosQueDivergenPorDia } from "@/lib/divergencia-dia";
 import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
+import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -76,18 +76,13 @@ export default async function ProgresoPage() {
   // El análisis es sobre ESTA rutina activa, no sobre toda la vida del
   // ejercicio -- si el mismo ejercicio ya se usó en una rutina anterior
   // (de prueba o real), ese historial viejo no tiene que mezclarse acá.
-  const { data: stintActivo } = await supabase
-    .from("profile_routine_history")
-    .select("fecha_inicio")
-    .eq("user_id", user.id)
-    .is("fecha_fin", null)
-    .maybeSingle();
+  // "Esta rutina activa" son TODOS los períodos en los que
+  // `profile.routine_id` estuvo activo, no solo el más reciente -- ver
+  // src/lib/periodos-rutina.ts.
+  const ventanas = await ventanasDeRutina(supabase, user.id, profile.routine_id);
+  const desdeMasAntiguo = inicioMasAntiguo(ventanas);
 
-  const desde = stintActivo?.fecha_inicio
-    ? inicioDelDiaArgentinaUTC(stintActivo.fecha_inicio).toISOString()
-    : null;
-
-  const { data: logs } = exerciseIds.length
+  const { data: logsCrudos } = exerciseIds.length
     ? await (() => {
         let query = supabase
           .from("workout_logs")
@@ -95,7 +90,7 @@ export default async function ProgresoPage() {
           .eq("user_id", user.id)
           .in("exercise_definition_id", exerciseIds)
           .order("created_at", { ascending: true });
-        if (desde) query = query.gte("created_at", desde);
+        if (desdeMasAntiguo !== null) query = query.gte("created_at", new Date(desdeMasAntiguo).toISOString());
         return query;
       })()
     : {
@@ -107,6 +102,8 @@ export default async function ProgresoPage() {
           dia: string | null;
         }[],
       };
+
+  const logs = (logsCrudos ?? []).filter((l) => dentroDeVentanas(l.created_at, ventanas));
 
   // Caso común: todas las instancias del ejercicio comparten la misma
   // clave (`${id}:${dia}` distinto por día, pero el mismo balde de logs

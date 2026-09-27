@@ -5,6 +5,7 @@ import { BackLink } from "@/components/back-link";
 import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import { ultimoTopSet, pesoSugerido } from "@/lib/analytics";
 import { ejerciciosQueDivergenPorDia } from "@/lib/divergencia-dia";
+import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -89,15 +90,10 @@ export default async function DiaEntrenamientoPage({
     ...new Set(exercises.map((e) => e.alternativa_id).filter((id): id is number => id !== null)),
   ];
 
-  const { data: stintActivo } = await supabase
-    .from("profile_routine_history")
-    .select("fecha_inicio")
-    .eq("user_id", user.id)
-    .is("fecha_fin", null)
-    .maybeSingle();
-  const desdeStint = stintActivo?.fecha_inicio
-    ? inicioDelDiaArgentinaUTC(stintActivo.fecha_inicio).toISOString()
-    : null;
+  // Todos los períodos en los que esta rutina estuvo activa, no solo el
+  // más reciente -- ver src/lib/periodos-rutina.ts.
+  const ventanasRutina = await ventanasDeRutina(supabase, user.id, profile.routine_id);
+  const desdeVentanaMasAntigua = inicioMasAntiguo(ventanasRutina);
 
   // Si un ejercicio de hoy también está agendado en OTRO día de esta misma
   // rutina con una prescripción distinta (series/reps o RIR), no hay que
@@ -149,7 +145,9 @@ export default async function DiaEntrenamientoPage({
             .in("exercise_definition_id", exerciseIds)
             .lt("created_at", hoyInicio.toISOString())
             .order("created_at", { ascending: true });
-          if (desdeStint) query = query.gte("created_at", desdeStint);
+          if (desdeVentanaMasAntigua !== null) {
+            query = query.gte("created_at", new Date(desdeVentanaMasAntigua).toISOString());
+          }
           return query;
         })()
       : Promise.resolve({
@@ -174,6 +172,7 @@ export default async function DiaEntrenamientoPage({
     // sugerencia a sets cargados específicamente en ESTE día.
     const logsDelEjercicio = (logsPrevios ?? [])
       .filter((l) => l.exercise_definition_id === ex.id)
+      .filter((l) => dentroDeVentanas(l.created_at, ventanasRutina))
       .filter((l) => !divergenPorDia.has(ex.id) || l.dia === dia)
       .map((l) => ({ peso: l.peso, reps: l.reps, created_at: l.created_at }));
     const ultimo = ultimoTopSet(logsDelEjercicio);
