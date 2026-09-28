@@ -98,13 +98,21 @@ mano vía Dashboard -- no son parte del código, no hace falta commitearlas
 
 - `profiles`: datos del usuario + acceso. Campos clave: `premium_hasta`
   (fecha), `golden_perpetuo` (bool), `premium_origen`
-  ('trial'|'compra'|'golden'|'mentoria'). **`src/lib/premium.ts` es la
-  única fuente de verdad para esto** -- nunca reimplementar esta lógica
-  inline en una pantalla:
+  ('trial'|'compra'|'golden'|'mentoria'|'founder', el último desde
+  migración 083). **`src/lib/premium.ts` es la única fuente de verdad
+  para esto** -- nunca reimplementar esta lógica inline en una pantalla:
   - `esPremium(p)`: acceso vigente a la app (cualquier origen).
   - `esGoldenTier(p)`: Golden en sentido amplio -- golden_perpetuo O
     premium_origen golden/mentoria. Usar para gates "todo lo que da
-    Golden" (rutinas públicas, calculadora de calorías).
+    Golden" (calculadora de calorías, etc.) -- **NUNCA para el catálogo
+    de rutinas públicas**, ver `tieneCatalogoCompleto` abajo.
+  - `tieneCatalogoCompleto(p)`: acceso al CATÁLOGO COMPLETO de rutinas
+    públicas (poder listarlas todas como adquiridas y cambiarse a
+    cualquiera). MÁS ESTRICTO que esGoldenTier -- solo
+    `premium_origen` founder/golden/trial. Mentoría y compras sueltas
+    solo ven su/s rutina/s puntual/es vía `profile_routine_access`. Ver
+    sección "Categorías de acceso de usuario" para el bug real que motivó
+    esto (2026-09-28, Vane Capuano).
   - `esMentoria(p)`: SOLO premium_origen = 'mentoria'. Más estricto que
     esGoldenTier -- usar solo para beneficios exclusivos de mentoría (ej.
     Guía alimenticia). Un Golden comprado normal NO pasa este check.
@@ -566,11 +574,54 @@ reportar en qué categoría está cada cliente. Todavía no hay una pantalla
 para esto (se puede pedir más adelante), pero la categorización sale de
 columnas que ya existen, sin cambiar el esquema:
 
-- **Golden Founder** (`golden_perpetuo = true`): SOLO las 2 cuentas propias
-  del coach (Android e iOS) -- `ezequiel.arce@outlook.com` y
-  `ar.cs@hotmail.es`. Nunca ponerle esto a un cliente real, aunque tenga
-  acceso completo -- se detectó y corrigió un error donde 4 cuentas de
-  mentoría tenían este flag de más (ver más abajo).
+- **Golden Founder** (`premium_origen = 'founder'`, desde migración 083):
+  SOLO las 2 cuentas propias del coach (Android e iOS) --
+  `ezequiel.arce@outlook.com` y `ar.cs@hotmail.es`. Son las ÚNICAS con
+  acceso incondicional a TODO, incluido navegar y cambiarse libremente a
+  cualquier rutina pública del catálogo (`tieneCatalogoCompleto()` en
+  `src/lib/premium.ts`). Nunca ponerle este `premium_origen` a un cliente
+  real, aunque tenga acceso completo -- se detectó y corrigió un error
+  donde 4 cuentas de mentoría tenían `golden_perpetuo = true` de más (ver
+  bug de abajo).
+  - **`golden_perpetuo = true` por sí solo YA NO identifica a Founder** --
+    es compartido con toda cuenta de mentoría (el coach les da golden pass
+    perpetuo como parte del servicio, ver sección de arriba). El
+    distintivo real de Founder es `premium_origen = 'founder'`.
+  - **Bug real encontrado 2026-09-28 (reportado por Vane Capuano, cliente
+    de mentoría)**: como el único criterio de acceso "a todo el catálogo"
+    era `esPremium`/`esGoldenTier` (que solo miran `golden_perpetuo`/
+    `premium_origen` golden|mentoria, sin distinguir Founder de mentoría),
+    CUALQUIER cuenta de mentoría veía TODAS las rutinas públicas como
+    desbloqueadas y podía cambiarse a cualquiera -- incluido un plan
+    autoguiado pago que no había comprado ("Anti-Flakardo Fullbody"). No
+    era solo un bug visual: el server action `cambiarRutinaActiva`
+    (`src/app/entrenamiento/actions.ts`) lo permitía de verdad. Mismo bug
+    hermano en `obtenerSuscripcion()`: cualquier cuenta de mentoría veía
+    la etiqueta "Golden · Founder" en su propio perfil (por chequear
+    `golden_perpetuo` antes que nada), en vez de "Mentoría · hasta...".
+  - **Fix**: se agregó el valor `'founder'` a `premium_origen`
+    (`migration_083_premium_origen_founder.sql`, amplía el check
+    constraint y marca las 2 cuentas por email) y una función nueva,
+    `tieneCatalogoCompleto(p)` en `premium.ts` -- MÁS ESTRICTA que
+    `esPremium`/`esGoldenTier`: solo `premium_origen` founder/golden/trial
+    desbloquea el catálogo completo; mentoría y compras sueltas solo ven
+    SU/S rutina/s vía `profile_routine_access`, igual que cualquier
+    rutina privada. Se reemplazó en los 6 puntos de la UI que listaban/
+    mostraban el catálogo (`entrenamiento/page.tsx`,
+    `entrenamiento/analizador/page.tsx`, `entrenamiento/rutinas/page.tsx`,
+    `entrenamiento/rutinas/[id]/page.tsx`,
+    `entrenamiento/rutinas/[id]/[dia]/page.tsx`,
+    `entrenamiento/rutinas/[id]/analisis/page.tsx`) + la verificación
+    real del server action. `esPremium`/`esGoldenTier` NO se tocaron para
+    nada más (siguen siendo el criterio correcto para acceso general a la
+    app y para features tipo calculadora/guía). `obtenerSuscripcion()`
+    también se corrigió: la etiqueta "Golden · Founder" ahora exige
+    `premium_origen === 'founder'`, no alcanza con `golden_perpetuo`.
+  - **Regla de acá en adelante**: `tieneCatalogoCompleto()`, nunca
+    `esPremium`/`esGoldenTier`, es el gate correcto para "puede ver/
+    cambiarse a cualquier rutina pública del catálogo general". Si se
+    agrega una pantalla nueva que liste o permita cambiar a rutinas
+    públicas, usar `tieneCatalogoCompleto()`.
 - **Mentoría 1 a 1** (`premium_origen = 'mentoria'`): alguien que compra
   mentoría (se vende en el sitio web). Incluye TODO lo de Golden más
   beneficios exclusivos (`esMentoria()`, ej. Guía alimenticia). Tiene dos

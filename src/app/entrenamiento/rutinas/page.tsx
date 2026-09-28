@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { BorrarRutinaBoton } from "@/components/borrar-rutina-boton";
-import { esPremium } from "@/lib/premium";
+import { tieneCatalogoCompleto } from "@/lib/premium";
 
 export default async function RutinasAdquiridasPage() {
   const supabase = await createClient();
@@ -19,7 +19,7 @@ export default async function RutinasAdquiridasPage() {
   const [{ data: profile }, { data: routines }, { data: acceso }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("routine_id, premium_hasta, golden_perpetuo")
+      .select("routine_id, premium_hasta, golden_perpetuo, premium_origen")
       .eq("id", user.id)
       .single(),
     supabase
@@ -29,7 +29,7 @@ export default async function RutinasAdquiridasPage() {
     supabase.from("profile_routine_access").select("routine_id").eq("user_id", user.id),
   ]);
 
-  const idsDesbloqueados = esPremium(profile)
+  const idsDesbloqueados = tieneCatalogoCompleto(profile)
     ? new Set((routines ?? []).map((r) => r.id))
     : new Set((acceso ?? []).map((a) => a.routine_id));
 

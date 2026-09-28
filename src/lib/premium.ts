@@ -52,10 +52,37 @@ export function diasRestantesTrial(p: EstadoPremium | null | undefined): number 
 
 // Acceso "nivel Golden" en sentido amplio: Golden real (compra o Founder) O
 // mentoría (que incluye Golden como parte del servicio). Usar esto para
-// cualquier gate que sea "todo lo que da Golden" (rutinas, calculadora).
+// gates de FEATURES que sí están incluidas en mentoría (calculadora, guía
+// alimenticia) -- NUNCA para el catálogo de rutinas públicas, ver
+// `tieneCatalogoCompleto` más abajo.
 export function esGoldenTier(p: EstadoPremium | null | undefined): boolean {
   if (!p) return false;
   return Boolean(p.golden_perpetuo) || p.premium_origen === "golden" || p.premium_origen === "mentoria";
+}
+
+// Acceso al CATÁLOGO COMPLETO de rutinas públicas (Anti-Flakardo, Torso
+// Pierna, etc.): poder listarlas todas como "ya adquiridas" y cambiarse a
+// cualquiera sin restricción. A propósito MÁS ESTRICTO que esPremium/
+// esGoldenTier -- mentoría y compras sueltas dan acceso a SU/S rutina/s
+// puntual/es vía `profile_routine_access`, no a navegar el catálogo
+// entero. Bug real encontrado 2026-09-28 (reportado por una clienta de
+// mentoría, Vane Capuano): con `esPremium`/`esGoldenTier` cualquier cuenta
+// de mentoría (golden_perpetuo=true, premium_origen='mentoria') veía TODAS
+// las rutinas públicas como desbloqueadas y podía cambiarse a cualquiera,
+// incluido "Anti-Flakardo Fullbody" sin haberlo comprado -- el server
+// action `cambiarRutinaActiva` lo permitía de verdad, no era solo un bug
+// visual. Confirmado explícitamente por el usuario: "la única persona que
+// tiene acceso a todo es Golden Founder... quienes no [compraron el
+// producto] no deberían tenerlo". `premium_origen === 'founder'` identifica
+// a las 2 cuentas del dueño del negocio (ver "Golden Founder" en la sección
+// "Categorías de acceso de usuario" de CLAUDE.md) -- son las únicas con
+// acceso incondicional a todo.
+export function tieneCatalogoCompleto(p: EstadoPremium | null | undefined): boolean {
+  if (!p) return false;
+  if (!esPremium(p)) return false;
+  return (
+    p.premium_origen === "founder" || p.premium_origen === "golden" || p.premium_origen === "trial"
+  );
 }
 
 // Acceso específico de Mentoría -- más estricto que esGoldenTier. Usar solo
@@ -78,7 +105,14 @@ export function obtenerSuscripcion(
     frecuencia?: string | null;
   } | null
 ): Suscripcion {
-  if (profile?.golden_perpetuo) return { texto: "Golden · Founder", tono: "oro" };
+  // Ojo: NO alcanza con `golden_perpetuo` -- todas las altas de mentoría
+  // (alta-cliente.js) también lo marcan true para darles Golden incluido,
+  // así que esto solo debe disparar para las 2 cuentas reales del dueño
+  // del negocio (`premium_origen === 'founder'`, ver `tieneCatalogoCompleto`
+  // más arriba). Si no, un cliente de mentoría vería "Golden · Founder" en
+  // su propio perfil, lo cual no es cierto -- bug hermano del de Vane
+  // Capuano, encontrado en la misma revisión (2026-09-28).
+  if (profile?.premium_origen === "founder") return { texto: "Golden · Founder", tono: "oro" };
 
   const etiquetaFrecuencia = sub?.frecuencia === "mensual" ? " (mensual)" : "";
 

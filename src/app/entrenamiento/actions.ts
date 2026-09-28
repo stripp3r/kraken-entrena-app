@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { hoyISO } from "@/lib/fecha";
-import { esPremium } from "@/lib/premium";
+import { tieneCatalogoCompleto } from "@/lib/premium";
 
 export type SetInput = {
   peso: number | null;
@@ -117,7 +117,7 @@ export async function cambiarRutinaActiva(routineId: number) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("routine_id, premium_hasta, golden_perpetuo")
+    .select("routine_id, premium_hasta, golden_perpetuo, premium_origen")
     .eq("id", user.id)
     .single();
 
@@ -136,10 +136,13 @@ export async function cambiarRutinaActiva(routineId: number) {
   }
 
   // Las rutinas privadas (armadas a medida para una sola cuenta) siempre
-  // necesitan acceso explícito, sin importar si el usuario es premium --
-  // si no, cualquier cuenta Golden podría "adivinar" el id y cambiarse a
-  // una rutina que no le pertenece.
-  if (rutina.es_privada || !esPremium(profile)) {
+  // necesitan acceso explícito, sin importar el nivel de acceso del
+  // usuario -- si no, cualquier cuenta con acceso a la app podría
+  // "adivinar" el id y cambiarse a una rutina que no le pertenece.
+  // Para rutinas PÚBLICAS, solo Founder/Golden real navega el catálogo
+  // libremente -- mentoría y compras sueltas necesitan acceso explícito
+  // también (ver `tieneCatalogoCompleto` en lib/premium.ts).
+  if (rutina.es_privada || !tieneCatalogoCompleto(profile)) {
     const { data: acceso } = await supabase
       .from("profile_routine_access")
       .select("routine_id")

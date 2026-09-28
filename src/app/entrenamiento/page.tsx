@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RutinaHub } from "@/components/rutina-hub";
-import { esPremium } from "@/lib/premium";
+import { tieneCatalogoCompleto } from "@/lib/premium";
 
 export default async function EntrenamientoPage() {
   const supabase = await createClient();
@@ -18,7 +18,7 @@ export default async function EntrenamientoPage() {
   const [{ data: profile }, { data: routines }, { data: acceso }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("routine_id, premium_hasta, golden_perpetuo, role, routines(nombre, dias)")
+      .select("routine_id, premium_hasta, golden_perpetuo, premium_origen, role, routines(nombre, dias)")
       .eq("id", user.id)
       .single(),
     supabase
@@ -29,10 +29,10 @@ export default async function EntrenamientoPage() {
   ]);
 
   const rutinaActiva = Array.isArray(profile?.routines) ? profile.routines[0] : profile?.routines;
-  // Con prueba/Golden vigente, todas las rutinas están disponibles. Sin eso,
-  // solo las compradas sueltas (profile_routine_access) -- aunque en la
-  // práctica el middleware ya no deja llegar acá a un usuario sin premium.
-  const idsDesbloqueados = esPremium(profile)
+  // Solo Founder/Golden real (pago o trial) ve el catálogo completo como
+  // desbloqueado. Mentoría y compras sueltas solo ven SU/S rutina/s vía
+  // profile_routine_access -- ver `tieneCatalogoCompleto` en lib/premium.ts.
+  const idsDesbloqueados = tieneCatalogoCompleto(profile)
     ? new Set((routines ?? []).map((r) => r.id))
     : new Set((acceso ?? []).map((a) => a.routine_id));
 

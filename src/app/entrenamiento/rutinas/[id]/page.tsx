@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { CambiarAEstaRutinaBoton } from "@/components/cambiar-a-esta-rutina-boton";
 import { BorrarRutinaBoton } from "@/components/borrar-rutina-boton";
-import { esPremium } from "@/lib/premium";
+import { tieneCatalogoCompleto } from "@/lib/premium";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -33,7 +33,7 @@ export default async function RutinaPreviewPage({
   const [{ data: profile }, { data: routine }, { data: acceso }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("routine_id, premium_hasta, golden_perpetuo")
+      .select("routine_id, premium_hasta, golden_perpetuo, premium_origen")
       .eq("id", user.id)
       .single(),
     supabase
@@ -53,7 +53,7 @@ export default async function RutinaPreviewPage({
     notFound();
   }
 
-  const desbloqueada = esPremium(profile) || Boolean(acceso);
+  const desbloqueada = tieneCatalogoCompleto(profile) || Boolean(acceso);
   if (!desbloqueada) {
     redirect("/entrenamiento/rutinas");
   }
