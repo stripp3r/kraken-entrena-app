@@ -1693,6 +1693,67 @@ ESE período específico, es su propósito.
 `workout_logs` con su `created_at` real, esto era pura lógica de
 lectura/filtrado. No hizo falta ninguna migración SQL ni tocar datos.
 
+## Ajustes a Kraken Split pedidos por el usuario (2026-09-28, migración 082)
+
+El usuario pidió una tanda de cambios puntuales a su propia rutina
+privada (id 7, "Kraken Split") después de usarla unas semanas. Resumen
+del criterio usado para cada uno (por si se repite el patrón con otros
+clientes):
+
+- **Preferencia por bilaterales**: "Tríceps en polea alta a un brazo" →
+  bilateral con barra V, explícitamente por practicidad/tiempo (ya
+  tiene bien seteados los descansos de unilaterales, pero prefiere
+  menos fricción en este ejercicio puntual). Se creó
+  "Tríceps en polea alta con barra V" (id 284) porque no existía ningún
+  pushdown bilateral simple en el catálogo -- todo lo que había era
+  unilateral, con reverse grip, rope, cross, etc.
+- **Equipamiento nuevo en casa**: Día B suma "Sentadilla sissy" (id 45,
+  ya existía) porque compró una máquina de sentadilla sissy.
+- **Molestia de codo identificada por el usuario**: el "Press francés
+  con barra EZ" le molestaba el codo en unilateral/con barra recta --
+  encontró que con banco inclinado + polea + bilateral no le duele.
+  Matcheó exacto con un ejercicio YA EXISTENTE ("Extensión de tríceps
+  inclinada en polea baja", id 24) -- no hizo falta crear nada.
+  **Lección**: antes de crear un ejercicio nuevo por un pedido de rutina,
+  buscar primero si ya existe algo que matchee la descripción exacta del
+  usuario (equipo + posición + agarre), no asumir que hace falta un GIF
+  nuevo.
+- **"Jalón lateral con polea a un brazo" → "Dominadas cerradas con
+  agarre neutro"**: mismo patrón de tracción (dorsal ancho, jalón
+  vertical), pero el usuario lo hace con el propio peso corporal en
+  barra de dominadas en vez de máquina/polea -- se creó un ejercicio
+  nuevo (id 287) porque no había ninguna dominada de agarre NEUTRO en el
+  catálogo (había "Chin up agarre cerrado" pero es agarre PRONO, no
+  neutro -- verificado por texto e imagen, no alcanza con el nombre).
+- **Hallazgo durante la tanda**: al crear "Hip thrust con barra" para
+  reemplazar "Patada de glúteo en polea", el hash-audit lo detectó como
+  duplicado EXACTO de "Empuje de caderas" (id 64) ya existente -- mismo
+  ejercicio, nombre distinto. Se borró la fila nueva y se usó id 64. Es
+  el mismo tipo de hallazgo que otros de la revisión músculo por
+  músculo: correr el hash-audit después de cada alta, sin excepción,
+  incluso para altas puntuales de una rutina privada (no solo en las
+  tandas de revisión de catálogo).
+- **Bug de catálogo reportado por el usuario, no pedido de cambio**: id
+  77 "Extensión de tríceps sobre la cabeza en polea" -- el usuario notó
+  que el GIF mostraba un movimiento unilateral pese a que el ejercicio
+  está marcado bilateral. Confirmado visualmente: el texto (`como_hacerlo`)
+  y `unilateral=false` ya eran correctos (describen "ambas manos" con
+  cuerda), pero la imagen cargada mostraba una sola mano -- mismo patrón
+  que el caso de `id 107` (Fire Hydrant) de la revisión de Glúteos:
+  texto correcto, imagen equivocada. A diferencia de aquel caso, acá SÍ
+  había un GIF de reemplazo correcto ya identificado en la biblioteca de
+  referencia (de la propia revisión de Tríceps, migración 077 --
+  `17241301-Cable-Rope-High-Pulley-Overhead-Tricep-Extension`, que en su
+  momento se había descartado como "near-duplicate" de id 77 por el
+  texto, sin volver a mirar la imagen). Se reemplazó el `imagen_url`.
+
+Ningún dato de `workout_logs` se tocó ni se borró -- los sets viejos de
+los ejercicios reemplazados (ej. "Patada de glúteo en polea") siguen en
+la base, simplemente ya no aparecen en la vista de Entrenamiento/Análisis
+porque `routine_exercises` ya no los referencia. No hizo falta ningún
+"reset" explícito de historial (el usuario había ofrecido reiniciar todo
+si hacía falta, pero no fue necesario).
+
 ## Qué NO hacer sin preguntarle antes al usuario
 
 - No correr ninguna migración SQL contra la base de producción -- se
