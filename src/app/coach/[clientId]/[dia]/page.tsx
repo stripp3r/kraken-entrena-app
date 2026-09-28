@@ -77,7 +77,7 @@ export default async function CoachDiaPage({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {exercises.map((ex) => (
-              <ExerciseCard key={ex.id} exercise={ex} dia={dia} logsDeHoy={[]} compacto forzarInfo />
+              <ExerciseCard key={ex.id} exercise={ex} dia={dia} logsDeHoy={[]} compacto />
             ))}
           </div>
         )}

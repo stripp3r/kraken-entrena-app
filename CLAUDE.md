@@ -1657,11 +1657,24 @@ para resolver esto rápido; un panel editable queda como posible fase 2.
   en `entrenamiento/[dia]`, pero sin nada de `workout_logs` ni registro
   de sets -- clonado del patrón de solo-lectura que ya existía en
   `entrenamiento/rutinas/[id]/[dia]/page.tsx`).
-- **`ExerciseCard`** ganó un prop nuevo `forzarInfo` (además de `activo`
-  y `onSeleccionar`, que ya controlaban si se mostraban los botones
-  "¿Cómo hacerlo?"/"Alternativa") para que en la vista de coach esos
-  botones aparezcan siempre, sin necesitar una sesión de entrenamiento
-  activa.
+- **`ExerciseCard` en la vista de coach NO fuerza "¿Cómo hacerlo?"/
+  "Alternativa"** (2026-09-29, corregido tras el primer uso real): la
+  primera versión agregó un prop `forzarInfo` para que esos botones
+  aparecieran siempre en la vista de coach, sin sesión activa. Bug
+  real encontrado por el usuario probándolo con la rutina de Lorena
+  Tobares: al expandir "¿Cómo hacerlo?" (video + texto) dentro de la
+  grilla `grid-cols-2` de la vista compacta, la tarjeta que se expande
+  queda mucho más alta que la de al lado, y el layout de 2 columnas se
+  rompe visualmente (columnas desalineadas). El usuario prefirió no
+  rediseñar el grid para acomodar contenido de altura dinámica --
+  **decisión: la vista de coach vuelve a ser una preview pura (GIF +
+  nombre + series/reps, sin ningún toggle)**, igual que ya funcionaba
+  en `entrenamiento/rutinas/[id]/[dia]/page.tsx`. El prop `forzarInfo`
+  se sacó de `ExerciseCard` por completo (quedaba sin ningún uso). Si
+  en el futuro hace falta que el coach vea el texto de "cómo hacerlo"
+  para detectar errores, la solución tiene que ser una grilla de 1
+  columna (no 2) para esa vista, o un modal aparte -- no reforzar el
+  toggle dentro del grid de 2 columnas.
 - `/coach` se agregó a `PATHS_SIN_PREMIUM` en `middleware.ts` (si algún
   día hay más de una cuenta coach, que no dependa de tener Golden/prueba
   vigente para entrar) -- la seguridad real la da `requireCoach()`, no
