@@ -235,6 +235,43 @@ async function main() {
   if (errAcceso) throw errAcceso;
   console.log(`✓ Acceso a la rutina otorgado`);
 
+  // ============ 6b. ACTIVAR LA RUTINA (si el cliente no tiene ninguna activa) ============
+  // Sin esto el cliente entra a la app y ve "Sin rutina activa, elegí tu
+  // rutina" en vez de su plan -- pasó dos veces (Santiago Pelotti, Vane
+  // Capuano) porque acceso otorgado no es lo mismo que rutina activa. Si
+  // ya tenía una rutina activa (ej. un alta que reemplaza/actualiza una
+  // existente), no se la pisa -- eso lo decide el coach a mano.
+  const { data: perfilActual } = await supabase
+    .from("profiles")
+    .select("routine_id")
+    .eq("id", userId)
+    .single();
+
+  if (!perfilActual?.routine_id) {
+    await supabase
+      .from("profile_routine_history")
+      .update({ fecha_fin: new Date().toISOString().slice(0, 10) })
+      .eq("user_id", userId)
+      .is("fecha_fin", null);
+
+    await supabase.from("profile_routine_history").insert({
+      user_id: userId,
+      routine_id: rutina.id,
+      fecha_inicio: new Date().toISOString().slice(0, 10),
+    });
+
+    const { error: errActivar } = await supabase
+      .from("profiles")
+      .update({ routine_id: rutina.id })
+      .eq("id", userId);
+    if (errActivar) throw errActivar;
+    console.log(`✓ Rutina activada (el cliente no tenía ninguna otra activa)`);
+  } else {
+    console.log(
+      `- El cliente ya tiene una rutina activa (id ${perfilActual.routine_id}) -- no se la reemplaza automáticamente.`
+    );
+  }
+
   // ============ 7. GUÍA ALIMENTICIA (PDF) ============
   if (cliente.guia_pdf_local_path) {
     const rutaPdf = path.resolve(baseDir, cliente.guia_pdf_local_path);
