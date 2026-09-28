@@ -4,7 +4,6 @@ import { EntrenamientoDiaCliente } from "@/components/entrenamiento-dia-cliente"
 import { BackLink } from "@/components/back-link";
 import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import { ultimoTopSet, pesoSugerido } from "@/lib/analytics";
-import { ejerciciosQueDivergenPorDia } from "@/lib/divergencia-dia";
 import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
@@ -95,19 +94,6 @@ export default async function DiaEntrenamientoPage({
   const ventanasRutina = await ventanasDeRutina(supabase, user.id, profile.routine_id);
   const desdeVentanaMasAntigua = inicioMasAntiguo(ventanasRutina);
 
-  // Si un ejercicio de hoy también está agendado en OTRO día de esta misma
-  // rutina con una prescripción distinta (series/reps o RIR), no hay que
-  // mezclar el historial de ambos días en la sugerencia de peso -- ver
-  // src/lib/divergencia-dia.ts.
-  const { data: instanciasRutina } = exerciseIds.length
-    ? await supabase
-        .from("routine_exercises")
-        .select("exercise_definition_id, series_reps, rir_objetivo")
-        .eq("routine_id", profile.routine_id)
-        .in("exercise_definition_id", exerciseIds)
-    : { data: [] as { exercise_definition_id: number | null; series_reps: string | null; rir_objetivo: number | null }[] };
-  const divergenPorDia = ejerciciosQueDivergenPorDia(instanciasRutina ?? []);
-
   const [{ data: alternativas }, { data: logsHoy }, { data: logsPrevios }] = await Promise.all([
     alternativaIds.length
       ? supabase
@@ -166,14 +152,14 @@ export default async function DiaEntrenamientoPage({
     { pesoAnterior: number; repsAnterior: number; pesoSugerido: number | null }
   >();
   for (const ex of exercises) {
-    // Caso común: el ejercicio tiene la misma prescripción en todos los
-    // días donde aparece -- se sigue mezclando todo el historial, como
-    // siempre. Solo cuando diverge (ver divergencia-dia.ts) se restringe la
-    // sugerencia a sets cargados específicamente en ESTE día.
+    // La sugerencia de peso de hoy sale solo de sets cargados en ESTE
+    // mismo día, aunque el ejercicio se repita en otro día de la rutina
+    // -- el descanso previo a cada sesión es distinto según el día, así
+    // que el rendimiento no es comparable (ver nota "Independencia
+    // estricta por día" en CLAUDE.md).
     const logsDelEjercicio = (logsPrevios ?? [])
-      .filter((l) => l.exercise_definition_id === ex.id)
+      .filter((l) => l.exercise_definition_id === ex.id && l.dia === dia)
       .filter((l) => dentroDeVentanas(l.created_at, ventanasRutina))
-      .filter((l) => !divergenPorDia.has(ex.id) || l.dia === dia)
       .map((l) => ({ peso: l.peso, reps: l.reps, created_at: l.created_at }));
     const ultimo = ultimoTopSet(logsDelEjercicio);
     if (ultimo) {

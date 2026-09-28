@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { ProgresoAnalitica } from "@/components/progreso-analitica";
 import { BackLink } from "@/components/back-link";
 import type { SetLog } from "@/lib/analytics";
-import { ejerciciosQueDivergenPorDia } from "@/lib/divergencia-dia";
 import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
 import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
 
@@ -66,13 +65,6 @@ export default async function ProgresoPage() {
 
   const exerciseIds = exercises.map((e) => e.id);
 
-  // Si el mismo ejercicio aparece en más de un día de ESTA rutina con una
-  // prescripción distinta, su historial no debe mezclarse entre días --
-  // ver src/lib/divergencia-dia.ts. Hoy ningún ejercicio real diverge
-  // (Anti-Flakardo repite la misma prescripción en los días que repite),
-  // pero la separación queda lista por si algún día pasa.
-  const divergenPorDia = ejerciciosQueDivergenPorDia(routineExercises ?? []);
-
   // El análisis es sobre ESTA rutina activa, no sobre toda la vida del
   // ejercicio -- si el mismo ejercicio ya se usó en una rutina anterior
   // (de prueba o real), ese historial viejo no tiene que mezclarse acá.
@@ -105,16 +97,16 @@ export default async function ProgresoPage() {
 
   const logs = (logsCrudos ?? []).filter((l) => dentroDeVentanas(l.created_at, ventanas));
 
-  // Caso común: todas las instancias del ejercicio comparten la misma
-  // clave (`${id}:${dia}` distinto por día, pero el mismo balde de logs
-  // mezclados) -- se sigue viendo el historial combinado en cada pestaña
-  // de día, como siempre. Cuando diverge, cada día se queda solo con sus
-  // propios sets.
+  // Cada día se analiza solo con sus propios sets, aunque el mismo
+  // ejercicio se repita en otro día con la prescripción idéntica --
+  // descansar distinto antes de cada sesión (ej. Día A con 2 días de
+  // descanso previo vs. Día C con menos) hace que el rendimiento no sea
+  // comparable, así que mezclar el historial taparía esa señal en vez de
+  // mostrarla. Ver la nota "Independencia estricta por día" en CLAUDE.md.
   const logsByExercise: Record<string, SetLog[]> = {};
   for (const ex of exercises) {
     logsByExercise[claveEjercicioDia(ex.id, ex.dia)] = (logs ?? [])
-      .filter((l) => l.exercise_definition_id === ex.id)
-      .filter((l) => !divergenPorDia.has(ex.id) || l.dia === ex.dia)
+      .filter((l) => l.exercise_definition_id === ex.id && l.dia === ex.dia)
       .map((l) => ({ peso: l.peso, reps: l.reps, created_at: l.created_at }));
   }
 

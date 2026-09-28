@@ -1017,6 +1017,48 @@ No se tocó `src/lib/analytics.ts` (`ultimoTopSet`, `pesoSugerido`,
 pre-filtrado por el caller, así que la lógica de "cuándo separar por día"
 vive enteramente en las dos páginas server-side, no en el cálculo.
 
+### SUPERADO 2026-09-28: independencia estricta por día
+
+Todo lo de arriba (migración 063, `divergencia-dia.ts`, "mezclar cuando
+la prescripción es idéntica") quedó **revertido**. El usuario, usando la
+app en la práctica con Kraken Split (donde "Elevación de piernas
+colgado" y "Abdominales en banco declinado" se repiten en Día B y Día D
+con la misma prescripción exacta), vio que sus 3 sets cargados una sola
+vez (Día D) aparecían mezclados también en Día B, y pidió explícitamente
+revertir el criterio -- con un argumento de entrenamiento válido que no
+se había considerado antes:
+
+> Entrenar el mismo ejercicio con distinto descanso previo (ej. Día A
+> después de 2 días libres vs. Día C con menos descanso) da un
+> rendimiento distinto y **eso es justamente el dato que querés poder
+> ver** -- si levantás más en Día A, el descanso te está beneficiando;
+> si levantás más en Día C, es el volumen. Mezclar el historial de
+> ambos días tapa esa señal en vez de mostrarla.
+
+Es decir: aunque la prescripción sea idéntica, el contexto de descanso
+no lo es, así que NO es "el mismo estímulo" a fines de análisis --
+mezclar los sets fuerza a comparar por fecha a mano para desenredar qué
+pasó, exactamente lo que el análisis por día debería evitar.
+
+**Regla nueva, sin excepción**: cada día se analiza solo con sus propios
+sets (`workout_logs.dia === dia`), sin importar si el ejercicio se
+repite en otro día con la misma prescripción o no. Se borró
+`src/lib/divergencia-dia.ts` (quedó sin ningún uso) y se sacó el
+chequeo de "firma" de `progreso/entrenamiento/page.tsx` y
+`entrenamiento/[dia]/page.tsx` -- ambos filtran directo por `l.dia ===
+dia` ahora. `claveEjercicioDia(id, dia)` se mantiene (sigue haciendo
+falta una clave por día), pero ya no hay ningún caso donde dos días
+compartan el mismo balde de logs.
+
+**Ojo con `workout_logs.dia = null`** (sets viejos de antes de la
+migración 063, o algunos sets sueltos de fines de septiembre 2026 que
+quedaron sin día por el lío de cambiar de rutina varias veces -- ver
+sección de arriba, "Bug: historial 'desaparecido'..."): con la regla
+estricta, esos sets NO entran en ningún día (ni siquiera el que
+"debería" ser), porque no hay forma de saber a qué día pertenecían. Es
+el trade-off correcto dado lo que pidió el usuario -- mejor no mostrar
+un dato que mostrarlo en el día equivocado.
+
 ## Volumen: curva de 3 tramos (MEV-MAV-MRV) y Frecuencia: curva de 2 tramos (2026-09-24)
 
 El usuario detectó, comparando rutinas reales en el comparador, que la
