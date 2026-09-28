@@ -1,0 +1,33 @@
+{
+  "_comentario": "Rutina estandarizada -- NUNCA se edita este archivo (ni la rutina en la base) para adaptarla a un cliente puntual. Si un cliente necesita un cambio (lesión, equipamiento, preferencia), se crea una COPIA PRIVADA de la rutina para ese cliente (ver 'Rutinas estandarizadas' en CLAUDE.md) y este archivo queda intacto como la referencia estándar para todos los demás.",
+  "nombre_rutina": "Kraken Standard M",
+  "descripcion_rutina": "3 días -- Días A y B presenciales, Día C de auto-entrenamiento en casa con banda elástica. Rutina estándar para la mayoría de los clientes varones de mentoría online.",
+  "dias": 3,
+  "ejercicios": [],
+  "rutina_exercises": [
+    { "dia": "A", "orden": 1, "ejercicio_nombre": "Sentadilla con barra", "series_reps": "3 x 8-10" },
+    { "dia": "A", "orden": 2, "ejercicio_nombre": "Press inclinado con mancuernas", "series_reps": "3 x 10-12" },
+    { "dia": "A", "orden": 3, "ejercicio_nombre": "Press militar con mancuernas", "series_reps": "3 x 8-12" },
+    { "dia": "A", "orden": 4, "ejercicio_nombre": "Curl femoral", "series_reps": "3 x 10-15" },
+    { "dia": "A", "orden": 5, "ejercicio_nombre": "Abdominales en banco plano", "series_reps": "3 x 15-20" },
+    { "dia": "A", "orden": 6, "ejercicio_nombre": "Jalón al pecho en polea alta agarre supino", "series_reps": "3 x 10-12" },
+
+    { "dia": "B", "orden": 1, "ejercicio_nombre": "Peso muerto", "series_reps": "3 x 6-8" },
+    { "dia": "B", "orden": 2, "ejercicio_nombre": "Remo con barra parado", "series_reps": "3 x 8-10" },
+    { "dia": "B", "orden": 3, "ejercicio_nombre": "Extensión de cuádriceps", "series_reps": "3 x 12-15" },
+    { "dia": "B", "orden": 4, "ejercicio_nombre": "Encogimiento de hombros con mancuernas", "series_reps": "3 x 10-15" },
+    { "dia": "B", "orden": 5, "ejercicio_nombre": "Elevacion lateral con mancuernas", "series_reps": "3 x 12-15" },
+    { "dia": "B", "orden": 6, "ejercicio_nombre": "Curl con barra EZ", "series_reps": "3 x 8-12" },
+    { "dia": "B", "orden": 7, "ejercicio_nombre": "Press francés con barra EZ", "series_reps": "3 x 10-15" },
+
+    { "dia": "C", "orden": 1, "ejercicio_nombre": "Estocadas", "series_reps": "4 x 12-15 por pierna" },
+    { "dia": "C", "orden": 2, "ejercicio_nombre": "Caminata lunar", "series_reps": "4 x 12-15 por pierna" },
+    { "dia": "C", "orden": 3, "ejercicio_nombre": "Elevación de talón parado a una pierna", "series_reps": "4 x 15-20 por pierna" },
+    { "dia": "C", "orden": 4, "ejercicio_nombre": "Flexiones de brazos", "series_reps": "4 x 12-15" },
+    { "dia": "C", "orden": 5, "ejercicio_nombre": "Crunch abdominal", "series_reps": "4 x 15-20" },
+    { "dia": "C", "orden": 6, "ejercicio_nombre": "V-Up completo", "series_reps": "4 x 12-15" },
+    { "dia": "C", "orden": 7, "ejercicio_nombre": "Remo inclinado con banda (barra curva) para deltoide posterior", "series_reps": "4 x 15-20" },
+    { "dia": "C", "orden": 8, "ejercicio_nombre": "Curl de bíceps con banda elástica", "series_reps": "4 x 12-15" },
+    { "dia": "C", "orden": 9, "ejercicio_nombre": "Press francés con banda elástica por encima de la cabeza", "series_reps": "4 x 12-15" }
+  ]
+}

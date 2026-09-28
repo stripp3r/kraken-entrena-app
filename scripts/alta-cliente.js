@@ -75,6 +75,24 @@ async function main() {
   const baseDir = path.dirname(path.resolve(rutaJson));
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+  // ============ 0. RUTINA ESTANDARIZADA (opcional) ============
+  // Si el JSON del cliente trae "rutina_estandarizada" (ruta a un archivo
+  // en rutinas-estandarizadas/), se cargan de ahí nombre_rutina/
+  // descripcion_rutina/dias/ejercicios/rutina_exercises -- así, para
+  // asignarle una rutina YA estandarizada a un cliente nuevo, el JSON del
+  // cliente solo necesita email + esta referencia + premium/guía, sin
+  // tener que volver a listar los ejercicios cada vez. Cualquier campo que
+  // el JSON del cliente ya traía explícito tiene prioridad (permite
+  // overrides puntuales sin tocar la plantilla).
+  if (cliente.rutina_estandarizada) {
+    const rutaPlantilla = path.resolve(baseDir, cliente.rutina_estandarizada);
+    const plantilla = JSON.parse(fs.readFileSync(rutaPlantilla, "utf8"));
+    for (const campo of ["nombre_rutina", "descripcion_rutina", "dias", "ejercicios", "rutina_exercises"]) {
+      if (cliente[campo] === undefined) cliente[campo] = plantilla[campo];
+    }
+    console.log(`(usando rutina estandarizada: ${cliente.rutina_estandarizada})`);
+  }
+
   console.log(`\n=== Alta de ${cliente.nombre_rutina} (${cliente.email}) ===\n`);
 
   // ============ 1. USUARIO ============

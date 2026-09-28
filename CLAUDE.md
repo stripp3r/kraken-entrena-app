@@ -1783,22 +1783,76 @@ porque `routine_exercises` ya no los referencia. No hizo falta ningún
 "reset" explícito de historial (el usuario había ofrecido reiniciar todo
 si hacía falta, pero no fue necesario).
 
-## Rutina compartida "Kraken Standard M" (2026-09-28, migración de datos vía alta-cliente.js)
+## Rutinas estandarizadas (proceso durable, 2026-09-28)
+
+El coach pidió explícitamente dejar de armar una rutina desde cero para
+cada cliente nuevo de mentoría/presencial: quiere un set de rutinas
+**estandarizadas** ("Kraken Standard M" es la primera) que simplemente
+se le asignan a quien corresponda, sin tener que "renegar" ni repasar
+la lista de ejercicios cada vez. Esto es un proceso permanente, no algo
+puntual de esta sesión -- aplica a toda mentoría privada (presencial y
+online) de acá en adelante.
+
+**Regla dura, sin excepciones: una rutina estandarizada NUNCA se edita
+in-place.** Si un cliente puntual necesita un cambio (lesión,
+equipamiento, preferencia -- como el caso de Guillermo más abajo), se
+le crea una **copia privada** con su propio nombre
+(`"<Nombre Estándar> - <Cliente>"`), se le aplican SOLO los cambios que
+hacen falta, y la rutina estándar original queda intacta para todos los
+demás que la usan. Confirmado explícitamente por el usuario 2026-09-28:
+"el estándar no se modifica... no demos vuelta con este asunto".
+
+**Dónde vive cada rutina estandarizada**: carpeta `rutinas-estandarizadas/`
+en la raíz del repo (a diferencia de `clientes/`, esta carpeta SÍ se
+commitea -- no tiene datos personales, es la plantilla reutilizable).
+Cada archivo (`kraken-standard-m.json`, etc.) tiene el mismo formato que
+el bloque de rutina de `clientes/EJEMPLO.json` (`nombre_rutina`,
+`descripcion_rutina`, `dias`, `ejercicios`, `rutina_exercises`), sin
+ningún dato de cliente.
+
+**Cómo asignarle una rutina estandarizada a un cliente nuevo**: en el
+JSON del cliente (`clientes/nombre-cliente.json`), en vez de repetir
+`rutina_exercises` a mano, agregar:
+```json
+"rutina_estandarizada": "../rutinas-estandarizadas/kraken-standard-m.json"
+```
+`alta-cliente.js` (sección "0. RUTINA ESTANDARIZADA", agregada
+2026-09-28) carga `nombre_rutina`/`descripcion_rutina`/`dias`/
+`ejercicios`/`rutina_exercises` desde ese archivo automáticamente --
+el JSON del cliente solo necesita `email` + la referencia +
+`premium`/`guia_pdf_local_path`. Sigue funcionando igual que antes
+(definición inline) si no se usa este campo.
+
+**Cómo crear una rutina estandarizada nueva**: escribir el archivo en
+`rutinas-estandarizadas/`, y darle de alta al primer cliente con la
+definición inline completa (`nombre_rutina`/`dias`/`rutina_exercises`
+en su propio JSON, sin `rutina_estandarizada` todavía) para que quede
+creada en la base -- de ahí en más, cualquier cliente nuevo que la use
+solo necesita la referencia al archivo.
+
+**Rutinas estandarizadas existentes:**
+- `rutinas-estandarizadas/kraken-standard-m.json` -- "Kraken Standard
+  M", 3 días (A/B presenciales, C auto-entrenamiento en casa con banda
+  elástica). Ver detalle completo abajo.
+
+### "Kraken Standard M" -- primera rutina estandarizada (migración de datos vía alta-cliente.js)
 
 El coach armó una rutina estándar de 3 días para asignarle a la mayoría
 de sus clientes varones de mentoría, en vez de armar una rutina
-distinta para cada uno ("no quiero tener que sentarme a armar rutina
-para cada uno"). Es la primera vez que una MISMA fila de `routines` se
-comparte entre varios clientes de mentoría (antes cada uno tenía la
-suya, ej. Kraken Split, Rocío Pace, Lorena Tobares) -- mismo patrón que
-ya usan las rutinas públicas del catálogo (Anti-Flakardo, etc.), solo
-que esta es `es_privada = true` y el acceso se da a mano por
+distinta para cada uno. Es la primera vez que una MISMA fila de
+`routines` se comparte entre varios clientes de mentoría (antes cada
+uno tenía la suya, ej. Kraken Split, Rocío Pace, Lorena Tobares) --
+mismo patrón que ya usan las rutinas públicas del catálogo
+(Anti-Flakardo, etc.), solo que esta es `es_privada = true` y el acceso
+se da a mano por
 `profile_routine_access`, cliente por cliente.
 
-- **Clientes con esta rutina**: Guillermo Carcacha, Rahim Alkashash,
-  Henry Ventura, Mica (Micaela) Pelotti, y Fabio Bringas (pendiente,
-  todavía no registrado en la app con ningún email conocido -- volver a
-  correr `alta-cliente.js` cuando se registre).
+- **Clientes con esta rutina**: Rahim Alkashash, Henry Ventura, Mica
+  (Micaela) Pelotti, y Fabio Bringas (pendiente, todavía no registrado
+  en la app con ningún email conocido -- volver a correr
+  `alta-cliente.js` cuando se registre). Guillermo Carcacha la tuvo
+  activa al principio pero pasó a una copia privada adaptada -- ver el
+  hallazgo de su cirugía lumbar más abajo.
 - **Mica Pelotti es un caso a propósito, no un error**: es la única
   clienta mujer en este lote y en teoría "las mujeres van a tener su
   propia rutina estándar" (como Vane/Lorena) -- pero el coach confirmó
@@ -1806,12 +1860,30 @@ que esta es `es_privada = true` y el acceso se da a mano por
   es un caso particular"), no fue un descuido.
 - **Guillermo Carcacha tiene antecedente de cirugía lumbosacra L5-S1 +
   cirugía de rodilla (corte de ligamentos) + escoliosis leve** (dato
-  del formulario, no mencionado por el coach al pedir la carga) -- la
-  rutina estándar incluye Peso Muerto y Sentadilla con barra, ambos
-  ejercicios de carga axial en la zona lumbar. Se cargó igual tal como
-  se pidió (no es a Claude a quien le toca decidir programación médica),
-  pero quedó señalado en su guía alimenticia y en el chat para que el
-  coach lo tenga presente / decida si amerita alguna adaptación.
+  del formulario, no mencionado por el coach al pedir la carga) --
+  señalado en el chat y en su guía alimenticia. **Resuelto 2026-09-28**:
+  el coach confirmó y pidió adaptarle 2 ejercicios. Se creó
+  `routines.id = 24` "Kraken Standard M - Guillermo" (`es_privada =
+  true`, copia exacta de la rutina 23 con estas 2 sustituciones, resto
+  100% igual):
+  - Día A #1: "Sentadilla con barra" -> "Prensa de piernas 45°" (id 111)
+    -- saca la carga axial de la barra en la espalda.
+  - Día B #1: "Peso muerto" -> "Puente de glúteos" (id 195) -- **no**
+    "Hip thrust" (el coach lo descartó explícitamente: con la espalda
+    elevada en un banco, un error de técnica bajo carga puede
+    hiperextender la zona lumbar; con la espalda apoyada plana en el
+    piso el recorrido queda naturalmente limitado, no se puede
+    hiperextender). También se descartó antes "Hiperextensión inversa
+    en máquina" (el coach no tiene esa máquina en su gym -- ver
+    [[trainer_private_gym_equipment]]) y "Curl femoral sentado" (mismo
+    motivo, no tiene esa variante del banco).
+  - Se le migró el acceso (`profile_routine_access`), se cerró su stint
+    de la rutina 23 en `profile_routine_history` y se activó la 24
+    (`profiles.routine_id`). Sigue teniendo acceso a la 23 también (no
+    se le sacó), pero la activa ahora es la 24.
+  - La rutina 23 "Kraken Standard M" (la compartida) se verificó
+    intacta después de este cambio -- Rahim, Henry y Mica la siguen
+    usando sin ninguna modificación.
 - **Bug real encontrado en el momento, ya corregido**: `alta-cliente.js`
   nombraba el archivo de la guía en Storage a partir de
   `nombre_rutina` (`kraken-standard-m.pdf`) -- con una rutina
