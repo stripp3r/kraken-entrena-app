@@ -412,6 +412,22 @@ nunca por chat, igual que `asignar-gifs.js`).
 - Si el cliente todavía no se registró en la app con ese email, el script
   avisa y no hace nada -- hay que esperar a que se registre y volver a
   correrlo (no hay reclamo automático como sí existe para `compras`).
+- **Si el coach no tiene el email a mano pero sí el nombre completo**:
+  buscar en `profiles` por `nombre`/`apellido` (ilike) y resolver el
+  email con el endpoint admin `/auth/v1/admin/users/{id}` -- mismo
+  método documentado unas líneas arriba, confirmado funcionando
+  (2026-09-28, caso Vane Capuano / "Elena Vanesa Capuano").
+- **`profile_routine_access` otorga acceso, pero NO activa la rutina**
+  (bug encontrado dos veces a mano -- Santiago Pelotti 2026-09-20, Vane
+  Capuano 2026-09-28 -- antes de corregirlo en el script el
+  2026-09-28): si el cliente no tenía ninguna rutina activa antes,
+  quedaba con `profiles.routine_id = null` después del alta, y al
+  entrar a la app veía "Sin rutina activa, elegí tu rutina" en vez de su
+  plan armado. El script ahora activa la rutina automáticamente en el
+  paso 6b (cierra el stint abierto si había uno y abre uno nuevo en
+  `profile_routine_history`, + `profiles.routine_id`) -- pero SOLO si
+  el cliente no tenía ya otra rutina activa; si la tenía, no se la pisa
+  sola, queda a criterio del coach.
 - **No reusar un ejercicio existente "parecido" solo porque el nombre pega
   aproximadamente -- verificar el agarre/variante exacta antes de asumir.**
   (2026-09-21, caso Lorena Tobares): reusé "Jalón al pecho en polea alta"
