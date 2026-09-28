@@ -1783,6 +1783,71 @@ porque `routine_exercises` ya no los referencia. No hizo falta ningún
 "reset" explícito de historial (el usuario había ofrecido reiniciar todo
 si hacía falta, pero no fue necesario).
 
+## Rutina compartida "Kraken Standard M" (2026-09-28, migración de datos vía alta-cliente.js)
+
+El coach armó una rutina estándar de 3 días para asignarle a la mayoría
+de sus clientes varones de mentoría, en vez de armar una rutina
+distinta para cada uno ("no quiero tener que sentarme a armar rutina
+para cada uno"). Es la primera vez que una MISMA fila de `routines` se
+comparte entre varios clientes de mentoría (antes cada uno tenía la
+suya, ej. Kraken Split, Rocío Pace, Lorena Tobares) -- mismo patrón que
+ya usan las rutinas públicas del catálogo (Anti-Flakardo, etc.), solo
+que esta es `es_privada = true` y el acceso se da a mano por
+`profile_routine_access`, cliente por cliente.
+
+- **Clientes con esta rutina**: Guillermo Carcacha, Rahim Alkashash,
+  Henry Ventura, Mica (Micaela) Pelotti, y Fabio Bringas (pendiente,
+  todavía no registrado en la app con ningún email conocido -- volver a
+  correr `alta-cliente.js` cuando se registre).
+- **Mica Pelotti es un caso a propósito, no un error**: es la única
+  clienta mujer en este lote y en teoría "las mujeres van a tener su
+  propia rutina estándar" (como Vane/Lorena) -- pero el coach confirmó
+  explícitamente asignarle esta rutina de todos modos por ahora ("ella
+  es un caso particular"), no fue un descuido.
+- **Guillermo Carcacha tiene antecedente de cirugía lumbosacra L5-S1 +
+  cirugía de rodilla (corte de ligamentos) + escoliosis leve** (dato
+  del formulario, no mencionado por el coach al pedir la carga) -- la
+  rutina estándar incluye Peso Muerto y Sentadilla con barra, ambos
+  ejercicios de carga axial en la zona lumbar. Se cargó igual tal como
+  se pidió (no es a Claude a quien le toca decidir programación médica),
+  pero quedó señalado en su guía alimenticia y en el chat para que el
+  coach lo tenga presente / decida si amerita alguna adaptación.
+- **Bug real encontrado en el momento, ya corregido**: `alta-cliente.js`
+  nombraba el archivo de la guía en Storage a partir de
+  `nombre_rutina` (`kraken-standard-m.pdf`) -- con una rutina
+  COMPARTIDA entre clientes, subir la guía del segundo cliente (Rahim)
+  pisó en Storage la del primero (Guillermo), y las dos filas de
+  `guias_alimenticias` quedaron apuntando al mismo archivo. Se
+  corrigió para que el nombre del archivo salga del `userId` (único
+  por cliente siempre, nunca depende de si comparte rutina) y se
+  re-procesaron ambas altas antes de seguir con el resto. **Lección**:
+  cualquier dato por-cliente en Storage tiene que nombrarse por el
+  cliente (o su id), nunca por algo que dos clientes puedan compartir.
+- **3 ejercicios nuevos en el catálogo** (migración de datos, sin
+  archivo SQL -- son puro alta vía REST, igual que toda la revisión de
+  catálogo de esta sesión): "Remo inclinado con banda (barra curva)
+  para deltoide posterior" (distinto del "Remo de pie con banda para
+  deltoide posterior" ya existente -- éste es inclinado con una barra
+  rígida curva, no solo la banda a mano), "Curl de bíceps con banda
+  elástica", "Press francés con banda elástica por encima de la
+  cabeza". Los 3 vinieron de archivos en portugués
+  (`EJERCICIOS EXPLICATIVOS\FUNCIONAL - HIIT`), traducidos antes de
+  nombrarlos.
+- **Alternativa agregada**: "Sentadilla con barra" (id 123) ganó
+  `alternativa_id` -> "Prensa de piernas 45°" (id 111) -- antes estaba
+  en null. Esto es un campo GLOBAL del ejercicio (no por rutina), así
+  que aplica para cualquier cliente que use "Sentadilla con barra" de
+  ahora en más, no solo Kraken Standard M.
+- **Descanso por día/rutina: NO es configurable hoy** (confirmado con
+  el coach, sección aparte). El pedido original era recortar a un
+  tercio los descansos SOLO del Día C de esta rutina puntual -- no se
+  hizo porque `src/lib/descanso.ts` define el descanso por
+  `tipo_esfuerzo` (compuesto/aislado) de forma GLOBAL para toda la app,
+  no por rutina ni por día. Cambiarlo ahí afectaría a todos los demás
+  clientes. Queda pendiente como una posible feature futura (columna de
+  descanso override en `routine_exercises` + tocar el timer) si el
+  coach la pide explícitamente -- no se construyó sin que la pidiera.
+
 ## Qué NO hacer sin preguntarle antes al usuario
 
 - No correr ninguna migración SQL contra la base de producción -- se
