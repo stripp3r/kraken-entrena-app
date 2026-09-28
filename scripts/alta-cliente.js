@@ -275,7 +275,12 @@ async function main() {
   // ============ 7. GUÍA ALIMENTICIA (PDF) ============
   if (cliente.guia_pdf_local_path) {
     const rutaPdf = path.resolve(baseDir, cliente.guia_pdf_local_path);
-    const archivoPdf = nombreArchivoSeguro(cliente.nombre_rutina) + ".pdf";
+    // El nombre del archivo sale del userId, NUNCA de nombre_rutina -- varios
+    // clientes pueden compartir la misma rutina (ej. "Kraken Standard M"), y
+    // si el archivo se llamara igual para todos, subir la guía de uno
+    // pisaría la de otro en Storage (bug real encontrado 2026-09-28: la
+    // guía de Rahim sobrescribió la de Guillermo por compartir rutina).
+    const archivoPdf = userId + ".pdf";
     const buffer = fs.readFileSync(rutaPdf);
     const { error: errUploadPdf } = await supabase.storage
       .from(BUCKET_GUIAS)
