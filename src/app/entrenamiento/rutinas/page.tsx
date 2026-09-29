@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { BorrarRutinaBoton } from "@/components/borrar-rutina-boton";
-import { tieneCatalogoCompleto } from "@/lib/premium";
+import { rutinaIncluidaEnPlan } from "@/lib/premium";
 
 export default async function RutinasAdquiridasPage() {
   const supabase = await createClient();
@@ -24,14 +24,15 @@ export default async function RutinasAdquiridasPage() {
       .single(),
     supabase
       .from("routines")
-      .select("id, nombre, dias, descripcion, creada_por_usuario")
+      .select("id, nombre, dias, descripcion, creada_por_usuario, es_privada")
       .order("dias", { ascending: true }),
     supabase.from("profile_routine_access").select("routine_id").eq("user_id", user.id),
   ]);
 
-  const idsDesbloqueados = tieneCatalogoCompleto(profile)
-    ? new Set((routines ?? []).map((r) => r.id))
-    : new Set((acceso ?? []).map((a) => a.routine_id));
+  const idsDesbloqueados = new Set([
+    ...(routines ?? []).filter((r) => rutinaIncluidaEnPlan(profile, r)).map((r) => r.id),
+    ...(acceso ?? []).map((a) => a.routine_id),
+  ]);
 
   const adquiridas = (routines ?? []).filter((r) => idsDesbloqueados.has(r.id));
 

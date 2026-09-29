@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { ExerciseCard } from "@/components/exercise-card";
 import { CambiarAEstaRutinaBoton } from "@/components/cambiar-a-esta-rutina-boton";
-import { tieneCatalogoCompleto } from "@/lib/premium";
+import { rutinaIncluidaEnPlan } from "@/lib/premium";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -36,7 +36,7 @@ export default async function RutinaPreviewDiaPage({
       .select("routine_id, sexo, premium_hasta, golden_perpetuo, premium_origen")
       .eq("id", user.id)
       .single(),
-    supabase.from("routines").select("id, nombre").eq("id", routineId).maybeSingle(),
+    supabase.from("routines").select("id, nombre, es_privada").eq("id", routineId).maybeSingle(),
     supabase
       .from("profile_routine_access")
       .select("routine_id")
@@ -49,7 +49,7 @@ export default async function RutinaPreviewDiaPage({
     notFound();
   }
 
-  const desbloqueada = tieneCatalogoCompleto(profile) || Boolean(acceso);
+  const desbloqueada = rutinaIncluidaEnPlan(profile, routine) || Boolean(acceso);
   if (!desbloqueada) {
     redirect("/entrenamiento/rutinas");
   }

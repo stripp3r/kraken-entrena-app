@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { esTrial } from "@/lib/premium";
 
 export default async function ProgresoPage() {
   const supabase = await createClient();
@@ -15,11 +16,12 @@ export default async function ProgresoPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("sexo")
+    .select("sexo, premium_hasta, golden_perpetuo, premium_origen")
     .eq("id", user.id)
     .single();
 
   const genero = profile?.sexo === "femenino" ? "femenino" : "masculino";
+  const trial = esTrial(profile);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -60,9 +62,13 @@ export default async function ProgresoPage() {
           </Link>
           <Link
             href="/progreso/historial"
-            className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+            className={`flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${trial ? "text-gray-500" : "text-white"}`}
           >
-            <img src="/section-icons/historial.png" alt="" className="h-14 w-14 rounded-xl" />
+            <img
+              src={trial ? "/section-icons/bloqueado.png" : "/section-icons/historial.png"}
+              alt=""
+              className="h-14 w-14 rounded-xl"
+            />
             Historial
           </Link>
         </div>

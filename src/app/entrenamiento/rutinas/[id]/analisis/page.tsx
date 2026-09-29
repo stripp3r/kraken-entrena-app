@@ -13,7 +13,7 @@ import {
   minutosTotalesSemana,
   formatearMinutosSemana,
 } from "@/lib/formato-metricas";
-import { tieneCatalogoCompleto } from "@/lib/premium";
+import { rutinaIncluidaEnPlan } from "@/lib/premium";
 
 export default async function AnalisisRutinaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,7 +34,7 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
 
   const [{ data: profile }, { data: routine }, { data: acceso }] = await Promise.all([
     supabase.from("profiles").select("premium_hasta, golden_perpetuo, premium_origen").eq("id", user.id).single(),
-    supabase.from("routines").select("id, nombre").eq("id", routineId).maybeSingle(),
+    supabase.from("routines").select("id, nombre, es_privada").eq("id", routineId).maybeSingle(),
     supabase
       .from("profile_routine_access")
       .select("routine_id")
@@ -47,7 +47,7 @@ export default async function AnalisisRutinaPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const desbloqueada = tieneCatalogoCompleto(profile) || Boolean(acceso);
+  const desbloqueada = rutinaIncluidaEnPlan(profile, routine) || Boolean(acceso);
   if (!desbloqueada) {
     redirect("/entrenamiento/rutinas");
   }

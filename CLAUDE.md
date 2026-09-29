@@ -617,11 +617,16 @@ columnas que ya existen, sin cambiar el esquema:
     app y para features tipo calculadora/guía). `obtenerSuscripcion()`
     también se corrigió: la etiqueta "Golden · Founder" ahora exige
     `premium_origen === 'founder'`, no alcanza con `golden_perpetuo`.
-  - **Regla de acá en adelante**: `tieneCatalogoCompleto()`, nunca
-    `esPremium`/`esGoldenTier`, es el gate correcto para "puede ver/
-    cambiarse a cualquier rutina pública del catálogo general". Si se
-    agrega una pantalla nueva que liste o permita cambiar a rutinas
-    públicas, usar `tieneCatalogoCompleto()`.
+  - **Regla de acá en adelante**: para "¿puede ver/cambiarse a ESTA rutina
+    puntual?" usar siempre `rutinaIncluidaEnPlan(profile, rutina)` (nunca
+    `esPremium`/`esGoldenTier`/`tieneCatalogoCompleto` sueltos) -- ya
+    combina Founder/Golden (catálogo completo), Free Trial (solo sus 3
+    rutinas estandarizadas) y rutinas privadas (siempre false, dependen de
+    `profile_routine_access`). `tieneCatalogoCompleto()` sigue existiendo
+    para el caso puntual de "¿esta cuenta ve TODO el catálogo sin
+    excepción?" (ej. para pintar el catálogo entero como desbloqueado en un
+    listado), pero para chequear una rutina específica siempre
+    `rutinaIncluidaEnPlan`.
 - **Mentoría 1 a 1** (`premium_origen = 'mentoria'`): alguien que compra
   mentoría (se vende en el sitio web). Incluye TODO lo de Golden más
   beneficios exclusivos (`esMentoria()`, ej. Guía alimenticia). Tiene dos
@@ -647,8 +652,34 @@ columnas que ya existen, sin cambiar el esquema:
   ('anual'/'mensual') -- el usuario lo dejó pendiente a propósito ("son
   cosas que tenemos que empezar a ver y discriminar"), no forzar una
   respuesta definitiva sin que él la dé.
-- **Free Trial** (`premium_origen = 'trial'`): se registró para probar la
-  app, acceso limitado por unos días.
+- **Free Trial** (`premium_origen = 'trial'`, `esTrial()` en
+  `premium.ts`): 14 días para probar la app en serio sin regalarle el
+  producto completo. Definido con el coach 2026-09-28, usa el ícono
+  `public/section-icons/bloqueado.png` (candado cerrado) para marcar
+  visualmente lo bloqueado en cada hub, en vez de solo ocultarlo:
+  - **Bloqueado por completo** (pantalla propia con `PantallaBloqueada`,
+    `src/components/pantalla-bloqueada.tsx`, más el ícono de candado en la
+    tarjeta del hub): Alimentación (calculadora + guía -- esto ya lo
+    bloqueaba `esGoldenTier` de antes, sin cambios), Mi evolución, Mis
+    PDFs, Historial (dentro de Análisis), Cardio (dentro de Entrenamiento).
+  - **Limitado, no bloqueado**: "Crea tu rutina" -- máximo 1 rutina creada
+    por el usuario (`LIMITE_RUTINAS_TRIAL` en
+    `src/app/entrenamiento/crear-rutina/page.tsx` y `actions.ts`, contado
+    con `contarRutinasCreadasPorUsuario()` en
+    `src/lib/limite-rutinas-creadas.ts`); al llegar al límite se muestra
+    `PantallaBloqueada` en vez del wizard, y `guardarRutinaCreada` lo
+    revalida server-side por si acaso.
+  - **Catálogo de rutinas públicas limitado a 3**: `RUTINAS_PUBLICAS_TRIAL`
+    en `premium.ts` -- exactamente "3 días - Fullbody", "Torso-Pierna" y
+    "Push Pull Legs" (nombres tal cual en `routines.nombre`). Antes de esta
+    definición, `tieneCatalogoCompleto()` incluía `trial` como si viera el
+    catálogo COMPLETO -- eso quedó corregido: `trial` se sacó de
+    `tieneCatalogoCompleto` y el chequeo correcto para cualquier rutina
+    puntual pasó a ser `rutinaIncluidaEnPlan(profile, rutina)` (ver bullet
+    de arriba).
+  - **Sin restricción**: Datos personales, Mis medidas, y dentro de
+    Análisis: Medidas/Entrenamiento/Salud -- a propósito, para que el
+    usuario vea valor real durante los 14 días antes de decidir si sigue.
 - **Cuentas de testeo del coach** (`kraken.test.qa@gmail.com`,
   `kraken.test.qa2@gmail.com`): no son clientes, excluir de cualquier
   reporte/categorización de clientes reales.

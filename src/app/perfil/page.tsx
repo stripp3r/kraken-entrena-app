@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
+import { esTrial } from "@/lib/premium";
 
 export default async function PerfilPage() {
   const supabase = await createClient();
@@ -16,11 +17,12 @@ export default async function PerfilPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("sexo")
+    .select("sexo, premium_hasta, golden_perpetuo, premium_origen")
     .eq("id", user.id)
     .single();
 
   const genero = profile?.sexo === "femenino" ? "femenino" : "masculino";
+  const trial = esTrial(profile);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -54,16 +56,24 @@ export default async function PerfilPage() {
           </Link>
           <Link
             href="/evolucion"
-            className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+            className={`flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${trial ? "text-gray-500" : "text-white"}`}
           >
-            <img src="/section-icons/evolucion.png" alt="" className="h-14 w-14 rounded-xl" />
+            <img
+              src={trial ? "/section-icons/bloqueado.png" : "/section-icons/evolucion.png"}
+              alt=""
+              className="h-14 w-14 rounded-xl"
+            />
             Mi evolución
           </Link>
           <Link
             href="/perfil/recursos"
-            className="flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+            className={`flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${trial ? "text-gray-500" : "text-white"}`}
           >
-            <img src="/section-icons/pdfs.png" alt="" className="h-14 w-14 rounded-xl" />
+            <img
+              src={trial ? "/section-icons/bloqueado.png" : "/section-icons/pdfs.png"}
+              alt=""
+              className="h-14 w-14 rounded-xl"
+            />
             Mis PDFs
           </Link>
         </div>

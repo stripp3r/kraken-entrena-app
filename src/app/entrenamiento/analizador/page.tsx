@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { AnalizadorCliente } from "@/components/analizador-cliente";
 import { calcularAnalisisRutina } from "@/lib/analisis-rutina";
-import { tieneCatalogoCompleto } from "@/lib/premium";
+import { rutinaIncluidaEnPlan } from "@/lib/premium";
 
 export default async function AnalizadorPage() {
   const supabase = await createClient();
@@ -17,13 +17,14 @@ export default async function AnalizadorPage() {
 
   const [{ data: profile }, { data: routines }, { data: acceso }] = await Promise.all([
     supabase.from("profiles").select("premium_hasta, golden_perpetuo, premium_origen").eq("id", user.id).single(),
-    supabase.from("routines").select("id, nombre, dias").order("dias", { ascending: true }),
+    supabase.from("routines").select("id, nombre, dias, es_privada").order("dias", { ascending: true }),
     supabase.from("profile_routine_access").select("routine_id").eq("user_id", user.id),
   ]);
 
-  const idsDesbloqueados = tieneCatalogoCompleto(profile)
-    ? new Set((routines ?? []).map((r) => r.id))
-    : new Set((acceso ?? []).map((a) => a.routine_id));
+  const idsDesbloqueados = new Set([
+    ...(routines ?? []).filter((r) => rutinaIncluidaEnPlan(profile, r)).map((r) => r.id),
+    ...(acceso ?? []).map((a) => a.routine_id),
+  ]);
 
   const adquiridas = (routines ?? []).filter((r) => idsDesbloqueados.has(r.id));
 

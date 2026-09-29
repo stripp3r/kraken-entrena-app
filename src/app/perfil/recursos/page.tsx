@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BackLink } from "@/components/back-link";
 import { DescargarPdfBoton } from "@/components/descargar-pdf-boton";
+import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
+import { esTrial } from "@/lib/premium";
 
 type ProductoConPdf = { id: number; nombre: string };
 
@@ -14,6 +16,22 @@ export default async function RecursosPage() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("premium_hasta, golden_perpetuo, premium_origen")
+    .eq("id", user.id)
+    .single();
+
+  if (esTrial(profile)) {
+    return (
+      <PantallaBloqueada
+        titulo="MIS PDFS"
+        volverA="/perfil"
+        texto="Mis PDFs no está disponible durante el Free Trial. Se habilita solo al comprar un plan."
+      />
+    );
   }
 
   const admin = createAdminClient();

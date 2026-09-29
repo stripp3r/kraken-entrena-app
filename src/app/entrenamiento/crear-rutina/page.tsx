@@ -2,6 +2,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { CrearRutinaCliente } from "@/components/crear-rutina-cliente";
+import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
+import { esTrial } from "@/lib/premium";
+import { contarRutinasCreadasPorUsuario } from "@/lib/limite-rutinas-creadas";
+
+const LIMITE_RUTINAS_TRIAL = 1;
 
 export default async function CrearRutinaPage() {
   const supabase = await createClient();
@@ -11,6 +16,25 @@ export default async function CrearRutinaPage() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("premium_hasta, golden_perpetuo, premium_origen")
+    .eq("id", user.id)
+    .single();
+
+  if (esTrial(profile)) {
+    const yaCreadas = await contarRutinasCreadasPorUsuario(supabase, user.id);
+    if (yaCreadas >= LIMITE_RUTINAS_TRIAL) {
+      return (
+        <PantallaBloqueada
+          titulo="CREA TU RUTINA"
+          volverA="/entrenamiento"
+          texto="Ya usaste tu rutina de prueba del Free Trial. Mejorá tu plan para crear más."
+        />
+      );
+    }
   }
 
   const { data: catalogo } = await supabase

@@ -3,9 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cambiarRutinaActiva } from "@/app/entrenamiento/actions";
+import { esTrial } from "@/lib/premium";
+import { contarRutinasCreadasPorUsuario } from "@/lib/limite-rutinas-creadas";
 import type { GrupoMuscular } from "@/lib/grupos-musculares";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
+const LIMITE_RUTINAS_TRIAL = 1;
 
 export type EjercicioGuardar = {
   exerciseDefinitionId: number;
@@ -47,6 +50,22 @@ export async function guardarRutinaCreada(nombre: string, dias: DiaGuardar[], ac
   }
   if (dias.some((d) => d.ejercicios.length === 0)) {
     return { error: "Agregá al menos un ejercicio en cada día." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("premium_hasta, golden_perpetuo, premium_origen")
+    .eq("id", user.id)
+    .single();
+
+  // Revalidado acá server-side además de en page.tsx -- ese chequeo solo
+  // bloquea la UI antes de abrir el wizard, esta es la protección real
+  // contra un POST directo a esta action.
+  if (esTrial(profile)) {
+    const yaCreadas = await contarRutinasCreadasPorUsuario(supabase, user.id);
+    if (yaCreadas >= LIMITE_RUTINAS_TRIAL) {
+      return { error: "Ya usaste tu rutina de prueba del Free Trial. Mejorá tu plan para crear más." };
+    }
   }
 
   const admin = createAdminClient();

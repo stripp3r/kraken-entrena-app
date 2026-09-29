@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RutinaHub } from "@/components/rutina-hub";
-import { tieneCatalogoCompleto } from "@/lib/premium";
+import { rutinaIncluidaEnPlan, esTrial } from "@/lib/premium";
 
 export default async function EntrenamientoPage() {
   const supabase = await createClient();
@@ -23,18 +23,20 @@ export default async function EntrenamientoPage() {
       .single(),
     supabase
       .from("routines")
-      .select("id, nombre, dias, descripcion")
+      .select("id, nombre, dias, descripcion, es_privada")
       .order("dias", { ascending: true }),
     supabase.from("profile_routine_access").select("routine_id").eq("user_id", user.id),
   ]);
 
   const rutinaActiva = Array.isArray(profile?.routines) ? profile.routines[0] : profile?.routines;
-  // Solo Founder/Golden real (pago o trial) ve el catálogo completo como
-  // desbloqueado. Mentoría y compras sueltas solo ven SU/S rutina/s vía
-  // profile_routine_access -- ver `tieneCatalogoCompleto` en lib/premium.ts.
-  const idsDesbloqueados = tieneCatalogoCompleto(profile)
-    ? new Set((routines ?? []).map((r) => r.id))
-    : new Set((acceso ?? []).map((a) => a.routine_id));
+  const trial = esTrial(profile);
+  // Founder/Golden ven cualquier rutina pública; Free Trial solo las 3
+  // estandarizadas; el resto de las categorías solo ve lo que tenga en
+  // profile_routine_access -- ver `rutinaIncluidaEnPlan` en lib/premium.ts.
+  const idsDesbloqueados = new Set([
+    ...(routines ?? []).filter((r) => rutinaIncluidaEnPlan(profile, r)).map((r) => r.id),
+    ...(acceso ?? []).map((a) => a.routine_id),
+  ]);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -60,9 +62,13 @@ export default async function EntrenamientoPage() {
 
         <Link
           href="/entrenamiento/cardio"
-          className="mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+          className={`mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${trial ? "text-gray-500" : "text-white"}`}
         >
-          <img src="/section-icons/cardio.png" alt="" className="h-14 w-14 rounded-xl" />
+          <img
+            src={trial ? "/section-icons/bloqueado.png" : "/section-icons/cardio.png"}
+            alt=""
+            className="h-14 w-14 rounded-xl"
+          />
           Cardio
         </Link>
 

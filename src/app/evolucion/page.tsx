@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { EvolucionUploader } from "@/components/evolucion-uploader";
 import { BorrarFotoBoton } from "@/components/borrar-foto-boton";
 import { BackLink } from "@/components/back-link";
+import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
+import { esTrial } from "@/lib/premium";
 
 export default async function EvolucionPage() {
   const supabase = await createClient();
@@ -13,6 +15,22 @@ export default async function EvolucionPage() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("premium_hasta, golden_perpetuo, premium_origen")
+    .eq("id", user.id)
+    .single();
+
+  if (esTrial(profile)) {
+    return (
+      <PantallaBloqueada
+        titulo="EVOLUCIÓN"
+        volverA="/perfil"
+        texto="Mi evolución no está disponible durante el Free Trial. Mejorá tu plan para guardar tus fotos de progreso."
+      />
+    );
   }
 
   const { data: fotos } = await supabase

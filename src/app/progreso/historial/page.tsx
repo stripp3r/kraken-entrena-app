@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
+import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { fechaLegible } from "@/lib/fecha";
+import { esTrial } from "@/lib/premium";
 
 function duracionLegible(fechaInicio: string, fechaFin: string | null) {
   const desde = new Date(`${fechaInicio}T00:00:00`);
@@ -29,6 +31,22 @@ export default async function HistorialPage() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("premium_hasta, golden_perpetuo, premium_origen")
+    .eq("id", user.id)
+    .single();
+
+  if (esTrial(profile)) {
+    return (
+      <PantallaBloqueada
+        titulo="HISTORIAL"
+        volverA="/progreso"
+        texto="El historial de rutinas no está disponible durante el Free Trial. Mejorá tu plan para verlo."
+      />
+    );
   }
 
   const { data: historial } = await supabase

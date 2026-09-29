@@ -77,12 +77,16 @@ export function esGoldenTier(p: EstadoPremium | null | undefined): boolean {
 // a las 2 cuentas del dueño del negocio (ver "Golden Founder" en la sección
 // "Categorías de acceso de usuario" de CLAUDE.md) -- son las únicas con
 // acceso incondicional a todo.
+//
+// `trial` fue sacado de esta lista el 2026-09-28, al definir el alcance
+// real del Free Trial: NO ve el catálogo completo, solo las 3 rutinas
+// públicas estandarizadas de `RUTINAS_PUBLICAS_TRIAL` (ver
+// `rutinaIncluidaEnPlan` más abajo, que es el chequeo correcto para
+// "¿esta rutina puntual está incluida en el plan de este perfil?").
 export function tieneCatalogoCompleto(p: EstadoPremium | null | undefined): boolean {
   if (!p) return false;
   if (!esPremium(p)) return false;
-  return (
-    p.premium_origen === "founder" || p.premium_origen === "golden" || p.premium_origen === "trial"
-  );
+  return p.premium_origen === "founder" || p.premium_origen === "golden";
 }
 
 // Acceso específico de Mentoría -- más estricto que esGoldenTier. Usar solo
@@ -90,6 +94,38 @@ export function tieneCatalogoCompleto(p: EstadoPremium | null | undefined): bool
 // gates generales de Golden.
 export function esMentoria(p: EstadoPremium | null | undefined): boolean {
   return p?.premium_origen === "mentoria" && esPremium(p);
+}
+
+// Cuenta en Free Trial (14 días, ver "Free Trial" en CLAUDE.md). Bloquea
+// varias pantallas por completo (Alimentación, Mi evolución, Mis PDFs,
+// Historial, Cardio) y limita otras (catálogo de rutinas, Crea tu rutina) --
+// usar junto con `rutinaIncluidaEnPlan` para el catálogo, y chequear esto
+// directo para las pantallas de bloqueo total.
+export function esTrial(p: EstadoPremium | null | undefined): boolean {
+  return p?.premium_origen === "trial" && esPremium(p);
+}
+
+// Las 3 rutinas públicas estandarizadas que el Free Trial puede ver y usar
+// libremente, definidas por el coach 2026-09-28 para que el usuario pruebe
+// la app en serio sin regalarle el catálogo completo. Nombres tal cual
+// están en `routines.nombre` -- si se renombra alguna de estas 3 rutinas,
+// hay que actualizar esta lista.
+export const RUTINAS_PUBLICAS_TRIAL = ["3 días - Fullbody", "Torso-Pierna", "Push Pull Legs"];
+
+// Único punto de verdad para "¿esta rutina PÚBLICA está incluida en el plan
+// de este perfil, sin necesidad de profile_routine_access explícito?".
+// Founder/Golden real ven cualquier rutina pública; Free Trial solo las 3
+// de RUTINAS_PUBLICAS_TRIAL; el resto (mentoría, compra) no tiene ninguna
+// así -- todo lo suyo pasa por acceso explícito. Rutinas privadas siempre
+// devuelven false acá (se protegen aparte, por profile_routine_access).
+export function rutinaIncluidaEnPlan(
+  p: EstadoPremium | null | undefined,
+  rutina: { nombre: string; es_privada?: boolean | null }
+): boolean {
+  if (rutina.es_privada) return false;
+  if (tieneCatalogoCompleto(p)) return true;
+  if (esTrial(p)) return RUTINAS_PUBLICAS_TRIAL.includes(rutina.nombre);
+  return false;
 }
 
 const ddmm = (iso?: string | null) => (iso ? iso.split("-").reverse().join("/") : "");

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { CambiarAEstaRutinaBoton } from "@/components/cambiar-a-esta-rutina-boton";
 import { BorrarRutinaBoton } from "@/components/borrar-rutina-boton";
-import { tieneCatalogoCompleto } from "@/lib/premium";
+import { rutinaIncluidaEnPlan } from "@/lib/premium";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -38,7 +38,7 @@ export default async function RutinaPreviewPage({
       .single(),
     supabase
       .from("routines")
-      .select("id, nombre, dias, descripcion, creada_por_usuario")
+      .select("id, nombre, dias, descripcion, creada_por_usuario, es_privada")
       .eq("id", routineId)
       .maybeSingle(),
     supabase
@@ -53,7 +53,7 @@ export default async function RutinaPreviewPage({
     notFound();
   }
 
-  const desbloqueada = tieneCatalogoCompleto(profile) || Boolean(acceso);
+  const desbloqueada = rutinaIncluidaEnPlan(profile, routine) || Boolean(acceso);
   if (!desbloqueada) {
     redirect("/entrenamiento/rutinas");
   }
