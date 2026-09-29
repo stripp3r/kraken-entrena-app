@@ -644,14 +644,33 @@ columnas que ya existen, sin cambiar el esquema:
     le paga, fuera de Mercado Pago/PayPal). El usuario fue explícito en que
     esto se resuelve más adelante, no ahora -- no proponer un sistema
     automático sin que él lo pida.
-- **Golden Anual / Golden Mensual**: alguien que NO compra mentoría --
-  se autogestiona su propia rutina (ej. compró Anti-Flakardo, Grasa
-  Sub-Cero u otro plan suelto) con acceso de un año o de un mes. **Todavía
-  sin discriminar con precisión** contra `premium_origen = 'compra'`
-  (planes sueltos, 3 meses) vs. `'golden'` con `suscripciones.frecuencia`
-  ('anual'/'mensual') -- el usuario lo dejó pendiente a propósito ("son
-  cosas que tenemos que empezar a ver y discriminar"), no forzar una
-  respuesta definitiva sin que él la dé.
+- **Golden Anual / Golden Mensual** (`premium_origen = 'golden'`, definido
+  con el coach 2026-09-29): dan **exactamente el mismo acceso**, sin
+  ninguna distinción funcional -- catálogo completo de rutinas públicas,
+  Cardio, Crea tu rutina, Análisis, Perfil completo (evolución/PDFs) y la
+  calculadora de calorías. La ÚNICA diferencia entre mensual y anual es
+  precio/duración, reflejada solo en la etiqueta de "Tu plan" en Inicio
+  (`obtenerSuscripcion()` en `premium.ts`, usa `suscripciones.frecuencia`)
+  -- "Golden mensual · renueva [fecha]" o "Golden anual · renueva [fecha]".
+  Lo único que Golden NO tiene, sea mensual o anual, es la Guía
+  alimenticia -- esa sigue siendo exclusiva de Mentoría (`esMentoria()`),
+  ya estaba bien implementado así (`/alimentacion/guia` verificado).
+  - **Bug real encontrado en la misma revisión (2026-09-29)**: antes de
+    hoy, `obtenerSuscripcion()` chequeaba si había una fila en
+    `suscripciones` ANTES de chequear `esMentoria()` -- un cliente que
+    arrancó pagando Golden y después pasó a mentoría (sin que nadie
+    cancele esa suscripción vieja) seguía mostrando "Golden" en vez de
+    "Mentoría" en su perfil. Confirmado en producción con 2 cuentas
+    reales de mentoría que tenían una `suscripciones` vieja de cuando
+    eran Golden. Se corrigió reordenando: Founder → Mentoría → Golden
+    (con `sub`) → Golden manual → Trial.
+  - **Todavía pendiente, sin resolver** (no confundir con lo de arriba,
+    que sí quedó cerrado): la diferencia entre Golden pago y **Compra
+    suelta** (planes autoguiados tipo Anti-Flakardo, `premium_origen =
+    'compra'`, 3 meses de acceso a esa rutina puntual) -- se le propuso
+    al coach el criterio "Golden = catálogo completo, Compra = solo su
+    rutina" (que es justamente lo que ya hace `tieneCatalogoCompleto()`
+    hoy) pero todavía no lo confirmó, no asumir que quedó cerrado.
 - **Free Trial** (`premium_origen = 'trial'`, `esTrial()` en
   `premium.ts`): 14 días para probar la app en serio sin regalarle el
   producto completo. Definido con el coach 2026-09-28, usa el ícono

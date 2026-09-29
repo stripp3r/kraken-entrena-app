@@ -150,7 +150,27 @@ export function obtenerSuscripcion(
   // Capuano, encontrado en la misma revisión (2026-09-28).
   if (profile?.premium_origen === "founder") return { texto: "Golden · Founder", tono: "oro" };
 
-  const etiquetaFrecuencia = sub?.frecuencia === "mensual" ? " (mensual)" : "";
+  // Mentoría: incluye Golden como parte del servicio, pero se muestra con
+  // su propia etiqueta -- no es lo mismo que haber comprado Golden suelto.
+  // Va ANTES del chequeo de `sub` a propósito -- bug real encontrado
+  // 2026-09-29 (mismo patrón que el de Founder de arriba): un cliente que
+  // arrancó como Golden pago y después pasó a mentoría puede seguir
+  // teniendo una fila vieja en `suscripciones` con estado='activa' (nadie
+  // la cancela al pasar a mentoría) -- si el chequeo de `sub` fuera
+  // primero, a ese cliente le seguiría apareciendo "Golden" en vez de
+  // "Mentoría". Confirmado en producción con 2 cuentas reales de mentoría
+  // que tenían una `suscripciones` vieja de cuando eran Golden.
+  if (esMentoria(profile)) {
+    return { texto: `Mentoría · hasta ${ddmm(profile?.premium_hasta)}`, tono: "oro" };
+  }
+
+  // Golden mensual y anual dan EXACTAMENTE el mismo acceso -- la única
+  // diferencia es precio/duración (confirmado por el usuario 2026-09-29,
+  // "no tiene que haber ninguna distinción entre uno y otro" en cuanto a
+  // funcionalidad). Esta etiqueta es puramente informativa, para que el
+  // usuario vea qué suscripción tiene y cuándo vence/renueva.
+  const etiquetaFrecuencia =
+    sub?.frecuencia === "mensual" ? " mensual" : sub?.frecuencia === "anual" ? " anual" : "";
 
   if (sub && sub.estado !== "vencida") {
     if (sub.estado === "pausada") {
@@ -170,12 +190,6 @@ export function obtenerSuscripcion(
         : `Golden${etiquetaFrecuencia}`,
       tono: "oro",
     };
-  }
-
-  // Mentoría: incluye Golden como parte del servicio, pero se muestra con
-  // su propia etiqueta -- no es lo mismo que haber comprado Golden suelto.
-  if (esMentoria(profile)) {
-    return { texto: `Mentoría · hasta ${ddmm(profile?.premium_hasta)}`, tono: "oro" };
   }
 
   // Golden otorgado a mano fuera de mentoría -- no tiene fila en
