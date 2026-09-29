@@ -680,6 +680,22 @@ columnas que ya existen, sin cambiar el esquema:
   - **Sin restricción**: Datos personales, Mis medidas, y dentro de
     Análisis: Medidas/Entrenamiento/Salud -- a propósito, para que el
     usuario vea valor real durante los 14 días antes de decidir si sigue.
+  - **Bug encontrado probando esto en vivo 2026-09-29**: "3 días -
+    Fullbody" (una de las 3 de `RUTINAS_PUBLICAS_TRIAL`) ya no existía en
+    la base -- fue renombrada a "Anti-Flakardo Fullbody" en la migración
+    062 y su contenido reemplazado por el plan del producto pago. El
+    trial se quedó viendo solo 2 de sus 3 rutinas. Fix: migración 084
+    recrea "3 días - Fullbody" como rutina pública genérica nueva (no
+    toca Anti-Flakardo Fullbody) -- ver la migración para el detalle.
+- **Cuenta de prueba para verificar el Free Trial** (creada 2026-09-29,
+  no es un cliente real): `prueba.freetrial.kraken@gmail.com` -- Datos
+  personales ya completos (Prueba Trial, masculino, 06/01/1995,
+  Mantenimiento, Actividad ligera). Usarla para probar visualmente
+  cualquier cambio futuro al Free Trial en vez de crear una cuenta nueva
+  cada vez. La contraseña NO se guarda en este archivo (se commitea a un
+  repo público) -- si se perdió, resetearla con
+  `supabase.auth.admin.updateUserById(...)` vía el cliente admin (mismo
+  patrón que cualquier otro script de este repo con service role).
 - **Cuentas de testeo del coach** (`kraken.test.qa@gmail.com`,
   `kraken.test.qa2@gmail.com`): no son clientes, excluir de cualquier
   reporte/categorización de clientes reales.
