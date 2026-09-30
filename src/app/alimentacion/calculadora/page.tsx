@@ -55,13 +55,23 @@ export default async function CalculadoraCaloriasPage() {
   const actividad = (profile?.actividad_fisica as ActividadNutricional | null) ?? null;
   const objetivo = (profile?.objetivo as ObjetivoNutricional | null) ?? null;
 
-  const faltantes: { label: string; href: string }[] = [];
-  if (!sexo) faltantes.push({ label: "Sexo", href: "/perfil/datos" });
-  if (!edad) faltantes.push({ label: "Fecha de nacimiento", href: "/perfil/datos" });
-  if (!actividad) faltantes.push({ label: "Actividad física", href: "/perfil/datos" });
-  if (!objetivo) faltantes.push({ label: "Objetivo", href: "/perfil/datos" });
-  if (!peso) faltantes.push({ label: "Peso", href: "/medidas" });
-  if (!altura) faltantes.push({ label: "Altura", href: "/medidas" });
+  const faltantes: { label: string; href: string; destino: string }[] = [];
+  if (!sexo) faltantes.push({ label: "Sexo", href: "/perfil/datos", destino: "Perfil → Datos personales" });
+  if (!edad)
+    faltantes.push({
+      label: "Fecha de nacimiento",
+      href: "/perfil/datos",
+      destino: "Perfil → Datos personales",
+    });
+  if (!actividad)
+    faltantes.push({
+      label: "Actividad física",
+      href: "/perfil/datos",
+      destino: "Perfil → Datos personales",
+    });
+  if (!objetivo) faltantes.push({ label: "Objetivo", href: "/perfil/datos", destino: "Perfil → Datos personales" });
+  if (!peso) faltantes.push({ label: "Peso", href: "/medidas", destino: "Perfil → Mis medidas" });
+  if (!altura) faltantes.push({ label: "Altura", href: "/medidas", destino: "Perfil → Mis medidas" });
 
   const resultado =
     sexo && edad && actividad && objetivo && peso && altura
@@ -101,7 +111,10 @@ export default async function CalculadoraCaloriasPage() {
                 href={f.href}
                 className="flex items-center justify-between rounded-lg border border-border bg-bg-card px-4 py-3 transition-colors hover:border-border-strong active:bg-bg"
               >
-                <span className="text-sm text-white">{f.label}</span>
+                <div>
+                  <p className="text-sm text-white">{f.label}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">Completalo en {f.destino}</p>
+                </div>
                 <span className="text-2xl font-light leading-none text-gray-500">›</span>
               </Link>
             ))}
