@@ -4,9 +4,16 @@ import { BackLink } from "@/components/back-link";
 import { DisclaimerGate } from "@/components/disclaimer-gate";
 import { DescargarGuiaBoton } from "@/components/descargar-guia-boton";
 import { permisos, esMentoria } from "@/lib/premium";
+import { linkWhatsapp } from "@/lib/contacto";
 
-const WHATSAPP_MENTORIA =
-  "https://wa.me/5493413441070?text=Hola%20KRAKEN%2C%20quiero%20info%20de%20la%20Mentor%C3%ADa";
+const WHATSAPP_MENTORIA = linkWhatsapp("Hola KRAKEN, quiero info de la Mentoría");
+
+const BENEFICIOS_GUIA = [
+  "Calorías y macros calculados para tu objetivo real, no una fórmula genérica",
+  "Comidas armadas con alimentos que ya comés, nada de dietas raras",
+  "Proteínas rotativas para no aburrirte comiendo siempre lo mismo",
+  "Se ajusta cuando cambian tus resultados -- no es un PDF fijo y listo",
+];
 
 const TEXTO_DISCLAIMER_GUIA = `Las recomendaciones que siguen son orientativas y educativas, pensadas para acompañar tu entrenamiento; NO son una dieta ni una prescripción de un licenciado en nutrición.
 
@@ -48,17 +55,32 @@ export default async function GuiaAlimenticiaPage() {
               GUÍA ALIMENTICIA
             </h1>
           </div>
-          <p className="mt-6 text-center text-sm text-gray-400">
-            La guía alimenticia es un beneficio exclusivo de la Mentoría personalizada
-            con seguimiento del coach.
+
+          <div className="mt-4 flex justify-center">
+            <img src="/section-icons/guia-alimenticia.png" alt="" className="h-16 w-16 rounded-xl" />
+          </div>
+
+          <p className="mt-4 text-center text-sm text-gray-400">
+            Es un beneficio exclusivo de la Mentoría 1 a 1: tu propia guía alimenticia,
+            armada a tu medida y con seguimiento directo conmigo.
           </p>
+
+          <div className="mt-6 flex flex-col gap-3 rounded-lg border border-border bg-bg-card p-4">
+            {BENEFICIOS_GUIA.map((beneficio) => (
+              <div key={beneficio} className="flex gap-2 text-sm text-gray-300">
+                <span className="shrink-0 text-emerald-400">✓</span>
+                {beneficio}
+              </div>
+            ))}
+          </div>
+
           <a
             href={WHATSAPP_MENTORIA}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 block rounded-full bg-amber-400 px-6 py-3 text-center text-sm font-medium text-black"
           >
-            Info de la Mentoría
+            Quiero la Mentoría
           </a>
         </div>
       </main>

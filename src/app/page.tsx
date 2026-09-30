@@ -3,13 +3,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES, esGoldenTier } from "@/lib/premium";
 import { CompartirAppBoton } from "@/components/compartir-app-boton";
+import { linkWhatsapp } from "@/lib/contacto";
 
 const URL_PLANES = "https://kraken-fitness-web.vercel.app/#planes";
 const URL_SITIO_WEB = "https://kraken-fitness-web.vercel.app/#inicio";
-const WHATSAPP_MENTORIA =
-  "https://wa.me/5493413441070?text=Hola%20KRAKEN%2C%20quiero%20info%20de%20la%20Mentor%C3%ADa";
-const WHATSAPP_SOPORTE =
-  "https://wa.me/5493413441070?text=Hola%20KRAKEN%2C%20tengo%20un%20problema%20con%20la%20app";
+const WHATSAPP_MENTORIA = linkWhatsapp("Hola KRAKEN, quiero info de la Mentoría");
+const WHATSAPP_SOPORTE = linkWhatsapp("Hola KRAKEN, tengo un problema con la app");
 
 export default async function Home() {
   const supabase = await createClient();
