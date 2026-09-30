@@ -759,15 +759,23 @@ columnas que ya existen, sin cambiar el esquema:
     trial se quedó viendo solo 2 de sus 3 rutinas. Fix: migración 084
     recrea "3 días - Fullbody" como rutina pública genérica nueva (no
     toca Anti-Flakardo Fullbody) -- ver la migración para el detalle.
-- **Cuenta de prueba para verificar el Free Trial** (creada 2026-09-29,
-  no es un cliente real): `prueba.freetrial.kraken@gmail.com` -- Datos
-  personales ya completos (Prueba Trial, masculino, 06/01/1995,
-  Mantenimiento, Actividad ligera). Usarla para probar visualmente
-  cualquier cambio futuro al Free Trial en vez de crear una cuenta nueva
-  cada vez. La contraseña NO se guarda en este archivo (se commitea a un
-  repo público) -- si se perdió, resetearla con
+- **Cuentas de prueba para verificar categorías de acceso** (creadas
+  2026-09-29/30, no son clientes reales; Datos personales de las dos:
+  masculino, 06/01/1995, Mantenimiento, Actividad ligera). Usarlas para
+  probar visualmente cualquier cambio futuro a estas categorías en vez de
+  crear cuentas nuevas cada vez. Ninguna contraseña se guarda en este
+  archivo (se commitea a un repo público) -- si se perdió, resetearla con
   `supabase.auth.admin.updateUserById(...)` vía el cliente admin (mismo
-  patrón que cualquier otro script de este repo con service role).
+  patrón que cualquier otro script de este repo con service role):
+  - `prueba.freetrial.kraken@gmail.com` -- se mantiene como Free Trial
+    limpio a propósito, no tocar su `premium_origen`.
+  - `prueba.compra.kraken@gmail.com` -- Compra Suelta con el plan
+    Anti-Flakardo ya cargado (rutina Anti-Flakardo Torso Pierna activada,
+    PDF en Mis PDFs, `premium_hasta` extendido). Sirve tal cual está para
+    ver ese caso, o resetearla a trial primero (`premium_origen='trial'`,
+    `premium_hasta` a mano, borrar filas de `profile_routine_access`/
+    `profile_routine_history`/`compras` de esa cuenta) para simular una
+    compra nueva de punta a punta.
 - **Cuentas de testeo del coach** (`kraken.test.qa@gmail.com`,
   `kraken.test.qa2@gmail.com`): no son clientes, excluir de cualquier
   reporte/categorización de clientes reales.
