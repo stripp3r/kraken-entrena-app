@@ -133,14 +133,18 @@ export function permisos(p: EstadoPremium | null | undefined): Permisos {
     };
   }
 
-  // Mentoría: todo lo de Golden + guía alimenticia (su exclusivo), pero
-  // SIN catálogo completo -- solo ve SU rutina a medida vía
-  // profile_routine_access (ver bug de Vane Capuano en CLAUDE.md).
+  // Mentoría 1:1 (online o presencial/privada -- misma categoría y mismo
+  // acceso, definido 2026-09-30: la única diferencia entre las dos es
+  // cómo se arma la rutina, no qué ve en la app): todo lo de Golden +
+  // guía alimenticia (su exclusivo), pero SIN catálogo completo -- solo ve
+  // SU rutina a medida vía profile_routine_access (ver bug de Vane Capuano
+  // en CLAUDE.md) -- y SIN Crea tu rutina: la arma el coach, no el
+  // cliente ("para eso estoy yo", palabras del coach).
   if (esMentoria(p)) {
     return {
       catalogoCompleto: false,
       cardio: true,
-      limiteRutinasCreadas: null,
+      limiteRutinasCreadas: 0,
       historial: true,
       evolucion: true,
       misPdfs: true,

@@ -637,23 +637,32 @@ columnas que ya existen, sin cambiar el esquema:
     excepción?" (ej. para pintar el catálogo entero como desbloqueado en un
     listado), pero para chequear una rutina específica siempre
     `rutinaIncluidaEnPlan`.
-- **Mentoría 1 a 1** (`premium_origen = 'mentoria'`): alguien que compra
-  mentoría (se vende en el sitio web). Incluye TODO lo de Golden más
-  beneficios exclusivos (`esMentoria()`, ej. Guía alimenticia). Tiene dos
-  variantes de trato, **no representadas todavía en una columna propia**:
-  - **Online**: coaching a distancia. Ej. Santiago
-    (`santiagoismaelpelotti@gmail.com`) -- se le dio acceso manual hasta
-    fin de este año (2026-12-31).
-  - **Privada/presencial**: entrena físicamente con el coach (ver
-    [[trainer_private_gym_equipment]] en la memoria). El resto de los
-    clientes de mentoría actuales son de este tipo -- se les dio acceso
-    manual por 1 año desde hoy (2027-09-21) como solución temporal.
-  - **Pendiente de diseño**: un sistema "automatizable y fehaciente" para
-    llevar el registro de quién renueva mes a mes -- hoy la renovación es
-    100% manual (el coach empuja `premium_hasta` a mano cuando el cliente
-    le paga, fuera de Mercado Pago/PayPal). El usuario fue explícito en que
-    esto se resuelve más adelante, no ahora -- no proponer un sistema
-    automático sin que él lo pida.
+- **Mentoría 1:1** (`premium_origen = 'mentoria'`, definido con el coach
+  2026-09-30): **online y presencial/privada son la MISMA categoría**, no
+  dos variantes -- dan exactamente el mismo acceso en la app. La única
+  diferencia real entre ellas es cómo se arma la rutina (el coach la ve en
+  persona en su gimnasio privado, vs. el cliente se autoadministra a
+  distancia), no algo que la app tenga que distinguir con una columna
+  propia. Acceso completo vía `permisos()` en `premium.ts`: Rutinas
+  adquiridas, Cardio, Análisis completo (Medidas/Entrenamiento/Salud/
+  Historial), Perfil completo (Mi evolución + Mis PDFs), Calculadora de
+  calorías Y Guía alimenticia (su exclusivo). **Sin catálogo completo**
+  (solo ve SU rutina a medida vía `profile_routine_access`, igual que
+  Compra suelta -- ver bug de Vane Capuano más abajo) **y sin Crea tu
+  rutina** (`limiteRutinasCreadas: 0`, corregido 2026-09-30 -- antes
+  estaba sin límite por error): la rutina la arma el coach, no tiene
+  sentido que el cliente tenga esa herramienta ("para eso estoy yo").
+  - **Pendiente de diseño, explícitamente NO resolver todavía sin que el
+    coach lo pida**: un sistema de cobro/vencimiento automático para
+    Mentoría. Hoy la renovación es 100% manual (el coach empuja
+    `premium_hasta` a mano cuando el cliente le paga, fuera de Mercado
+    Pago/PayPal) -- para la modalidad online esto es un riesgo real
+    ("si una persona deja de pagar, puede que nunca me entere"), para la
+    presencial es menos grave porque el coach ve al cliente en persona.
+    El coach fue explícito 2026-09-30: hace falta "un trabajo interno de
+    gestión de pagos, cobranzas" antes de poder automatizar esto bien
+    (cobro mensual o hasta por sesión, todavía sin definir) -- se
+    encara cuando él lo traiga, no antes.
 - **Golden Anual / Golden Mensual** (`premium_origen = 'golden'`, definido
   con el coach 2026-09-29): dan **exactamente el mismo acceso**, sin
   ninguna distinción funcional -- catálogo completo de rutinas públicas,
@@ -767,15 +776,23 @@ columnas que ya existen, sin cambiar el esquema:
   archivo (se commitea a un repo público) -- si se perdió, resetearla con
   `supabase.auth.admin.updateUserById(...)` vía el cliente admin (mismo
   patrón que cualquier otro script de este repo con service role):
-  - `prueba.freetrial.kraken@gmail.com` -- se mantiene como Free Trial
-    limpio a propósito, no tocar su `premium_origen`.
+  **Regla, aprendida a las malas 2026-09-30**: estas cuentas quedan SIEMPRE
+  en su estado de referencia -- no resetearlas a mitad de una verificación
+  y menos sin avisarle al coach (pasó una vez: dejó "Prueba Compra" en
+  trial limpio para probar otra cosa y el coach la vio así, pensó que era
+  un bug real). Si hace falta simular una compra/alta desde cero para
+  probar algo puntual, crear una cuenta descartable nueva para eso, nunca
+  reutilizar ni tocar el estado de estas tres.
+  - `prueba.freetrial.kraken@gmail.com` -- Free Trial limpio, no tocar su
+    `premium_origen`.
   - `prueba.compra.kraken@gmail.com` -- Compra Suelta con el plan
-    Anti-Flakardo ya cargado (rutina Anti-Flakardo Torso Pierna activada,
-    PDF en Mis PDFs, `premium_hasta` extendido). Sirve tal cual está para
-    ver ese caso, o resetearla a trial primero (`premium_origen='trial'`,
-    `premium_hasta` a mano, borrar filas de `profile_routine_access`/
-    `profile_routine_history`/`compras` de esa cuenta) para simular una
-    compra nueva de punta a punta.
+    Anti-Flakardo ya cargado (acceso a Anti-Flakardo Fullbody + Torso
+    Pierna vía `profile_routine_access`, sin ninguna activada -- el
+    usuario elige la suya, ver "Compra suelta" más abajo -- PDF en Mis
+    PDFs, `premium_hasta` extendido).
+  - `prueba.mentoria.kraken@gmail.com` -- Mentoría 1:1, `golden_perpetuo =
+    true` (mismo patrón que un alta real de mentoría), rutina "Kraken
+    Standard M" (id 23) activada por el coach.
 - **Cuentas de testeo del coach** (`kraken.test.qa@gmail.com`,
   `kraken.test.qa2@gmail.com`): no son clientes, excluir de cualquier
   reporte/categorización de clientes reales.
