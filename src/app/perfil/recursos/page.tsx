@@ -6,6 +6,8 @@ import { DescargarPdfBoton } from "@/components/descargar-pdf-boton";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { permisos } from "@/lib/premium";
 
+const URL_PLANES = "https://kraken-fitness-web.vercel.app/#planes";
+
 type ProductoConPdf = { id: number; nombre: string };
 
 export default async function RecursosPage() {
@@ -80,10 +82,19 @@ export default async function RecursosPage() {
         </div>
 
         {productos.length === 0 ? (
-          <div className="rounded-lg border border-border bg-bg-card px-5 py-4 text-center">
+          <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-6 text-center">
             <p className="text-sm text-gray-400">
-              Todavía no tenés ningún PDF disponible. Se habilitan solos al comprar un plan.
+              Todavía no tenés ningún PDF disponible. Se habilitan solos al comprar un plan
+              autoguiado -- rutina + guía en PDF, orientado a tu objetivo.
             </p>
+            <a
+              href={URL_PLANES}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full bg-amber-400 px-6 py-3 text-sm font-medium text-black"
+            >
+              Ver planes autoguiados
+            </a>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
