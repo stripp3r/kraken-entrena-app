@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RutinaHub } from "@/components/rutina-hub";
-import { rutinaIncluidaEnPlan, esTrial } from "@/lib/premium";
+import { esTrial } from "@/lib/premium";
 
 export default async function EntrenamientoPage() {
   const supabase = await createClient();
@@ -15,28 +15,14 @@ export default async function EntrenamientoPage() {
     redirect("/login");
   }
 
-  const [{ data: profile }, { data: routines }, { data: acceso }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("routine_id, premium_hasta, golden_perpetuo, premium_origen, role, routines(nombre, dias)")
-      .eq("id", user.id)
-      .single(),
-    supabase
-      .from("routines")
-      .select("id, nombre, dias, descripcion, es_privada")
-      .order("dias", { ascending: true }),
-    supabase.from("profile_routine_access").select("routine_id").eq("user_id", user.id),
-  ]);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("routine_id, premium_hasta, golden_perpetuo, premium_origen, role, routines(nombre, dias)")
+    .eq("id", user.id)
+    .single();
 
   const rutinaActiva = Array.isArray(profile?.routines) ? profile.routines[0] : profile?.routines;
   const trial = esTrial(profile);
-  // Founder/Golden ven cualquier rutina pública; Free Trial solo las 3
-  // estandarizadas; el resto de las categorías solo ve lo que tenga en
-  // profile_routine_access -- ver `rutinaIncluidaEnPlan` en lib/premium.ts.
-  const idsDesbloqueados = new Set([
-    ...(routines ?? []).filter((r) => rutinaIncluidaEnPlan(profile, r)).map((r) => r.id),
-    ...(acceso ?? []).map((a) => a.routine_id),
-  ]);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -46,10 +32,7 @@ export default async function EntrenamientoPage() {
         </h1>
 
         <RutinaHub
-          routineIdActual={profile?.routine_id ?? null}
           rutinaActiva={rutinaActiva ? { nombre: rutinaActiva.nombre, dias: rutinaActiva.dias } : null}
-          routines={routines ?? []}
-          idsDesbloqueados={[...idsDesbloqueados]}
         />
 
         <Link

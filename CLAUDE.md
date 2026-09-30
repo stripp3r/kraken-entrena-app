@@ -733,6 +733,20 @@ columnas que ya existen, sin cambiar el esquema:
 
 ## Decisiones de negocio ya tomadas a propósito (no "corregir" sin preguntar)
 
+- **Sin cross-sell de "Adquirir otras rutinas" dentro de Entrenamiento**
+  (eliminado 2026-09-29): el hub de Entrenamiento tenía una tarjeta con
+  candado + botón "Adquirir" para cualquier rutina pública que el usuario
+  no tuviera desbloqueada (ej. Anti-Flakardo Fullbody/Torso Pierna),
+  construida en una sesión anterior (commits 2026-09-08/15) sin que el
+  usuario la hubiera pedido -- la sacó al notarla porque además no tenía
+  sentido de producto: esos planes se venden como combo (Fullbody + Torso
+  Pierna + PDF juntos) a través del plan autoguiado en el sitio web, no
+  como rutinas sueltas comprables desde adentro de la app. Se borró la
+  sección completa de `src/components/rutina-hub.tsx` (que quedó solo con
+  la tarjeta de "Tu rutina activa" / "Elegí tu rutina") y las queries/props
+  que ya no hacían falta en `entrenamiento/page.tsx`. **No reintroducir
+  ningún tipo de upsell "comprá esta rutina" dentro del hub de
+  Entrenamiento sin que el usuario lo pida explícitamente de nuevo.**
 - **Colores de los botones de pago**: Mercado Pago = amarillo, PayPal =
   celeste -- es lo OPUESTO a los colores de marca reales de cada uno. El
   usuario lo pidió así explícitamente, dos veces.
