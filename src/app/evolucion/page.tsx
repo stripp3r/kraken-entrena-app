@@ -4,7 +4,7 @@ import { EvolucionUploader } from "@/components/evolucion-uploader";
 import { BorrarFotoBoton } from "@/components/borrar-foto-boton";
 import { BackLink } from "@/components/back-link";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
-import { esTrial } from "@/lib/premium";
+import { permisos } from "@/lib/premium";
 
 export default async function EvolucionPage() {
   const supabase = await createClient();
@@ -23,12 +23,12 @@ export default async function EvolucionPage() {
     .eq("id", user.id)
     .single();
 
-  if (esTrial(profile)) {
+  if (!permisos(profile).evolucion) {
     return (
       <PantallaBloqueada
         titulo="EVOLUCIÓN"
         volverA="/perfil"
-        texto="Mi evolución no está disponible durante el Free Trial. Mejorá tu plan para guardar tus fotos de progreso."
+        texto="Mi evolución no está disponible con tu plan actual. Mejorá tu plan para guardar tus fotos de progreso."
       />
     );
   }

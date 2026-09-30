@@ -31,17 +31,18 @@ export function esPremium(p: EstadoPremium | null | undefined): boolean {
   return !!p.premium_hasta && p.premium_hasta >= hoyISO();
 }
 
-// Días que faltan para que termine la prueba. null si es Golden (perpetuo o
-// suscripción paga), si no hay fecha, o si ya venció -- este contador es
-// SOLO para el trial gratuito, no para el acceso pago.
+// Días que faltan para que termine la prueba. null si no es Free Trial
+// (Golden, mentoría, Founder, compra) o si ya venció. SOLO para el trial
+// gratuito -- antes chequeaba "no es golden/mentoria" (lista negativa), lo
+// que se rompió en cuanto existió `premium_origen = 'compra'`: un cliente
+// que compró un plan autoguiado veía "Prueba gratis · te quedan 91 días"
+// en el banner de arriba y "Tu prueba gratis terminó" en la pantalla de
+// venta de Golden, ninguna de las dos cosas ciertas (bug encontrado
+// probando Compra Suelta en vivo, 2026-09-29). Ahora es una lista
+// POSITIVA (solo `premium_origen === 'trial'`) para que no se repita con
+// la próxima categoría que se agregue.
 export function diasRestantesTrial(p: EstadoPremium | null | undefined): number | null {
-  if (
-    !p ||
-    p.golden_perpetuo ||
-    p.premium_origen === "golden" ||
-    p.premium_origen === "mentoria" ||
-    !p.premium_hasta
-  ) {
+  if (!p || p.premium_origen !== "trial" || !p.premium_hasta) {
     return null;
   }
   const hoy = new Date(`${hoyISO()}T00:00:00-03:00`).getTime();
@@ -50,43 +51,14 @@ export function diasRestantesTrial(p: EstadoPremium | null | undefined): number 
   return dias > 0 ? dias : null;
 }
 
-// Acceso "nivel Golden" en sentido amplio: Golden real (compra o Founder) O
-// mentoría (que incluye Golden como parte del servicio). Usar esto para
-// gates de FEATURES que sí están incluidas en mentoría (calculadora, guía
-// alimenticia) -- NUNCA para el catálogo de rutinas públicas, ver
-// `tieneCatalogoCompleto` más abajo.
+// "¿Esta cuenta ya es Golden o más (Founder/mentoría incluidos)?" -- SOLO
+// para decidir si mostrar un upsell de "pasate a Golden" (Inicio, la
+// página de venta de Golden). NUNCA usar esto para gatear una feature
+// puntual (calculadora, catálogo, etc.) -- para eso ver `permisos()` más
+// abajo, la única fuente de verdad de qué incluye cada plan.
 export function esGoldenTier(p: EstadoPremium | null | undefined): boolean {
   if (!p) return false;
   return Boolean(p.golden_perpetuo) || p.premium_origen === "golden" || p.premium_origen === "mentoria";
-}
-
-// Acceso al CATÁLOGO COMPLETO de rutinas públicas (Anti-Flakardo, Torso
-// Pierna, etc.): poder listarlas todas como "ya adquiridas" y cambiarse a
-// cualquiera sin restricción. A propósito MÁS ESTRICTO que esPremium/
-// esGoldenTier -- mentoría y compras sueltas dan acceso a SU/S rutina/s
-// puntual/es vía `profile_routine_access`, no a navegar el catálogo
-// entero. Bug real encontrado 2026-09-28 (reportado por una clienta de
-// mentoría, Vane Capuano): con `esPremium`/`esGoldenTier` cualquier cuenta
-// de mentoría (golden_perpetuo=true, premium_origen='mentoria') veía TODAS
-// las rutinas públicas como desbloqueadas y podía cambiarse a cualquiera,
-// incluido "Anti-Flakardo Fullbody" sin haberlo comprado -- el server
-// action `cambiarRutinaActiva` lo permitía de verdad, no era solo un bug
-// visual. Confirmado explícitamente por el usuario: "la única persona que
-// tiene acceso a todo es Golden Founder... quienes no [compraron el
-// producto] no deberían tenerlo". `premium_origen === 'founder'` identifica
-// a las 2 cuentas del dueño del negocio (ver "Golden Founder" en la sección
-// "Categorías de acceso de usuario" de CLAUDE.md) -- son las únicas con
-// acceso incondicional a todo.
-//
-// `trial` fue sacado de esta lista el 2026-09-28, al definir el alcance
-// real del Free Trial: NO ve el catálogo completo, solo las 3 rutinas
-// públicas estandarizadas de `RUTINAS_PUBLICAS_TRIAL` (ver
-// `rutinaIncluidaEnPlan` más abajo, que es el chequeo correcto para
-// "¿esta rutina puntual está incluida en el plan de este perfil?").
-export function tieneCatalogoCompleto(p: EstadoPremium | null | undefined): boolean {
-  if (!p) return false;
-  if (!esPremium(p)) return false;
-  return p.premium_origen === "founder" || p.premium_origen === "golden";
 }
 
 // Acceso específico de Mentoría -- más estricto que esGoldenTier. Usar solo
@@ -96,11 +68,7 @@ export function esMentoria(p: EstadoPremium | null | undefined): boolean {
   return p?.premium_origen === "mentoria" && esPremium(p);
 }
 
-// Cuenta en Free Trial (14 días, ver "Free Trial" en CLAUDE.md). Bloquea
-// varias pantallas por completo (Alimentación, Mi evolución, Mis PDFs,
-// Historial, Cardio) y limita otras (catálogo de rutinas, Crea tu rutina) --
-// usar junto con `rutinaIncluidaEnPlan` para el catálogo, y chequear esto
-// directo para las pantallas de bloqueo total.
+// Cuenta en Free Trial (14 días, ver "Free Trial" en CLAUDE.md).
 export function esTrial(p: EstadoPremium | null | undefined): boolean {
   return p?.premium_origen === "trial" && esPremium(p);
 }
@@ -111,6 +79,130 @@ export function esTrial(p: EstadoPremium | null | undefined): boolean {
 // están en `routines.nombre` -- si se renombra alguna de estas 3 rutinas,
 // hay que actualizar esta lista.
 export const RUTINAS_PUBLICAS_TRIAL = ["3 días - Fullbody", "Torso-Pierna", "Push Pull Legs"];
+
+// Matriz de permisos por categoría -- reemplaza ir agregando funciones
+// booleanas sueltas por cada feature nueva (patrón que ya causó 3 bugs
+// reales: catálogo completo para mentoría/trial, etiqueta "Golden ·
+// Founder" para mentoría, "Golden" en vez de "Mentoría" con una
+// suscripción vieja). Con Compra Suelta (plan autoguiado, 2026-09-29) el
+// viejo criterio binario esGoldenTier ya no alcanza -- Compra tiene
+// calculadora pero NO catálogo completo ni guía, algo que ninguna función
+// existente expresaba. Esta es la ÚNICA fuente de verdad de "qué puede
+// hacer cada categoría"; agregar acá cualquier feature nueva que dependa
+// del plan, no como un chequeo inline en la pantalla.
+export type Permisos = {
+  // Navegar y cambiarse a CUALQUIER rutina pública del catálogo general.
+  catalogoCompleto: boolean;
+  cardio: boolean;
+  // Cuántas rutinas propias puede crear en "Crea tu rutina": null = sin
+  // límite, 0 = bloqueado por completo, N = tope numérico.
+  limiteRutinasCreadas: number | null;
+  historial: boolean; // Progreso > Historial
+  evolucion: boolean; // Perfil > Mi evolución
+  misPdfs: boolean; // Perfil > Mis PDFs
+  calculadora: boolean; // Alimentación > Calculadora de calorías
+  guiaAlimenticia: boolean; // Alimentación > Guía alimenticia
+};
+
+const SIN_ACCESO: Permisos = {
+  catalogoCompleto: false,
+  cardio: false,
+  limiteRutinasCreadas: 0,
+  historial: false,
+  evolucion: false,
+  misPdfs: false,
+  calculadora: false,
+  guiaAlimenticia: false,
+};
+
+export function permisos(p: EstadoPremium | null | undefined): Permisos {
+  if (!esPremium(p)) return SIN_ACCESO;
+
+  // Founder: acceso incondicional a todo (ver "Golden Founder" en
+  // CLAUDE.md).
+  if (p?.premium_origen === "founder") {
+    return {
+      catalogoCompleto: true,
+      cardio: true,
+      limiteRutinasCreadas: null,
+      historial: true,
+      evolucion: true,
+      misPdfs: true,
+      calculadora: true,
+      guiaAlimenticia: true,
+    };
+  }
+
+  // Mentoría: todo lo de Golden + guía alimenticia (su exclusivo), pero
+  // SIN catálogo completo -- solo ve SU rutina a medida vía
+  // profile_routine_access (ver bug de Vane Capuano en CLAUDE.md).
+  if (esMentoria(p)) {
+    return {
+      catalogoCompleto: false,
+      cardio: true,
+      limiteRutinasCreadas: null,
+      historial: true,
+      evolucion: true,
+      misPdfs: true,
+      calculadora: true,
+      guiaAlimenticia: true,
+    };
+  }
+
+  // Golden (mensual o anual, exactamente el mismo acceso -- confirmado
+  // 2026-09-29): todo menos la guía alimenticia, que es exclusiva de
+  // mentoría.
+  if (p?.premium_origen === "golden") {
+    return {
+      catalogoCompleto: true,
+      cardio: true,
+      limiteRutinasCreadas: null,
+      historial: true,
+      evolucion: true,
+      misPdfs: true,
+      calculadora: true,
+      guiaAlimenticia: false,
+    };
+  }
+
+  // Compra suelta (plan autoguiado, 90 días -- definido 2026-09-29):
+  // mismo trato que Golden en TODO menos catálogo completo (solo ve la/s
+  // rutina/s de su producto vía profile_routine_access, no puede navegar
+  // el resto) y Crea tu rutina (bloqueado por completo -- "compraste tu
+  // plan, seguís tu plan", no es el mismo caso que el trial que sí puede
+  // crear 1 para probar).
+  if (p?.premium_origen === "compra") {
+    return {
+      catalogoCompleto: false,
+      cardio: true,
+      limiteRutinasCreadas: 0,
+      historial: true,
+      evolucion: true,
+      misPdfs: true,
+      calculadora: true,
+      guiaAlimenticia: false,
+    };
+  }
+
+  // Free Trial (14 días): bloqueado por completo en Alimentación, Mi
+  // evolución, Mis PDFs, Historial, Cardio; limitado a 1 rutina propia y
+  // a las 3 rutinas públicas de RUTINAS_PUBLICAS_TRIAL (chequeo aparte en
+  // `rutinaIncluidaEnPlan`, no cabe en un simple booleano).
+  if (esTrial(p)) {
+    return {
+      catalogoCompleto: false,
+      cardio: false,
+      limiteRutinasCreadas: 1,
+      historial: false,
+      evolucion: false,
+      misPdfs: false,
+      calculadora: false,
+      guiaAlimenticia: false,
+    };
+  }
+
+  return SIN_ACCESO;
+}
 
 // Único punto de verdad para "¿esta rutina PÚBLICA está incluida en el plan
 // de este perfil, sin necesidad de profile_routine_access explícito?".
@@ -123,7 +215,7 @@ export function rutinaIncluidaEnPlan(
   rutina: { nombre: string; es_privada?: boolean | null }
 ): boolean {
   if (rutina.es_privada) return false;
-  if (tieneCatalogoCompleto(p)) return true;
+  if (permisos(p).catalogoCompleto) return true;
   if (esTrial(p)) return RUTINAS_PUBLICAS_TRIAL.includes(rutina.nombre);
   return false;
 }
@@ -144,8 +236,8 @@ export function obtenerSuscripcion(
   // Ojo: NO alcanza con `golden_perpetuo` -- todas las altas de mentoría
   // (alta-cliente.js) también lo marcan true para darles Golden incluido,
   // así que esto solo debe disparar para las 2 cuentas reales del dueño
-  // del negocio (`premium_origen === 'founder'`, ver `tieneCatalogoCompleto`
-  // más arriba). Si no, un cliente de mentoría vería "Golden · Founder" en
+  // del negocio (`premium_origen === 'founder'`, ver `permisos()` más
+  // arriba). Si no, un cliente de mentoría vería "Golden · Founder" en
   // su propio perfil, lo cual no es cierto -- bug hermano del de Vane
   // Capuano, encontrado en la misma revisión (2026-09-28).
   if (profile?.premium_origen === "founder") return { texto: "Golden · Founder", tono: "oro" };
@@ -199,14 +291,19 @@ export function obtenerSuscripcion(
     return { texto: `Golden · hasta ${ddmm(profile.premium_hasta)}`, tono: "oro" };
   }
 
+  // Compra suelta (plan autoguiado, 90 días) -- chequea directo contra
+  // esPremium, NO contra diasRestantesTrial (que ahora es estrictamente
+  // solo para 'trial', ver su comentario) para no depender de que el
+  // trial y la compra compartan la misma cuenta regresiva.
+  if (profile?.premium_origen === "compra" && esPremium(profile)) {
+    return {
+      texto: `Acceso por compra · hasta ${ddmm(profile.premium_hasta)}`,
+      tono: "compra",
+    };
+  }
+
   const dias = diasRestantesTrial(profile);
   if (dias != null) {
-    if (profile?.premium_origen === "compra") {
-      return {
-        texto: `Acceso por compra · hasta ${ddmm(profile.premium_hasta)}`,
-        tono: "compra",
-      };
-    }
     return {
       texto: `Prueba gratis · ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}`,
       tono: "prueba",

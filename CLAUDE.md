@@ -102,22 +102,32 @@ mano vía Dashboard -- no son parte del código, no hace falta commitearlas
   migración 083). **`src/lib/premium.ts` es la única fuente de verdad
   para esto** -- nunca reimplementar esta lógica inline en una pantalla:
   - `esPremium(p)`: acceso vigente a la app (cualquier origen).
-  - `esGoldenTier(p)`: Golden en sentido amplio -- golden_perpetuo O
-    premium_origen golden/mentoria. Usar para gates "todo lo que da
-    Golden" (calculadora de calorías, etc.) -- **NUNCA para el catálogo
-    de rutinas públicas**, ver `tieneCatalogoCompleto` abajo.
-  - `tieneCatalogoCompleto(p)`: acceso al CATÁLOGO COMPLETO de rutinas
-    públicas (poder listarlas todas como adquiridas y cambiarse a
-    cualquiera). MÁS ESTRICTO que esGoldenTier -- solo
-    `premium_origen` founder/golden/trial. Mentoría y compras sueltas
-    solo ven su/s rutina/s puntual/es vía `profile_routine_access`. Ver
-    sección "Categorías de acceso de usuario" para el bug real que motivó
-    esto (2026-09-28, Vane Capuano).
-  - `esMentoria(p)`: SOLO premium_origen = 'mentoria'. Más estricto que
-    esGoldenTier -- usar solo para beneficios exclusivos de mentoría (ej.
-    Guía alimenticia). Un Golden comprado normal NO pasa este check.
-  - `diasRestantesTrial(p)`, `obtenerSuscripcion(p, sub)`: para mostrar el
-    badge de estado en Inicio/Perfil.
+  - `permisos(p)`: **la única fuente de verdad de qué incluye cada
+    categoría** -- devuelve un objeto (`catalogoCompleto`, `cardio`,
+    `limiteRutinasCreadas`, `historial`, `evolucion`, `misPdfs`,
+    `calculadora`, `guiaAlimenticia`) con la matriz completa por plan
+    (Founder/Mentoría/Golden/Compra/Trial). Para gatear CUALQUIER feature
+    que dependa del plan del usuario, usar esto -- nunca reimplementar el
+    chequeo inline ni agregar una función booleana suelta nueva (ese
+    patrón ya causó varios bugs reales, ver "Categorías de acceso de
+    usuario" más abajo).
+  - `rutinaIncluidaEnPlan(p, rutina)`: "¿esta rutina PUNTUAL está incluida
+    en el plan de este perfil?" -- combina `permisos(p).catalogoCompleto`
+    con las 3 rutinas del Free Trial. Usar esto para cualquier chequeo
+    sobre una rutina específica, no `permisos(p).catalogoCompleto` solo.
+  - `esGoldenTier(p)`: SOLO para decidir si mostrar un upsell de "pasate a
+    Golden" (Inicio, la página de venta de Golden) -- golden_perpetuo O
+    premium_origen golden/mentoria. **NUNCA usarla para gatear una
+    feature puntual**, para eso `permisos()`.
+  - `esMentoria(p)`: SOLO premium_origen = 'mentoria'. Usar solo para
+    beneficios exclusivos de mentoría fuera de `permisos()` (ej. el texto
+    condicional dentro de `/alimentacion/guia`).
+  - `diasRestantesTrial(p)`: SOLO Free Trial (lista positiva,
+    `premium_origen === 'trial'`) -- nunca la uses para saber si a alguien
+    "le quedan días" en sentido amplio, Compra suelta también tiene
+    `premium_hasta` pero no es trial.
+  - `obtenerSuscripcion(p, sub)`: para mostrar el badge de estado en
+    Inicio/Perfil.
 - `exercise_definitions`: ejercicio canónico y reutilizable (nombre,
   categoria, imagen_url, video_url, video_url_fem, como_hacerlo,
   tipo_esfuerzo, unilateral, alternativa_id). Un mismo ejercicio (ej.
@@ -664,13 +674,56 @@ columnas que ya existen, sin cambiar el esquema:
     reales de mentoría que tenían una `suscripciones` vieja de cuando
     eran Golden. Se corrigió reordenando: Founder → Mentoría → Golden
     (con `sub`) → Golden manual → Trial.
-  - **Todavía pendiente, sin resolver** (no confundir con lo de arriba,
-    que sí quedó cerrado): la diferencia entre Golden pago y **Compra
-    suelta** (planes autoguiados tipo Anti-Flakardo, `premium_origen =
-    'compra'`, 3 meses de acceso a esa rutina puntual) -- se le propuso
-    al coach el criterio "Golden = catálogo completo, Compra = solo su
-    rutina" (que es justamente lo que ya hace `tieneCatalogoCompleto()`
-    hoy) pero todavía no lo confirmó, no asumir que quedó cerrado.
+- **Compra suelta** (`premium_origen = 'compra'`, plan autoguiado tipo
+  Anti-Flakardo -- definido con el coach 2026-09-29): 90 días de acceso
+  (`MESES_ACCESO_POR_COMPRA = 3` en `src/lib/compras.ts`). Mismo trato que
+  Golden en TODO menos dos cosas:
+  - **Sin catálogo completo**: solo ve la/s rutina/s de SU producto (ej.
+    Anti-Flakardo da el combo Fullbody + Torso Pierna) vía
+    `profile_routine_access`, no puede navegar ni cambiarse al resto del
+    catálogo público -- igual que mentoría.
+  - **Crea tu rutina bloqueado por completo** (no es el mismo caso que el
+    trial, que sí puede crear 1 para probar): "compraste tu plan, seguís
+    tu plan". El resto -- Cardio, Análisis completo (incluido Historial),
+    Perfil completo (Mi evolución + Mis PDFs), Calculadora de calorías --
+    todo desbloqueado. Guía alimenticia sigue bloqueada (exclusiva de
+    Mentoría, necesita un plan superior).
+  - **Se probó en vivo simulando una compra real** (misma función que usa
+    el webhook, `procesarCompraAprobada` en `compras.ts`) con una cuenta
+    de prueba: quedó "Acceso por compra · hasta [fecha]" con la fecha
+    correctamente extendida desde el `premium_hasta` que ya tenía (los
+    días de Free Trial que le quedaban NO se pierden al comprar -- se
+    suman los 90 días desde ahí, no desde hoy), acceso a las 2 rutinas del
+    combo, el PDF en Mis PDFs, Cardio disponible, Crea tu rutina
+    bloqueado, Calculadora disponible, Guía bloqueada.
+  - **Bug real encontrado en la misma prueba, ya corregido**: el flujo
+    real de compra otorgaba `profile_routine_access` pero nunca activaba
+    ninguna rutina (mismo patrón que el bug de altas de mentoría --
+    Santiago Pelotti, Vane Capuano -- que en su momento solo se corrigió
+    en `scripts/alta-cliente.js`, nunca acá). El comprador entraba a la
+    app recién comprada y veía "Sin rutina activa, elegí tu rutina" en vez
+    de arrancar con su plan. Se agregó el mismo patrón de auto-activación
+    (solo si no tenía ya una rutina activa, sin pisar ninguna existente) a
+    `procesarCompraAprobada` -- cuando el producto da varias rutinas (ej.
+    el combo de Anti-Flakardo), activa la de `routine_id` más bajo, sin
+    ningún criterio de "cuál es la principal" más allá de eso.
+  - **Bug hermano encontrado en la misma revisión**: `diasRestantesTrial()`
+    (banner de arriba + pantalla de venta de Golden) excluía golden/
+    mentoría pero NO 'compra' -- un cliente que compró un plan veía
+    "Prueba gratis · te quedan 91 días" en el banner y "Tu prueba gratis
+    terminó" en `/golden`, ninguna de las dos cosas ciertas. Se cambió de
+    lista negativa a lista POSITIVA (`premium_origen === 'trial'` y nada
+    más) para que no se repita con la próxima categoría nueva que se
+    agregue -- y `obtenerSuscripcion()` se reordenó para que la etiqueta
+    de "Acceso por compra" no dependa de `diasRestantesTrial` (que ahora
+    es estrictamente trial-only).
+  - **Todo lo de arriba pasa por `permisos(profile)` en `premium.ts`**
+    -- la matriz única de qué incluye cada categoría (Founder, Mentoría,
+    Golden, Compra, Trial), agregada en la misma revisión para reemplazar
+    ir sumando funciones booleanas sueltas por cada feature nueva (patrón
+    que ya causó varios bugs reales, ver arriba). Cualquier feature nueva
+    que dependa del plan del usuario va acá, como un campo más de
+    `Permisos`, no como un chequeo inline en la pantalla.
 - **Free Trial** (`premium_origen = 'trial'`, `esTrial()` en
   `premium.ts`): 14 días para probar la app en serio sin regalarle el
   producto completo. Definido con el coach 2026-09-28, usa el ícono
@@ -781,9 +834,12 @@ columnas que ya existen, sin cambiar el esquema:
   - Pasar a Play Store/App Store (Capacitor) resolvería esto de raíz, pero
     es un proyecto aparte, no urgente (~1-2 semanas Android vía TWA, ~3-5
     semanas iOS vía Capacitor, necesita Mac).
-- **Alimentación**: calculadora de calorías = beneficio Golden O Mentoría
-  (`esGoldenTier`). Guía alimenticia = beneficio EXCLUSIVO de Mentoría
-  (`esMentoria`, más estricto). Ambas pantallas exigen un pop-up de
+- **Alimentación**: calculadora de calorías = beneficio de Golden, Compra
+  suelta, Mentoría y Founder (`permisos(p).calculadora`, NUNCA
+  `esGoldenTier` -- Compra suelta no pasa esGoldenTier pero sí tiene
+  calculadora, ver "Categorías de acceso de usuario"). Guía alimenticia =
+  beneficio EXCLUSIVO de Mentoría (`permisos(p).guiaAlimenticia` /
+  `esMentoria`, más estricto). Ambas pantallas exigen un pop-up de
   disclaimer legal con "Sí, entiendo" antes de mostrar contenido, guardado
   por usuario (`profiles.disclaimer_calculadora_aceptado_at` /
   `disclaimer_guia_aceptado_at`) -- ver `src/components/disclaimer-gate.tsx`.

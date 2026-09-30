@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { fechaLegible } from "@/lib/fecha";
-import { esTrial } from "@/lib/premium";
+import { permisos } from "@/lib/premium";
 
 function duracionLegible(fechaInicio: string, fechaFin: string | null) {
   const desde = new Date(`${fechaInicio}T00:00:00`);
@@ -39,12 +39,12 @@ export default async function HistorialPage() {
     .eq("id", user.id)
     .single();
 
-  if (esTrial(profile)) {
+  if (!permisos(profile).historial) {
     return (
       <PantallaBloqueada
         titulo="HISTORIAL"
         volverA="/progreso"
-        texto="El historial de rutinas no está disponible durante el Free Trial. Mejorá tu plan para verlo."
+        texto="El historial de rutinas no está disponible con tu plan actual. Mejorá tu plan para verlo."
       />
     );
   }

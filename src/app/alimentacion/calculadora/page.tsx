@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { DisclaimerGate } from "@/components/disclaimer-gate";
 import { calcularEdad } from "@/lib/fecha";
-import { esGoldenTier } from "@/lib/premium";
+import { permisos } from "@/lib/premium";
 import {
   calcularEstimacionNutricional,
   type ActividadNutricional,
@@ -30,7 +30,7 @@ export default async function CalculadoraCaloriasPage() {
     supabase
       .from("profiles")
       .select(
-        "golden_perpetuo, premium_origen, sexo, fecha_nacimiento, actividad_fisica, objetivo, disclaimer_calculadora_aceptado_at"
+        "golden_perpetuo, premium_hasta, premium_origen, sexo, fecha_nacimiento, actividad_fisica, objetivo, disclaimer_calculadora_aceptado_at"
       )
       .eq("id", user.id)
       .single(),
@@ -41,8 +41,7 @@ export default async function CalculadoraCaloriasPage() {
       .order("fecha", { ascending: true }),
   ]);
 
-  const esGolden = esGoldenTier(profile);
-  if (!esGolden) {
+  if (!permisos(profile).calculadora) {
     redirect("/alimentacion");
   }
 

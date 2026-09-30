@@ -4,7 +4,7 @@ import { BackLink } from "@/components/back-link";
 import { CardioCliente } from "@/components/cardio-cliente";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { hoyISO } from "@/lib/fecha";
-import { esTrial } from "@/lib/premium";
+import { permisos } from "@/lib/premium";
 
 export default async function CardioPage() {
   const supabase = await createClient();
@@ -22,12 +22,12 @@ export default async function CardioPage() {
     .eq("id", user.id)
     .single();
 
-  if (esTrial(profile)) {
+  if (!permisos(profile).cardio) {
     return (
       <PantallaBloqueada
         titulo="CARDIO"
         volverA="/entrenamiento"
-        texto="Cardio no está disponible durante el Free Trial. Mejorá tu plan para llevar el registro de tus sesiones."
+        texto="Cardio no está disponible con tu plan actual. Mejorá tu plan para llevar el registro de tus sesiones."
       />
     );
   }

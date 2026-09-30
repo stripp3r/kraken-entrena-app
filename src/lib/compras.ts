@@ -81,7 +81,8 @@ export async function procesarCompraAprobada({
     const { data: rutinas } = await supabase
       .from("producto_rutinas")
       .select("routine_id")
-      .eq("producto_id", producto.id);
+      .eq("producto_id", producto.id)
+      .order("routine_id", { ascending: true });
 
     if (rutinas?.length) {
       await supabase.from("profile_routine_access").upsert(
@@ -93,7 +94,7 @@ export async function procesarCompraAprobada({
     // Acceso completo a la app por N meses (salvo que ya sea Golden).
     const { data: perfil } = await supabase
       .from("profiles")
-      .select("premium_hasta, premium_origen, golden_perpetuo")
+      .select("premium_hasta, premium_origen, golden_perpetuo, routine_id")
       .eq("id", userId)
       .single();
 
@@ -107,6 +108,31 @@ export async function procesarCompraAprobada({
         .from("profiles")
         .update({ premium_hasta: d.toISOString().slice(0, 10), premium_origen: "compra" })
         .eq("id", userId);
+    }
+
+    // Activa automáticamente la primera rutina del producto si el
+    // comprador todavía no tenía ninguna activa -- si no, entra a la app
+    // recién comprada y ve "Sin rutina activa, elegí tu rutina" en vez de
+    // arrancar directo con su plan (mismo bug encontrado dos veces en
+    // altas de mentoría -- Santiago Pelotti, Vane Capuano -- corregido ahí
+    // en `scripts/alta-cliente.js` paso 6b, pero nunca se replicó acá en
+    // el flujo real de compra). Si ya tenía una rutina activa, no se la
+    // pisa -- eso queda a criterio del coach.
+    if (!perfil?.routine_id && rutinas?.length) {
+      const routineId = rutinas[0].routine_id;
+      const hoy = hoyISO();
+
+      await supabase
+        .from("profile_routine_history")
+        .update({ fecha_fin: hoy })
+        .eq("user_id", userId)
+        .is("fecha_fin", null);
+
+      await supabase
+        .from("profile_routine_history")
+        .insert({ user_id: userId, routine_id: routineId, fecha_inicio: hoy });
+
+      await supabase.from("profiles").update({ routine_id: routineId }).eq("id", userId);
     }
   }
 

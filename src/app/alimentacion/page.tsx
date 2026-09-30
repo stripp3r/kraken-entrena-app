@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { esGoldenTier } from "@/lib/premium";
+import { permisos } from "@/lib/premium";
 
 export default async function AlimentacionPage() {
   const supabase = await createClient();
@@ -16,11 +16,11 @@ export default async function AlimentacionPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("golden_perpetuo, premium_origen")
+    .select("golden_perpetuo, premium_hasta, premium_origen")
     .eq("id", user.id)
     .single();
 
-  const esGolden = esGoldenTier(profile);
+  const perm = permisos(profile);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -29,7 +29,7 @@ export default async function AlimentacionPage() {
           ALIMENTACIÓN
         </h1>
 
-        {!esGolden ? (
+        {!perm.calculadora ? (
           <div className="mt-8 flex flex-col items-center gap-4 text-center">
             <p className="text-sm text-gray-400">
               Esta sección es un beneficio exclusivo de KRAKEN Golden o la Mentoría personalizada.

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RutinaHub } from "@/components/rutina-hub";
-import { esTrial } from "@/lib/premium";
+import { permisos } from "@/lib/premium";
 
 export default async function EntrenamientoPage() {
   const supabase = await createClient();
@@ -22,7 +22,7 @@ export default async function EntrenamientoPage() {
     .single();
 
   const rutinaActiva = Array.isArray(profile?.routines) ? profile.routines[0] : profile?.routines;
-  const trial = esTrial(profile);
+  const perm = permisos(profile);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -45,10 +45,10 @@ export default async function EntrenamientoPage() {
 
         <Link
           href="/entrenamiento/cardio"
-          className={`mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${trial ? "text-gray-500" : "text-white"}`}
+          className={`mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.cardio ? "text-white" : "text-gray-500"}`}
         >
           <img
-            src={trial ? "/section-icons/bloqueado.png" : "/section-icons/cardio.png"}
+            src={perm.cardio ? "/section-icons/cardio.png" : "/section-icons/bloqueado.png"}
             alt=""
             className="h-14 w-14 rounded-xl"
           />
@@ -57,9 +57,13 @@ export default async function EntrenamientoPage() {
 
         <Link
           href="/entrenamiento/crear-rutina"
-          className="mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+          className={`mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.limiteRutinasCreadas === 0 ? "text-gray-500" : "text-white"}`}
         >
-          <img src="/section-icons/crear-rutina.png" alt="" className="h-14 w-14 rounded-xl" />
+          <img
+            src={perm.limiteRutinasCreadas === 0 ? "/section-icons/bloqueado.png" : "/section-icons/crear-rutina.png"}
+            alt=""
+            className="h-14 w-14 rounded-xl"
+          />
           Crea tu rutina
         </Link>
 

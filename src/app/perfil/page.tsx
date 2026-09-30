@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
-import { esTrial } from "@/lib/premium";
+import { permisos } from "@/lib/premium";
 
 export default async function PerfilPage() {
   const supabase = await createClient();
@@ -22,7 +22,7 @@ export default async function PerfilPage() {
     .single();
 
   const genero = profile?.sexo === "femenino" ? "femenino" : "masculino";
-  const trial = esTrial(profile);
+  const perm = permisos(profile);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -56,10 +56,10 @@ export default async function PerfilPage() {
           </Link>
           <Link
             href="/evolucion"
-            className={`flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${trial ? "text-gray-500" : "text-white"}`}
+            className={`flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.evolucion ? "text-white" : "text-gray-500"}`}
           >
             <img
-              src={trial ? "/section-icons/bloqueado.png" : "/section-icons/evolucion.png"}
+              src={perm.evolucion ? "/section-icons/evolucion.png" : "/section-icons/bloqueado.png"}
               alt=""
               className="h-14 w-14 rounded-xl"
             />
@@ -67,10 +67,10 @@ export default async function PerfilPage() {
           </Link>
           <Link
             href="/perfil/recursos"
-            className={`flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${trial ? "text-gray-500" : "text-white"}`}
+            className={`flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.misPdfs ? "text-white" : "text-gray-500"}`}
           >
             <img
-              src={trial ? "/section-icons/bloqueado.png" : "/section-icons/pdfs.png"}
+              src={perm.misPdfs ? "/section-icons/pdfs.png" : "/section-icons/bloqueado.png"}
               alt=""
               className="h-14 w-14 rounded-xl"
             />

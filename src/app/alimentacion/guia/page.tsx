@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { DisclaimerGate } from "@/components/disclaimer-gate";
 import { DescargarGuiaBoton } from "@/components/descargar-guia-boton";
-import { esGoldenTier, esMentoria } from "@/lib/premium";
+import { permisos, esMentoria } from "@/lib/premium";
 
 const WHATSAPP_MENTORIA =
   "https://wa.me/5493413441070?text=Hola%20KRAKEN%2C%20quiero%20info%20de%20la%20Mentor%C3%ADa";
@@ -30,10 +30,11 @@ export default async function GuiaAlimenticiaPage() {
     .single();
 
   // La guía es exclusiva de Mentoría -- más estricto que el resto de
-  // Alimentación (calculadora), que alcanza con Golden. Un Golden sin
-  // mentoría no se redirige al hub (ahí volvería a ver este mismo link y
-  // entraría en loop) -- se le muestra acá mismo por qué no puede entrar.
-  if (!esGoldenTier(profile)) {
+  // Alimentación (calculadora), que ya tienen Golden y Compra suelta
+  // también. Alguien sin mentoría pero con calculadora (Golden, Compra) no
+  // se redirige al hub (ahí volvería a ver este mismo link y entraría en
+  // loop) -- se le muestra acá mismo por qué no puede entrar.
+  if (!permisos(profile).calculadora) {
     redirect("/alimentacion");
   }
 

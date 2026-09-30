@@ -3,10 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { CrearRutinaCliente } from "@/components/crear-rutina-cliente";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
-import { esTrial } from "@/lib/premium";
+import { permisos } from "@/lib/premium";
 import { contarRutinasCreadasPorUsuario } from "@/lib/limite-rutinas-creadas";
-
-const LIMITE_RUTINAS_TRIAL = 1;
 
 export default async function CrearRutinaPage() {
   const supabase = await createClient();
@@ -24,9 +22,21 @@ export default async function CrearRutinaPage() {
     .eq("id", user.id)
     .single();
 
-  if (esTrial(profile)) {
+  const { limiteRutinasCreadas } = permisos(profile);
+
+  if (limiteRutinasCreadas === 0) {
+    return (
+      <PantallaBloqueada
+        titulo="CREA TU RUTINA"
+        volverA="/entrenamiento"
+        texto="Crea tu rutina no está disponible con tu plan actual -- seguí la rutina de tu programa."
+      />
+    );
+  }
+
+  if (limiteRutinasCreadas !== null) {
     const yaCreadas = await contarRutinasCreadasPorUsuario(supabase, user.id);
-    if (yaCreadas >= LIMITE_RUTINAS_TRIAL) {
+    if (yaCreadas >= limiteRutinasCreadas) {
       return (
         <PantallaBloqueada
           titulo="CREA TU RUTINA"

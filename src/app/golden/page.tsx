@@ -77,7 +77,9 @@ export default async function GoldenPage() {
             <p className="mb-6 text-center text-sm text-gray-400">
               {dias != null
                 ? `Estás en la prueba gratis (te quedan ${dias} ${dias === 1 ? "día" : "días"}). Pasate a Golden cuando quieras, sin esperar a que se corte.`
-                : "Tu prueba gratis terminó. Con Golden desbloqueás todo de nuevo."}
+                : perfil?.premium_origen === "compra"
+                  ? "Con Golden desbloqueás el catálogo completo de rutinas, Cardio y Crea tu rutina -- no solo la rutina de tu plan actual."
+                  : "Tu prueba gratis terminó. Con Golden desbloqueás todo de nuevo."}
             </p>
 
             <ul className="mb-6 flex flex-col gap-2">
