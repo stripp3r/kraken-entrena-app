@@ -20,7 +20,7 @@ export default async function RecursosPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("premium_hasta, golden_perpetuo, premium_origen")
+    .select("premium_hasta, golden_perpetuo, premium_origen, tiene_pdfs_nuevos")
     .eq("id", user.id)
     .single();
 
@@ -32,6 +32,13 @@ export default async function RecursosPage() {
         texto="Mis PDFs no está disponible con tu plan actual. Se habilita al comprar un plan."
       />
     );
+  }
+
+  // Apaga el distintivo de "hay novedades" la primera vez que el usuario
+  // entra acá después de que una compra le sumó un PDF nuevo -- ver
+  // procesarCompraAprobada() en lib/compras.ts, que lo prende.
+  if (profile?.tiene_pdfs_nuevos) {
+    await supabase.from("profiles").update({ tiene_pdfs_nuevos: false }).eq("id", user.id);
   }
 
   const admin = createAdminClient();

@@ -34,7 +34,7 @@ export async function procesarCompraAprobada({
 
   const { data: producto } = await supabase
     .from("productos")
-    .select("id")
+    .select("id, pdf_storage_path")
     .eq("slug", productoSlug)
     .eq("activo", true)
     .single();
@@ -91,10 +91,24 @@ export async function procesarCompraAprobada({
       );
     }
 
+    // Distintivo de "hay novedades" en Rutinas adquiridas y Mis PDFs --
+    // definido con el coach 2026-09-30 para que un cliente que ya tenía
+    // cuenta y compra otro plan se entere de que se le sumó algo nuevo, en
+    // vez de tener que notarlo solo. Se apaga desde la propia pantalla la
+    // primera vez que el usuario entra ahí (ver entrenamiento/rutinas y
+    // perfil/recursos).
+    const distintivos = {
+      ...(rutinas?.length ? { tiene_rutinas_nuevas: true } : {}),
+      ...(producto.pdf_storage_path ? { tiene_pdfs_nuevos: true } : {}),
+    };
+    if (Object.keys(distintivos).length > 0) {
+      await supabase.from("profiles").update(distintivos).eq("id", userId);
+    }
+
     // Acceso completo a la app por N meses (salvo que ya sea Golden).
     const { data: perfil } = await supabase
       .from("profiles")
-      .select("premium_hasta, premium_origen, golden_perpetuo, routine_id")
+      .select("premium_hasta, premium_origen, golden_perpetuo")
       .eq("id", userId)
       .single();
 
@@ -110,30 +124,13 @@ export async function procesarCompraAprobada({
         .eq("id", userId);
     }
 
-    // Activa automáticamente la primera rutina del producto si el
-    // comprador todavía no tenía ninguna activa -- si no, entra a la app
-    // recién comprada y ve "Sin rutina activa, elegí tu rutina" en vez de
-    // arrancar directo con su plan (mismo bug encontrado dos veces en
-    // altas de mentoría -- Santiago Pelotti, Vane Capuano -- corregido ahí
-    // en `scripts/alta-cliente.js` paso 6b, pero nunca se replicó acá en
-    // el flujo real de compra). Si ya tenía una rutina activa, no se la
-    // pisa -- eso queda a criterio del coach.
-    if (!perfil?.routine_id && rutinas?.length) {
-      const routineId = rutinas[0].routine_id;
-      const hoy = hoyISO();
-
-      await supabase
-        .from("profile_routine_history")
-        .update({ fecha_fin: hoy })
-        .eq("user_id", userId)
-        .is("fecha_fin", null);
-
-      await supabase
-        .from("profile_routine_history")
-        .insert({ user_id: userId, routine_id: routineId, fecha_inicio: hoy });
-
-      await supabase.from("profiles").update({ routine_id: routineId }).eq("id", userId);
-    }
+    // A propósito NO se activa ninguna rutina automáticamente acá -- el
+    // usuario siempre elige la suya en "Rutinas adquiridas", sea su primera
+    // compra o ya tenga otra activa (confirmado 2026-09-30: "quiero que él
+    // la elija", tanto para quien nunca tuvo rutina como para quien ya
+    // tenía una y compra otro plan). No confundir con `alta-cliente.js`,
+    // que sí activa sola la rutina en altas de mentoría armadas a mano por
+    // el coach -- es un flujo distinto, con otro criterio.
   }
 
   return { ok: true, compraId: compra.id, desbloqueado: Boolean(userId) };

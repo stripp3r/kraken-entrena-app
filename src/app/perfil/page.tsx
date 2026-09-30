@@ -17,7 +17,7 @@ export default async function PerfilPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("sexo, premium_hasta, golden_perpetuo, premium_origen")
+    .select("sexo, premium_hasta, golden_perpetuo, premium_origen, tiene_pdfs_nuevos")
     .eq("id", user.id)
     .single();
 
@@ -69,11 +69,16 @@ export default async function PerfilPage() {
             href="/perfil/recursos"
             className={`flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.misPdfs ? "text-white" : "text-gray-500"}`}
           >
-            <img
-              src={perm.misPdfs ? "/section-icons/pdfs.png" : "/section-icons/bloqueado.png"}
-              alt=""
-              className="h-14 w-14 rounded-xl"
-            />
+            <div className="relative shrink-0">
+              <img
+                src={perm.misPdfs ? "/section-icons/pdfs.png" : "/section-icons/bloqueado.png"}
+                alt=""
+                className="h-14 w-14 rounded-xl"
+              />
+              {perm.misPdfs && profile?.tiene_pdfs_nuevos && (
+                <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border-2 border-bg-card bg-emerald-400" />
+              )}
+            </div>
             Mis PDFs
           </Link>
         </div>

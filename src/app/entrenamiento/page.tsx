@@ -17,7 +17,9 @@ export default async function EntrenamientoPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("routine_id, premium_hasta, golden_perpetuo, premium_origen, role, routines(nombre, dias)")
+    .select(
+      "routine_id, premium_hasta, golden_perpetuo, premium_origen, role, tiene_rutinas_nuevas, routines(nombre, dias)"
+    )
     .eq("id", user.id)
     .single();
 
@@ -39,7 +41,12 @@ export default async function EntrenamientoPage() {
           href="/entrenamiento/rutinas"
           className="mt-8 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
         >
-          <img src="/section-icons/rutinas-adquiridas.png" alt="" className="h-14 w-14 rounded-xl" />
+          <div className="relative shrink-0">
+            <img src="/section-icons/rutinas-adquiridas.png" alt="" className="h-14 w-14 rounded-xl" />
+            {profile?.tiene_rutinas_nuevas && (
+              <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border-2 border-bg-card bg-emerald-400" />
+            )}
+          </div>
           Rutinas adquiridas
         </Link>
 

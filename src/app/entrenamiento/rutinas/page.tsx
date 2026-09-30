@@ -19,7 +19,7 @@ export default async function RutinasAdquiridasPage() {
   const [{ data: profile }, { data: routines }, { data: acceso }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("routine_id, premium_hasta, golden_perpetuo, premium_origen")
+      .select("routine_id, premium_hasta, golden_perpetuo, premium_origen, tiene_rutinas_nuevas")
       .eq("id", user.id)
       .single(),
     supabase
@@ -28,6 +28,13 @@ export default async function RutinasAdquiridasPage() {
       .order("dias", { ascending: true }),
     supabase.from("profile_routine_access").select("routine_id").eq("user_id", user.id),
   ]);
+
+  // Apaga el distintivo de "hay novedades" la primera vez que el usuario
+  // entra acá después de que una compra le sumó una rutina nueva -- ver
+  // procesarCompraAprobada() en lib/compras.ts, que lo prende.
+  if (profile?.tiene_rutinas_nuevas) {
+    await supabase.from("profiles").update({ tiene_rutinas_nuevas: false }).eq("id", user.id);
+  }
 
   const idsDesbloqueados = new Set([
     ...(routines ?? []).filter((r) => rutinaIncluidaEnPlan(profile, r)).map((r) => r.id),
