@@ -2,11 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES, esGoldenTier } from "@/lib/premium";
+import { CompartirAppBoton } from "@/components/compartir-app-boton";
 
 const URL_PLANES = "https://kraken-fitness-web.vercel.app/#planes";
 const URL_SITIO_WEB = "https://kraken-fitness-web.vercel.app/#inicio";
 const WHATSAPP_MENTORIA =
   "https://wa.me/5493413441070?text=Hola%20KRAKEN%2C%20quiero%20info%20de%20la%20Mentor%C3%ADa";
+const WHATSAPP_SOPORTE =
+  "https://wa.me/5493413441070?text=Hola%20KRAKEN%2C%20tengo%20un%20problema%20con%20la%20app";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -44,22 +47,11 @@ export default async function Home() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <div className="relative">
-          <a
-            href={URL_SITIO_WEB}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute right-0 top-0"
-            aria-label="Sitio web de KRAKEN"
-          >
-            <img src="/section-icons/sitio-web.png" alt="" className="h-9 w-9 rounded-lg" />
-          </a>
-          <div className="flex flex-col items-center gap-4 text-center">
-            <img src="/kraken-mark.png" alt="KRAKEN" className="h-16 w-16" />
-            <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-              HOLA, {profile.nombre.toUpperCase()}
-            </h1>
-          </div>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <img src="/kraken-mark.png" alt="KRAKEN" className="h-16 w-16" />
+          <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
+            HOLA, {profile.nombre.toUpperCase()}
+          </h1>
         </div>
 
         <Link
@@ -117,6 +109,28 @@ export default async function Home() {
               <span className="shrink-0 text-2xl font-light leading-none text-gray-500">›</span>
             </a>
           </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <a
+            href={URL_SITIO_WEB}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-2 rounded-lg border border-border bg-bg-card px-3 py-4 text-xs text-white transition-colors hover:border-border-strong"
+          >
+            <img src="/section-icons/sitio-web.png" alt="" className="h-14 w-14 rounded-xl" />
+            Sitio web
+          </a>
+          <a
+            href={WHATSAPP_SOPORTE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col items-center gap-2 rounded-lg border border-border bg-bg-card px-3 py-4 text-xs text-white transition-colors hover:border-border-strong"
+          >
+            <img src="/section-icons/soporte.png" alt="" className="h-14 w-14 rounded-xl" />
+            Soporte
+          </a>
+          <CompartirAppBoton />
         </div>
       </div>
     </main>

@@ -867,6 +867,16 @@ columnas que ya existen, sin cambiar el esquema:
 - **Recuperar contraseña**: falta implementar el flujo de
   `resetPasswordForEmail` de Supabase Auth (mail automático al correo
   registrado) -- pedido explícito del usuario, no construido aún.
+- **Fila de 3 accesos en Inicio** (agregada 2026-09-30, debajo de "¿Buscás
+  más?"): Sitio web (se movió del ícono chico arriba a la derecha, que ya
+  no existe), Soporte (WhatsApp directo al coach, reusa el mismo número de
+  `WHATSAPP_MENTORIA` con otro mensaje pre-armado -- si el coach quiere un
+  número distinto para soporte, avisar) y Compartir
+  (`src/components/compartir-app-boton.tsx`, `navigator.share` con
+  fallback a copiar el link al portapapeles y por último abrir la URL).
+  Por ahora comparte el link de la PWA (`URL_APP` en ese componente); el
+  día que la app esté en Play Store/App Store, ese es el único lugar que
+  hay que tocar para que comparta el link de la tienda en su lugar.
 
 ## Convenciones de código a respetar
 
