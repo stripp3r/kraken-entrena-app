@@ -24,7 +24,7 @@ export default async function Home() {
   const [{ data: profile }, { data: sub }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("nombre, golden_perpetuo, premium_hasta, premium_origen")
+      .select("nombre, golden_perpetuo, premium_hasta, premium_origen, modalidad_mentoria")
       .eq("id", user.id)
       .single(),
     supabase

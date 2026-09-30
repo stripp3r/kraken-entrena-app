@@ -5,6 +5,11 @@ export type EstadoPremium = {
   golden_perpetuo?: boolean | null;
   premium_hasta?: string | null;
   premium_origen?: string | null;
+  // Solo tiene sentido cuando premium_origen = 'mentoria' -- privada
+  // (entrena cara a cara con el coach) u online (se autoadministra la
+  // rutina). Mismo acceso en la app para las dos, ver `permisos()` --
+  // esto es puramente para la etiqueta de "Tu plan".
+  modalidad_mentoria?: string | null;
 };
 
 // Etiqueta + color para mostrar el estado de suscripción en la UI.
@@ -257,7 +262,22 @@ export function obtenerSuscripcion(
   // "Mentoría". Confirmado en producción con 2 cuentas reales de mentoría
   // que tenían una `suscripciones` vieja de cuando eran Golden.
   if (esMentoria(profile)) {
-    return { texto: `Mentoría · hasta ${ddmm(profile?.premium_hasta)}`, tono: "oro" };
+    // "Privada" (cara a cara con el coach) u "Online" (se autoadministra
+    // la rutina) -- mismo acceso en la app, definido 2026-09-30. Si una
+    // cuenta vieja todavía no tiene `modalidad_mentoria` cargada (antes de
+    // la migración 086), cae al texto genérico en vez de romper.
+    const modalidad =
+      profile?.modalidad_mentoria === "online"
+        ? "Online"
+        : profile?.modalidad_mentoria === "presencial"
+          ? "Privada"
+          : null;
+    return {
+      texto: modalidad
+        ? `Mentoría 1:1 · ${modalidad} · hasta ${ddmm(profile?.premium_hasta)}`
+        : `Mentoría · hasta ${ddmm(profile?.premium_hasta)}`,
+      tono: "oro",
+    };
   }
 
   // Golden mensual y anual dan EXACTAMENTE el mismo acceso -- la única

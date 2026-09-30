@@ -638,12 +638,19 @@ columnas que ya existen, sin cambiar el esquema:
     listado), pero para chequear una rutina específica siempre
     `rutinaIncluidaEnPlan`.
 - **Mentoría 1:1** (`premium_origen = 'mentoria'`, definido con el coach
-  2026-09-30): **online y presencial/privada son la MISMA categoría**, no
-  dos variantes -- dan exactamente el mismo acceso en la app. La única
-  diferencia real entre ellas es cómo se arma la rutina (el coach la ve en
-  persona en su gimnasio privado, vs. el cliente se autoadministra a
-  distancia), no algo que la app tenga que distinguir con una columna
-  propia. Acceso completo vía `permisos()` en `premium.ts`: Rutinas
+  2026-09-30): **online y presencial/privada dan exactamente el mismo
+  acceso** en la app (`permisos()` no las distingue, ni tiene por qué).
+  **Corrección del mismo día**: primero se asumió que por eso no hacía
+  falta distinguirlas en absoluto -- mal, el coach aclaró después que la
+  ETIQUETA de "Tu plan" sí tiene que decir cuál es de las dos ("Mentoría
+  1:1 · Privada" o "Mentoría 1:1 · Online"), aunque el acceso sea idéntico.
+  Se agregó `profiles.modalidad_mentoria` (`'online'` | `'presencial'`,
+  migración 086) solo para esto -- `obtenerSuscripcion()` arma el texto a
+  partir de ahí, cae al genérico "Mentoría · hasta [fecha]" si una cuenta
+  vieja todavía no la tiene cargada. Backfill de la migración: Santiago
+  Pelotti es el único online confirmado, el resto de las cuentas de
+  mentoría actuales quedan como presenciales. Acceso completo vía
+  `permisos()` en `premium.ts`: Rutinas
   adquiridas, Cardio, Análisis completo (Medidas/Entrenamiento/Salud/
   Historial), Perfil completo (Mi evolución + Mis PDFs), Calculadora de
   calorías Y Guía alimenticia (su exclusivo). **Sin catálogo completo**
