@@ -7,7 +7,7 @@ import { linkWhatsapp } from "@/lib/contacto";
 
 const URL_PLANES = "https://kraken-fitness-web.vercel.app/#planes";
 const URL_SITIO_WEB = "https://kraken-fitness-web.vercel.app/#inicio";
-const WHATSAPP_MENTORIA = linkWhatsapp("Hola KRAKEN, quiero info de la Mentoría");
+const URL_MENTORIAS = "https://kraken-fitness-web.vercel.app/#mentorias";
 const WHATSAPP_SOPORTE = linkWhatsapp("Hola KRAKEN, tengo un problema con la app");
 
 export default async function Home() {
@@ -84,7 +84,7 @@ export default async function Home() {
               </Link>
             )}
             <a
-              href={WHATSAPP_MENTORIA}
+              href={URL_MENTORIAS}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-card px-4 py-3 transition-colors hover:border-border-strong active:bg-bg"
