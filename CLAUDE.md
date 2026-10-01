@@ -678,40 +678,58 @@ columnas que ya existen, sin cambiar el esquema:
       para que coincida). Basic y VIP dan el MISMO acceso en la app --la
       diferencia es puramente atención humana fuera de la app (contacto
       diario, revisión de técnica, descuentos en consultorías para VIP).
-    - **Solo PayPal/USD por ahora**, no Mercado Pago/ARS -- no se cargó
-      `precio_ars` en los productos nuevos, el checkout de MP para esto
-      queda sin construir hasta que se pida.
+    - **PayPal/USD y Mercado Pago/ARS, igual que Golden** (MP agregado
+      2026-10-01) -- `precio_ars` quedó en null a propósito en los
+      productos nuevos (mismo criterio que Anti-Flakardo: no se adivina un
+      precio con plata real) hasta que el coach lo cargue; sin ese precio
+      el checkout de MP devuelve 503 en vez de romper.
     - **Piezas nuevas, todas espejo de las de Golden pero separadas**:
       `codificarReferenciaMentoriaOnline`/`decodificarReferenciaMentoriaOnline`/
-      `acreditarCobroMentoriaOnline` en `src/lib/suscripciones.ts` (el
-      `custom_id` de PayPal usa el prefijo `"mentoria:"`, formato distinto
-      al de Golden -- así el webhook nunca puede confundir una referencia
-      con la otra); `crearPlanMentoriaOnlinePaypal`/
-      `crearSuscripcionMentoriaOnlinePaypal` en `src/lib/paypal.ts`;
-      rutas `src/app/api/checkout/mentoria-online/paypal/route.ts`
-      (`?tier=basic|vip`) y su `/retorno`; el webhook compartido
-      `src/app/api/webhooks/paypal/route.ts` ahora chequea primero si el
-      `custom_id` es de mentoría antes de asumir que es Golden (si no
-      matchea, sigue exactamente el camino de Golden de siempre, cero
-      cambio de comportamiento ahí). `marcarSuscripcionActiva`/
-      `pausarGolden`/`cancelarGolden` SÍ se reusan tal cual para mentoría
-      (son genéricas pese al nombre, no hacen nada Golden-específico).
-      Migración 087: productos `mentoria-online-basic`/`mentoria-online-vip`.
+      `acreditarCobroMentoriaOnline` en `src/lib/suscripciones.ts` (la
+      referencia usa el prefijo `"mentoria:"` tanto en el `custom_id` de
+      PayPal como en el `external_reference` de MP, formato distinto al de
+      Golden -- así ningún webhook puede confundir una referencia con la
+      otra); `crearPlanMentoriaOnlinePaypal`/`crearSuscripcionMentoriaOnlinePaypal`
+      en `src/lib/paypal.ts`, `crearSuscripcionMentoriaOnline` en
+      `src/lib/mercadopago.ts`; rutas
+      `src/app/api/checkout/mentoria-online/paypal/route.ts` (+ `/retorno`)
+      y `src/app/api/checkout/mentoria-online/mercadopago/route.ts`
+      (ambas `?tier=basic|vip`). Los dos webhooks compartidos
+      (`src/app/api/webhooks/paypal/route.ts` y `.../mercadopago/route.ts`)
+      chequean primero si la referencia es de mentoría antes de asumir que
+      es Golden -- si no matchea, siguen exactamente el camino de Golden
+      de siempre, cero cambio de comportamiento ahí.
+      `marcarSuscripcionActiva`/`pausarGolden`/`cancelarGolden` SÍ se
+      reusan tal cual para mentoría (son genéricas pese al nombre, no
+      hacen nada Golden-específico). Migración 087: productos
+      `mentoria-online-basic`/`mentoria-online-vip`.
     - **Probado contra la API real de PayPal sandbox** (crear producto →
       plan → suscripción con el `custom_id` nuevo) 2026-10-01, funcionó
-      de punta a punta -- no se completó una compra real de principio a
-      fin en el navegador (login automatizado fallando ese día, ver
-      sesión), así que **falta la prueba end-to-end real**: pagar con un
-      comprador de sandbox de PayPal y confirmar que `profile_routine_access`
-      no aplica acá pero `premium_hasta`/`premium_origen`/`modalidad_mentoria`
-      quedan bien tras el webhook.
-    - **Sin resolver todavía, preguntarle al coach antes de avanzar**: no
-      hay ninguna pantalla en la app para EMPEZAR este checkout (hoy es
-      una URL cruda, `/api/checkout/mentoria-online/paypal?tier=basic`) --
-      falta decidir si se linkea desde el sitio web (reemplazando los
-      botones actuales de WhatsApp "Quiero empezar"), si el coach lo
-      manda a mano por WhatsApp después de hablar con el lead, o si se
-      arma una pantalla propia en la app estilo `/golden`.
+      de punta a punta. El lado de Mercado Pago NO se probó contra la API
+      real todavía (solo build + lectura de código). Ninguno de los dos
+      tuvo una compra real de principio a fin en el navegador -- el coach
+      decidió explícitamente no hacer esa prueba ("no creo que vengan en
+      masa 100 personas... se va a autochequear solo una vez que empiece a
+      tener clientes").
+    - **Entrada del checkout: el sitio web, NO la app** (decidido
+      2026-10-01). Agregado un botón "Empezar ahora" en
+      `kraken-fitness-web` (repo y chat de Code aparte, NUNCA tocar ese
+      repo desde esta sesión sin que el coach lo pida explícitamente --
+      pasó una vez por error, corregido) junto al botón de WhatsApp que ya
+      tenía cada tarjeta (Basic/VIP), linkeando directo a
+      `/api/checkout/mentoria-online/paypal?tier=basic|vip`. El link
+      "Mentoría personalizada" de Inicio en la app también apunta ahí
+      (`#mentorias` del sitio) en vez de ir directo a WhatsApp.
+      **Pendiente**: el botón del sitio hoy solo ofrece PayPal -- falta
+      sumar la opción de Mercado Pago ahí (la ruta ya existe en la app,
+      `/api/checkout/mentoria-online/mercadopago?tier=...`, el sitio todavía
+      no la usa). Lo arma el chat de Code que lleva el sitio web, no esta
+      sesión.
+    - **Fricción conocida, sin resolver**: si alguien sin cuenta en la app
+      toca "Empezar ahora" desde el sitio, lo manda a `/login` y después
+      de loguearse/registrarse NO vuelve solo al checkout (aterriza en
+      Inicio) -- tiene que tocar el link de nuevo. No se resolvió porque
+      no se pidió, es chico pero real.
 - **Golden Anual / Golden Mensual** (`premium_origen = 'golden'`, definido
   con el coach 2026-09-29): dan **exactamente el mismo acceso**, sin
   ninguna distinción funcional -- catálogo completo de rutinas públicas,

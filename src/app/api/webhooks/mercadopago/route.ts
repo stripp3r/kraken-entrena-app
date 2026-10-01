@@ -11,9 +11,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   marcarSuscripcionActiva,
   acreditarCobroGolden,
+  acreditarCobroMentoriaOnline,
   pausarGolden,
   cancelarGolden,
   decodificarReferencia,
+  decodificarReferenciaMentoriaOnline,
 } from "@/lib/suscripciones";
 
 const soloFecha = (iso?: string | null) => (iso ? iso.slice(0, 10) : null);
@@ -47,13 +49,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Sin id" }, { status: 400 });
   }
 
-  // ---------- Suscripción Golden: autorización / cancelación / pausa ----------
+  // ---------- Suscripción Golden o Mentoría Online: autorización / cancelación / pausa ----------
   if (tipo === "subscription_preapproval") {
     const pre = await obtenerPreApproval(String(id));
     if (!pre.external_reference || !pre.id) {
       return NextResponse.json({ error: "Preapproval sin external_reference" }, { status: 400 });
     }
-    const { userId, frecuencia } = decodificarReferencia(pre.external_reference);
+    const mentoria = decodificarReferenciaMentoriaOnline(pre.external_reference);
+    const { userId, frecuencia } = mentoria
+      ? { userId: mentoria.userId, frecuencia: "mensual" as const }
+      : decodificarReferencia(pre.external_reference);
     if (pre.status === "authorized") {
       await marcarSuscripcionActiva({
         userId,
@@ -72,9 +77,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, status: pre.status });
   }
 
-  // ---------- Suscripción Golden: cada cobro (mensual o anual) ----------
+  // ---------- Suscripción Golden o Mentoría Online: cada cobro ----------
   if (tipo === "subscription_authorized_payment") {
     const ap = await obtenerAuthorizedPayment(String(id));
+
+    // El external_reference del preapproval en sí (no el del cobro
+    // individual) es la única fuente confiable de "¿esto es Mentoría
+    // Online o Golden?" -- siempre se chequea en vivo contra la API,
+    // mismo criterio que el webhook de PayPal.
+    const pre = await obtenerPreApproval(ap.preapproval_id);
+    const mentoria = pre.external_reference
+      ? decodificarReferenciaMentoriaOnline(pre.external_reference)
+      : null;
+
+    if (mentoria) {
+      if (ap.status === "processed") {
+        await acreditarCobroMentoriaOnline({
+          userId: mentoria.userId,
+          proveedor: "mercadopago",
+          proveedorSubId: ap.preapproval_id,
+          tier: mentoria.tier,
+          cobroId: String(ap.id),
+          precio: ap.transaction_amount ?? null,
+          moneda: ap.currency_id ?? "ARS",
+          proximoCobro: soloFecha(ap.next_payment_date),
+        });
+      } else if (ap.status === "rejected") {
+        await pausarGolden("mercadopago", ap.preapproval_id);
+      }
+      return NextResponse.json({ ok: true, status: ap.status });
+    }
+
     const admin = createAdminClient();
     const { data: sub } = await admin
       .from("suscripciones")
@@ -85,13 +118,10 @@ export async function POST(request: NextRequest) {
 
     let userId = sub?.user_id ?? null;
     let frecuencia = sub?.frecuencia as "mensual" | "anual" | undefined;
-    if (!userId || !frecuencia) {
-      const pre = await obtenerPreApproval(ap.preapproval_id);
-      if (pre.external_reference) {
-        const decodificado = decodificarReferencia(pre.external_reference);
-        userId = userId ?? decodificado.userId;
-        frecuencia = frecuencia ?? decodificado.frecuencia;
-      }
+    if ((!userId || !frecuencia) && pre.external_reference) {
+      const decodificado = decodificarReferencia(pre.external_reference);
+      userId = userId ?? decodificado.userId;
+      frecuencia = frecuencia ?? decodificado.frecuencia;
     }
     if (!userId || !frecuencia) {
       return NextResponse.json({ error: "No se pudo resolver el usuario" }, { status: 400 });

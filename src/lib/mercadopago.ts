@@ -5,7 +5,12 @@ import {
   PreApproval,
   WebhookSignatureValidator,
 } from "mercadopago";
-import { codificarReferencia, type Frecuencia } from "@/lib/suscripciones";
+import {
+  codificarReferencia,
+  codificarReferenciaMentoriaOnline,
+  type Frecuencia,
+  type TierMentoriaOnline,
+} from "@/lib/suscripciones";
 
 function config() {
   return new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN! });
@@ -80,6 +85,47 @@ export async function crearSuscripcionGolden({
       status: "pending",
       auto_recurring: {
         frequency: frecuencia === "mensual" ? 1 : 12,
+        frequency_type: "months",
+        transaction_amount: precioArs,
+        currency_id: "ARS",
+      },
+    },
+  });
+  return { id: result.id ?? null, initPoint: result.init_point ?? null };
+}
+
+// ---------- Suscripción Mentoría Online (2026-10-01) ----------
+// Mismo mecanismo que crearSuscripcionGolden, función separada -- ver el
+// comentario en suscripciones.ts sobre por qué Mentoría Online nunca
+// comparte código con Golden.
+const NOMBRE_TIER_MENTORIA: Record<TierMentoriaOnline, string> = {
+  basic: "KRAKEN Mentoría Online Basic",
+  vip: "KRAKEN Mentoría Online VIP",
+};
+
+export async function crearSuscripcionMentoriaOnline({
+  userId,
+  tier,
+  email,
+  precioArs,
+  backUrl,
+}: {
+  userId: string;
+  tier: TierMentoriaOnline;
+  email: string;
+  precioArs: number;
+  backUrl: string;
+}) {
+  const preapproval = new PreApproval(config());
+  const result = await preapproval.create({
+    body: {
+      reason: `${NOMBRE_TIER_MENTORIA[tier]} (suscripción mensual)`,
+      external_reference: codificarReferenciaMentoriaOnline(userId, tier),
+      payer_email: email,
+      back_url: backUrl,
+      status: "pending",
+      auto_recurring: {
+        frequency: 1,
         frequency_type: "months",
         transaction_amount: precioArs,
         currency_id: "ARS",
