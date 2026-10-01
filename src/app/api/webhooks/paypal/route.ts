@@ -9,13 +9,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   marcarSuscripcionActiva,
   acreditarCobroGolden,
+  acreditarCobroMentoriaOnline,
   pausarGolden,
   cancelarGolden,
   decodificarReferencia,
+  decodificarReferenciaMentoriaOnline,
 } from "@/lib/suscripciones";
 
 // Un solo webhook para PayPal: pagos únicos (PAYMENT.CAPTURE.COMPLETED) y
-// suscripciones Golden (BILLING.SUBSCRIPTION.* / PAYMENT.SALE.COMPLETED).
+// suscripciones recurrentes -- Golden Y Mentoría Online (ambas pasan por
+// BILLING.SUBSCRIPTION.* / PAYMENT.SALE.COMPLETED, distinguidas por el
+// formato del custom_id -- ver decodificarReferenciaMentoriaOnline, que
+// devuelve null si no es una referencia de mentoría, y en ese caso se sigue
+// tratando como Golden, exactamente el comportamiento de antes de agregar
+// esto).
 export async function POST(request: NextRequest) {
   // Se guarda el cuerpo crudo y se verifica la firma ANTES de parsearlo --
   // ver el comentario en verificarFirmaWebhookPaypal para el por qué.
@@ -44,12 +51,15 @@ export async function POST(request: NextRequest) {
   const tipo = payload.event_type as string;
   const recurso = payload.resource ?? {};
 
-  // ---------- Suscripción Golden ----------
+  // ---------- Suscripción Golden o Mentoría Online ----------
   if (tipo === "BILLING.SUBSCRIPTION.ACTIVATED" || tipo === "BILLING.SUBSCRIPTION.RE-ACTIVATED") {
     if (!recurso.id || !recurso.custom_id) {
       return NextResponse.json({ error: "Suscripción sin custom_id" }, { status: 400 });
     }
-    const { userId, frecuencia } = decodificarReferencia(recurso.custom_id);
+    const mentoria = decodificarReferenciaMentoriaOnline(recurso.custom_id);
+    const { userId, frecuencia } = mentoria
+      ? { userId: mentoria.userId, frecuencia: "mensual" as const }
+      : decodificarReferencia(recurso.custom_id);
     await marcarSuscripcionActiva({
       userId,
       proveedor: "paypal",
@@ -66,6 +76,28 @@ export async function POST(request: NextRequest) {
 
   if (tipo === "PAYMENT.SALE.COMPLETED" && recurso.billing_agreement_id) {
     const subId = recurso.billing_agreement_id as string;
+    const sub = await obtenerSuscripcionPaypal(subId);
+
+    // El custom_id de la suscripción en sí (no el del pago individual) es
+    // la única fuente confiable de "¿esto es Mentoría Online o Golden?" --
+    // siempre se chequea contra la API en vivo, nunca se asume por lo que
+    // ya haya guardado en `suscripciones`.
+    const mentoria = sub.custom_id ? decodificarReferenciaMentoriaOnline(sub.custom_id) : null;
+
+    if (mentoria) {
+      await acreditarCobroMentoriaOnline({
+        userId: mentoria.userId,
+        proveedor: "paypal",
+        proveedorSubId: subId,
+        tier: mentoria.tier,
+        cobroId: String(recurso.id),
+        precio: recurso.amount?.total ? Number(recurso.amount.total) : null,
+        moneda: recurso.amount?.currency ?? "USD",
+        proximoCobro: sub.billing_info?.next_billing_time?.slice(0, 10) ?? null,
+      });
+      return NextResponse.json({ ok: true });
+    }
+
     const admin = createAdminClient();
     const { data: fila } = await admin
       .from("suscripciones")
@@ -74,7 +106,6 @@ export async function POST(request: NextRequest) {
       .eq("proveedor_sub_id", subId)
       .maybeSingle();
 
-    const sub = await obtenerSuscripcionPaypal(subId);
     let userId = fila?.user_id ?? null;
     let frecuencia = fila?.frecuencia as "mensual" | "anual" | undefined;
     if ((!userId || !frecuencia) && sub.custom_id) {

@@ -145,6 +145,106 @@ export async function acreditarCobroGolden({
   return { ok: true, premiumHasta: nuevoHasta };
 }
 
+// ---------- Mentoría Online (débito automático, 2026-09-30) ----------
+// Funciones NUEVAS y separadas de las de Golden de arriba -- a propósito,
+// para no arriesgar la suscripción Golden real (plata de verdad) tocando
+// código compartido. `marcarSuscripcionActiva`/`pausarGolden`/
+// `cancelarGolden` de arriba SÍ se reusan tal cual para Mentoría Online
+// (son genéricas, no hacen nada específico de Golden pese al nombre).
+
+export type TierMentoriaOnline = "basic" | "vip";
+
+// Prefijo "mentoria:" a propósito distinto del formato de Golden
+// ("userId|frecuencia") -- así nunca se puede confundir una referencia con
+// la otra en el webhook, decodificarReferenciaMentoriaOnline devuelve null
+// de entrada si no matchea.
+export function codificarReferenciaMentoriaOnline(userId: string, tier: TierMentoriaOnline): string {
+  return `mentoria:${userId}:${tier}`;
+}
+
+export function decodificarReferenciaMentoriaOnline(
+  ref: string
+): { userId: string; tier: TierMentoriaOnline } | null {
+  if (!ref.startsWith("mentoria:")) return null;
+  const [, userId, tier] = ref.split(":");
+  if (!userId || (tier !== "basic" && tier !== "vip")) return null;
+  return { userId, tier };
+}
+
+// Mismo criterio que acreditarCobroGolden (base = mayor entre hoy y
+// premium_hasta actual, nunca pisa días ya pagados) pero SIEMPRE mensual
+// -- Mentoría Online no tiene variante anual -- y marca
+// premium_origen='mentoria' + modalidad_mentoria='online' en vez de
+// 'golden'.
+export async function acreditarCobroMentoriaOnline({
+  userId,
+  proveedor,
+  proveedorSubId,
+  tier,
+  cobroId,
+  precio,
+  moneda,
+  proximoCobro,
+}: {
+  userId: string;
+  proveedor: "mercadopago" | "paypal";
+  proveedorSubId: string;
+  tier: TierMentoriaOnline;
+  cobroId: string;
+  precio: number | null;
+  moneda: string | null;
+  proximoCobro: string | null;
+}) {
+  const supabase = createAdminClient();
+  const hoy = hoyISO();
+
+  const { data: sub } = await supabase
+    .from("suscripciones")
+    .select("ultimo_cobro_id, proximo_cobro")
+    .eq("proveedor", proveedor)
+    .eq("proveedor_sub_id", proveedorSubId)
+    .maybeSingle();
+
+  if (sub?.ultimo_cobro_id === cobroId) {
+    return { ok: true, yaAcreditado: true };
+  }
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("premium_hasta")
+    .eq("id", userId)
+    .single();
+
+  const base = perfil?.premium_hasta && perfil.premium_hasta > hoy ? perfil.premium_hasta : hoy;
+  const nuevoHasta = unMesDesde(base);
+
+  await supabase
+    .from("profiles")
+    .update({ premium_hasta: nuevoHasta, premium_origen: "mentoria", modalidad_mentoria: "online" })
+    .eq("id", userId);
+
+  const proximoCobroFinal = proximoCobro ?? sub?.proximo_cobro ?? nuevoHasta;
+
+  await supabase.from("suscripciones").upsert(
+    {
+      user_id: userId,
+      proveedor,
+      proveedor_sub_id: proveedorSubId,
+      frecuencia: "mensual",
+      estado: "activa",
+      precio,
+      moneda,
+      proximo_cobro: proximoCobroFinal,
+      cancelada_al: null,
+      ultimo_cobro_id: cobroId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "proveedor,proveedor_sub_id" }
+  );
+
+  return { ok: true, premiumHasta: nuevoHasta, tier };
+}
+
 // La suscripción se pausó (pago rechazado, tarjeta vencida). NO se toca
 // premium_hasta: el usuario sigue con acceso hasta que venza el período
 // que ya pagó.

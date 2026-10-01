@@ -659,17 +659,59 @@ columnas que ya existen, sin cambiar el esquema:
   rutina** (`limiteRutinasCreadas: 0`, corregido 2026-09-30 -- antes
   estaba sin límite por error): la rutina la arma el coach, no tiene
   sentido que el cliente tenga esa herramienta ("para eso estoy yo").
-  - **Pendiente de diseño, explícitamente NO resolver todavía sin que el
-    coach lo pida**: un sistema de cobro/vencimiento automático para
-    Mentoría. Hoy la renovación es 100% manual (el coach empuja
-    `premium_hasta` a mano cuando el cliente le paga, fuera de Mercado
-    Pago/PayPal) -- para la modalidad online esto es un riesgo real
-    ("si una persona deja de pagar, puede que nunca me entere"), para la
-    presencial es menos grave porque el coach ve al cliente en persona.
-    El coach fue explícito 2026-09-30: hace falta "un trabajo interno de
-    gestión de pagos, cobranzas" antes de poder automatizar esto bien
-    (cobro mensual o hasta por sesión, todavía sin definir) -- se
-    encara cuando él lo traiga, no antes.
+  - **Mentoría Privada**: vencimiento 100% manual a propósito, sin cambios
+    -- el coach ve al cliente en persona y decide quién sigue activo.
+    Automatizarla queda pausado hasta que tenga su propio gimnasio
+    comercial (su propia palabra: "por el momento seré yo quien defina").
+  - **Mentoría Online -- débito automático (construido 2026-10-01)**: a
+    diferencia de la privada, acá sí había un riesgo real ("si una persona
+    deja de pagar, puede que nunca me entere"). Se resolvió reusando el
+    MISMO mecanismo que ya factura Golden (PayPal billing subscriptions,
+    webhook, `premium_hasta` se extiende en cada cobro confirmado) pero en
+    código 100% separado -- nunca se tocó ni una línea del código de
+    Golden, para no arriesgar esa facturación real por una regresión.
+    - **Dos planes, precio mensual plano, sin puesta en marcha** (el sitio
+      web mostraba Basic US$49 + US$39/mes y VIP US$149 + US$100/mes; el
+      coach lo simplificó a Basic US$39/mes y VIP US$99/mes parejo, "no
+      generemos fricciones innecesarias por poco dinero" -- **si el sitio
+      web todavía muestra la puesta en marcha vieja, hay que actualizarlo**
+      para que coincida). Basic y VIP dan el MISMO acceso en la app --la
+      diferencia es puramente atención humana fuera de la app (contacto
+      diario, revisión de técnica, descuentos en consultorías para VIP).
+    - **Solo PayPal/USD por ahora**, no Mercado Pago/ARS -- no se cargó
+      `precio_ars` en los productos nuevos, el checkout de MP para esto
+      queda sin construir hasta que se pida.
+    - **Piezas nuevas, todas espejo de las de Golden pero separadas**:
+      `codificarReferenciaMentoriaOnline`/`decodificarReferenciaMentoriaOnline`/
+      `acreditarCobroMentoriaOnline` en `src/lib/suscripciones.ts` (el
+      `custom_id` de PayPal usa el prefijo `"mentoria:"`, formato distinto
+      al de Golden -- así el webhook nunca puede confundir una referencia
+      con la otra); `crearPlanMentoriaOnlinePaypal`/
+      `crearSuscripcionMentoriaOnlinePaypal` en `src/lib/paypal.ts`;
+      rutas `src/app/api/checkout/mentoria-online/paypal/route.ts`
+      (`?tier=basic|vip`) y su `/retorno`; el webhook compartido
+      `src/app/api/webhooks/paypal/route.ts` ahora chequea primero si el
+      `custom_id` es de mentoría antes de asumir que es Golden (si no
+      matchea, sigue exactamente el camino de Golden de siempre, cero
+      cambio de comportamiento ahí). `marcarSuscripcionActiva`/
+      `pausarGolden`/`cancelarGolden` SÍ se reusan tal cual para mentoría
+      (son genéricas pese al nombre, no hacen nada Golden-específico).
+      Migración 087: productos `mentoria-online-basic`/`mentoria-online-vip`.
+    - **Probado contra la API real de PayPal sandbox** (crear producto →
+      plan → suscripción con el `custom_id` nuevo) 2026-10-01, funcionó
+      de punta a punta -- no se completó una compra real de principio a
+      fin en el navegador (login automatizado fallando ese día, ver
+      sesión), así que **falta la prueba end-to-end real**: pagar con un
+      comprador de sandbox de PayPal y confirmar que `profile_routine_access`
+      no aplica acá pero `premium_hasta`/`premium_origen`/`modalidad_mentoria`
+      quedan bien tras el webhook.
+    - **Sin resolver todavía, preguntarle al coach antes de avanzar**: no
+      hay ninguna pantalla en la app para EMPEZAR este checkout (hoy es
+      una URL cruda, `/api/checkout/mentoria-online/paypal?tier=basic`) --
+      falta decidir si se linkea desde el sitio web (reemplazando los
+      botones actuales de WhatsApp "Quiero empezar"), si el coach lo
+      manda a mano por WhatsApp después de hablar con el lead, o si se
+      arma una pantalla propia en la app estilo `/golden`.
 - **Golden Anual / Golden Mensual** (`premium_origen = 'golden'`, definido
   con el coach 2026-09-29): dan **exactamente el mismo acceso**, sin
   ninguna distinción funcional -- catálogo completo de rutinas públicas,

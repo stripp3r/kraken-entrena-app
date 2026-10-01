@@ -6,7 +6,12 @@ import {
   PaypalExperienceUserAction,
   PaypalWalletContextShippingPreference,
 } from "@paypal/paypal-server-sdk";
-import { codificarReferencia, type Frecuencia } from "@/lib/suscripciones";
+import {
+  codificarReferencia,
+  codificarReferenciaMentoriaOnline,
+  type Frecuencia,
+  type TierMentoriaOnline,
+} from "@/lib/suscripciones";
 
 function ambiente() {
   return process.env.PAYPAL_ENVIRONMENT === "production"
@@ -211,6 +216,91 @@ export async function crearSuscripcionGoldenPaypal({
     body: JSON.stringify({
       plan_id: planId,
       custom_id: codificarReferencia(userId, frecuencia),
+      application_context: {
+        brand_name: "KRAKEN Fitness",
+        user_action: "SUBSCRIBE_NOW",
+        shipping_preference: "NO_SHIPPING",
+        return_url: returnUrl,
+        cancel_url: cancelUrl,
+      },
+    }),
+  });
+
+  const aprobarUrl =
+    (sub.links as { rel: string; href: string }[] | undefined)?.find((l) => l.rel === "approve")
+      ?.href ?? null;
+  return { id: sub.id as string | undefined, aprobarUrl };
+}
+
+// ---------- Suscripción Mentoría Online (2026-09-30) ----------
+// Mismo mecanismo que Golden (billing plan + subscription por REST), pero
+// en funciones separadas -- ver el comentario en suscripciones.ts sobre
+// por qué no se reusa el código de Golden acá.
+const NOMBRE_TIER_MENTORIA: Record<TierMentoriaOnline, string> = {
+  basic: "KRAKEN Mentoría Online Basic",
+  vip: "KRAKEN Mentoría Online VIP",
+};
+
+export async function crearPlanMentoriaOnlinePaypal(
+  precioUsd: number,
+  tier: TierMentoriaOnline
+): Promise<string> {
+  const producto = await paypalFetch("/v1/catalogs/products", {
+    method: "POST",
+    body: JSON.stringify({
+      name: NOMBRE_TIER_MENTORIA[tier],
+      description: "Mentoría 1:1 online con KRAKEN Fitness",
+      type: "SERVICE",
+      category: "SOFTWARE",
+    }),
+  });
+
+  const plan = await paypalFetch("/v1/billing/plans", {
+    method: "POST",
+    body: JSON.stringify({
+      product_id: producto.id,
+      name: NOMBRE_TIER_MENTORIA[tier],
+      description: "Suscripción mensual con renovación automática",
+      billing_cycles: [
+        {
+          frequency: { interval_unit: "MONTH", interval_count: 1 },
+          tenure_type: "REGULAR",
+          sequence: 1,
+          total_cycles: 0,
+          pricing_scheme: {
+            fixed_price: { value: precioUsd.toFixed(2), currency_code: "USD" },
+          },
+        },
+      ],
+      payment_preferences: {
+        auto_bill_outstanding: true,
+        setup_fee_failure_action: "CANCEL",
+        payment_failure_threshold: 1,
+      },
+    }),
+  });
+
+  return plan.id as string;
+}
+
+export async function crearSuscripcionMentoriaOnlinePaypal({
+  planId,
+  userId,
+  tier,
+  returnUrl,
+  cancelUrl,
+}: {
+  planId: string;
+  userId: string;
+  tier: TierMentoriaOnline;
+  returnUrl: string;
+  cancelUrl: string;
+}) {
+  const sub = await paypalFetch("/v1/billing/subscriptions", {
+    method: "POST",
+    body: JSON.stringify({
+      plan_id: planId,
+      custom_id: codificarReferenciaMentoriaOnline(userId, tier),
       application_context: {
         brand_name: "KRAKEN Fitness",
         user_action: "SUBSCRIBE_NOW",
