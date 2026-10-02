@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { rutaSiguienteSegura } from "@/lib/next-redirect";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
+  const next = rutaSiguienteSegura(formData.get("next"));
 
   const { error } = await supabase.auth.signInWithPassword({
     email: formData.get("email") as string,
@@ -13,15 +15,17 @@ export async function login(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    const sufijoNext = next ? `&next=${encodeURIComponent(next)}` : "";
+    redirect(`/login?error=${encodeURIComponent(error.message)}${sufijoNext}`);
   }
 
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect(next ?? "/");
 }
 
 export async function signup(formData: FormData) {
   const supabase = await createClient();
+  const next = rutaSiguienteSegura(formData.get("next"));
 
   const { error } = await supabase.auth.signUp({
     email: formData.get("email") as string,
@@ -29,11 +33,15 @@ export async function signup(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/registro?error=${encodeURIComponent(error.message)}`);
+    const sufijoNext = next ? `&next=${encodeURIComponent(next)}` : "";
+    redirect(`/registro?error=${encodeURIComponent(error.message)}${sufijoNext}`);
   }
 
   revalidatePath("/", "layout");
-  redirect("/perfil/datos");
+  // Un usuario recién registrado siempre pasa primero por Datos personales
+  // (lo exige el resto de la app, ver page.tsx de Inicio) -- "next" recién
+  // se usa después de completar ese paso, no en vez de él.
+  redirect(next ? `/perfil/datos?next=${encodeURIComponent(next)}` : "/perfil/datos");
 }
 
 export async function logout() {

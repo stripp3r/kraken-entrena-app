@@ -7,9 +7,9 @@ import { obtenerSuscripcion } from "@/lib/premium";
 export default async function PerfilDatosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -57,6 +57,7 @@ export default async function PerfilDatosPage({
           rutina={rutina ?? null}
           suscripcion={suscripcion}
           error={error}
+          next={next}
         />
       </div>
     </main>

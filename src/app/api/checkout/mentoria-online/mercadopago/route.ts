@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { crearSuscripcionMentoriaOnline } from "@/lib/mercadopago";
 import type { TierMentoriaOnline } from "@/lib/suscripciones";
+import { redirigirALogin } from "@/lib/next-redirect";
 
 // Checkout de Mentoría Online vía Mercado Pago (?tier=basic|vip, basic por
 // default). Mismo patrón que /api/checkout/golden/mercadopago, en un
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user?.email) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirigirALogin(request);
   }
 
   const tier: TierMentoriaOnline =

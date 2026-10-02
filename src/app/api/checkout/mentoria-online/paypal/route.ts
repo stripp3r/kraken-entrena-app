@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { crearPlanMentoriaOnlinePaypal, crearSuscripcionMentoriaOnlinePaypal } from "@/lib/paypal";
 import type { TierMentoriaOnline } from "@/lib/suscripciones";
+import { redirigirALogin } from "@/lib/next-redirect";
 
 // Checkout de Mentoría Online (?tier=basic|vip, basic por default). Mismo
 // patrón que /api/checkout/golden/paypal, en un archivo separado -- ver el
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirigirALogin(request);
   }
 
   const tier: TierMentoriaOnline =

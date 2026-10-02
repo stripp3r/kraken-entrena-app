@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { crearSuscripcionGolden } from "@/lib/mercadopago";
 import type { Frecuencia } from "@/lib/suscripciones";
+import { redirigirALogin } from "@/lib/next-redirect";
 
 // Botón "Suscribirme con Mercado Pago" de /golden (?frecuencia=mensual|anual,
 // anual por default). Crea la suscripción con débito automático y redirige
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user?.email) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirigirALogin(request);
   }
 
   const frecuencia: Frecuencia =

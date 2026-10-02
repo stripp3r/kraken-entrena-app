@@ -80,11 +80,13 @@ export function DatosPersonales({
   rutina,
   suscripcion,
   error,
+  next,
 }: {
   profile: Profile | null;
   rutina: Rutina;
   suscripcion?: Suscripcion;
   error?: string;
+  next?: string;
 }) {
   const [editando, setEditando] = useState(!profile?.nombre);
   const [sexo, setSexo] = useState(profile?.sexo ?? "");
@@ -145,6 +147,7 @@ export function DatosPersonales({
 
   return (
     <form className="flex flex-col gap-4">
+      {next && <input type="hidden" name="next" value={next} />}
       <div className="flex gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <label htmlFor="nombre" className={labelClass}>

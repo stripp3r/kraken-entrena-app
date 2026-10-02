@@ -6,9 +6,9 @@ import { signup } from "../login/actions";
 export default async function RegistroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; email?: string }>;
+  searchParams: Promise<{ error?: string; email?: string; next?: string }>;
 }) {
-  const { error, email } = await searchParams;
+  const { error, email, next } = await searchParams;
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6">
@@ -20,6 +20,8 @@ export default async function RegistroPage({
         <InstalarApp />
 
         <form className="flex flex-col gap-4">
+          {next && <input type="hidden" name="next" value={next} />}
+
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-sm text-gray-300">
               Email
@@ -53,7 +55,10 @@ export default async function RegistroPage({
 
         <p className="mt-6 text-center text-sm text-gray-500">
           ¿Ya tenés cuenta?{" "}
-          <Link href="/login" className="text-gray-300 underline">
+          <Link
+            href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}
+            className="text-gray-300 underline"
+          >
             Entrá
           </Link>
         </p>

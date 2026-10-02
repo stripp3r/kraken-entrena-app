@@ -3,16 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { rutaSiguienteSegura } from "@/lib/next-redirect";
 
 export async function guardarPerfil(formData: FormData) {
   const supabase = await createClient();
+  const next = rutaSiguienteSegura(formData.get("next"));
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
   }
 
   const { error } = await supabase
@@ -29,9 +31,10 @@ export async function guardarPerfil(formData: FormData) {
     .eq("id", user.id);
 
   if (error) {
-    redirect(`/perfil/datos?error=${encodeURIComponent(error.message)}`);
+    const sufijoNext = next ? `&next=${encodeURIComponent(next)}` : "";
+    redirect(`/perfil/datos?error=${encodeURIComponent(error.message)}${sufijoNext}`);
   }
 
   revalidatePath("/");
-  redirect("/");
+  redirect(next ?? "/");
 }
