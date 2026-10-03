@@ -39,9 +39,9 @@ export default async function AnalizadorPage() {
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
         <div className="relative mb-2 flex items-center justify-center">
-          <BackLink href="/entrenamiento/crear-rutina" />
+          <BackLink href="/entrenamiento" />
           <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-            ANALIZADOR
+            COMPARADOR
           </h1>
         </div>
         <p className="mb-6 text-center text-sm text-gray-500">

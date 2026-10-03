@@ -51,6 +51,14 @@ export default async function EntrenamientoPage() {
         </Link>
 
         <Link
+          href="/entrenamiento/analizador"
+          className="mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg text-white transition-colors hover:border-border-strong"
+        >
+          <img src="/section-icons/comparador-rutinas.png" alt="" className="h-14 w-14 rounded-xl" />
+          Comparador de rutinas
+        </Link>
+
+        <Link
           href="/entrenamiento/cardio"
           className={`mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.cardio ? "text-white" : "text-gray-500"}`}
         >

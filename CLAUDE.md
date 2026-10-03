@@ -584,6 +584,20 @@ reportar en qué categoría está cada cliente. Todavía no hay una pantalla
 para esto (se puede pedir más adelante), pero la categorización sale de
 columnas que ya existen, sin cambiar el esquema:
 
+**Regla permanente (pedida por el coach 2026-10-02, después de encontrar el
+bug real de Anti-Flakardo/Golden más abajo)**: cualquier feature nueva que
+se agregue a la app -- una pantalla, un dato, una rutina, un producto --
+tiene que pasar por esta matriz ANTES de escribir código: preguntarle al
+coach explícitamente, categoría por categoría (Founder / Golden mensual-anual
+/ Mentoría Online / Mentoría Privada / Compra Suelta / Free Trial), si esa
+cosa nueva queda incluida o bloqueada, y recién ahí sumarla a `permisos()`
+en `src/lib/premium.ts` (o a `rutinaIncluidaEnPlan`/`profile_routine_access`
+si es una rutina puntual). No asumir por analogía con una categoría
+parecida ni dejarlo "implícito" -- ese supuesto es la causa raíz de los tres
+bugs reales ya encontrados en esta matriz (Vane Capuano con mentoría,
+"Golden · Founder" mal etiquetado, y Anti-Flakardo accesible gratis para
+Golden).
+
 - **Golden Founder** (`premium_origen = 'founder'`, desde migración 083):
   SOLO las 2 cuentas propias del coach (Android e iOS) --
   `ezequiel.arce@outlook.com` y `ar.cs@hotmail.es`. Son las ÚNICAS con
@@ -663,6 +677,14 @@ columnas que ya existen, sin cambiar el esquema:
     -- el coach ve al cliente en persona y decide quién sigue activo.
     Automatizarla queda pausado hasta que tenga su propio gimnasio
     comercial (su propia palabra: "por el momento seré yo quien defina").
+    **Confirmado 2026-10-02**: el coach SÍ quiere automatizarla en el
+    futuro, cuando redefina el formato de ese negocio hacia suscripción
+    mensual (hoy la privada no se cobra como suscripción recurrente). No es
+    un "nunca", es un "todavía no". Cuando llegue ese momento, reusar el
+    mismo pipeline ya armado para Mentoría Online (`acreditarCobroMentoriaOnline`,
+    checkout routes, webhooks) en vez de construir uno nuevo -- la única
+    pieza nueva sería el lado de cobro para la modalidad presencial; el
+    acceso en `permisos()` no cambia (ya es idéntico a la online).
   - **Mentoría Online -- débito automático (construido 2026-10-01)**: a
     diferencia de la privada, acá sí había un riesgo real ("si una persona
     deja de pagar, puede que nunca me entere"). Se resolvió reusando el
@@ -939,12 +961,51 @@ columnas que ya existen, sin cambiar el esquema:
 - **Rutinas multi-día nuevas (Sayayin, variantes de 3 días)**: **rechazadas
   explícitamente, "no las quiero hasta nuevo aviso"** -- no proponerlas de
   nuevo salvo que el usuario las pida.
+- **Comparador de rutinas (movido 2026-10-02)**: antes era un link
+  ("Analizar rutinas adquiridas") escondido dentro de Crea tu rutina;
+  ahora es una tarjeta propia en el hub de Entrenar, entre "Rutinas
+  adquiridas" y "Cardio" (`src/app/entrenamiento/page.tsx`) -- tiene
+  sentido ahí porque compara CUALQUIER rutina que el usuario tenga
+  desbloqueada, no solo las creadas por él. Renombrado de "Analizador" a
+  "Comparador" (hub + H1 de `/entrenamiento/analizador`) para que el
+  nombre describa la función real ("elegí hasta 3 rutinas para comparar su
+  pentágono"); la ruta y el nombre del componente (`AnalizadorCliente`)
+  quedaron igual a propósito, son detalles internos. Su `BackLink` ahora
+  vuelve a `/entrenamiento` (el hub), no a `/entrenamiento/crear-rutina`
+  como antes. Ícono nuevo: `public/section-icons/comparador-rutinas.png`
+  (recortado a cuadrado + reescalado a 160x160 desde `53.png` en
+  `G:\Mi unidad\PROGRAMA SOULVANZ\1 FISICOCULTURISMO\Ejercitacion en el
+  GYM\EntrenaOptimo\Iconos editados\`, la carpeta de íconos editados del
+  coach -- mismo criterio que el resto de `section-icons/`).
 - **Planes autoguiados** (Grasa Sub-Cero, Híbrido, En Casa, Minimalista):
   rutinas `es_privada = true`, exclusivas de quien compró ese producto
   puntual -- NO deben quedar accesibles para Golden/trial en general.
-- **Diferenciación de funciones entre trial / Golden mensual / Golden
-  anual**: pendiente a propósito, el usuario todavía no lo definió --
-  esperar a que traiga specifics concretos, no adelantarse.
+  **Bug real encontrado 2026-10-02** (el coach lo señaló como precaución
+  general y resultó ser un caso real, no hipotético): "Anti-Flakardo
+  Fullbody" y "Anti-Flakardo Torso Pierna" nacieron como rutinas públicas
+  ("3 días - Fullbody" / "Entreno 4 días") y al convertirse en el contenido
+  real del plan autoguiado (migraciones 061/062) nadie les puso
+  `es_privada = true` -- quedó la misma categoría de bug que Vane Capuano,
+  pero del lado de Golden: cualquier cuenta Golden mensual/anual
+  (`catalogoCompleto = true`) veía estas dos como parte del catálogo
+  general y podía cambiarse a ellas sin comprar Anti-Flakardo. Corregido en
+  migración 089. Compra Suelta de Anti-Flakardo no se vio afectada -- su
+  acceso siempre pasó por `profile_routine_access` explícito, nunca por
+  `catalogoCompleto`.
+  **Regla permanente derivada de este bug**: cualquier plan autoguiado
+  nuevo (Anti-Flakardo, Sub-Cero, Híbrido, etc., incluyendo los que el
+  coach mencione aunque "todavía no estén hechos") tiene que nacer con
+  `es_privada = true` desde el primer INSERT -- no asumir que viene por
+  default ni agregarlo "después". Verificar esto explícitamente en la
+  migración de alta de cualquier rutina ligada a un producto de venta
+  individual.
+- ~~Diferenciación de funciones entre trial / Golden mensual / Golden
+  anual: pendiente~~ -- **resuelto 2026-09-29**, ver "Golden Anual / Golden
+  Mensual" y "Free Trial" más arriba en esta misma sección: mensual y
+  anual dan exactamente el mismo acceso (solo cambia precio/etiqueta), y
+  el trial tiene su propia fila completa en `permisos()`. Nota dejada acá
+  tachada en vez de borrada para que quede el rastro de que esto SÍ se
+  terminó de definir, por si en algún momento se vuelve a dudar.
 - **Login con Google/Facebook**: prioridad reconocida por el usuario, pero
   bloqueado hasta que él cree las cuentas de desarrollador (Google Cloud /
   Facebook Developer) -- no hay código que hacer todavía.
