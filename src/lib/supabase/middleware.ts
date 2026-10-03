@@ -2,13 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { esPremium } from "@/lib/premium";
 
-// "/restablecer-password" entra acá por una razón no obvia: el link del
-// mail de recuperación llega con los tokens en el FRAGMENTO de la URL
-// (#access_token=...), que el navegador nunca envía al servidor -- así que
-// en la primera carga de esa página, este middleware la ve como una
-// request sin sesión. Si no estuviera en esta lista, redirigiría a /login
-// antes de que el JS del cliente llegue a leer el fragmento y establecer
-// la sesión de recuperación.
+// "/restablecer-password" entra acá porque ahí se escribe el código de
+// recuperación ANTES de tener sesión -- ver "Recuperar contraseña" en
+// CLAUDE.md para la vuelta completa de por qué terminó siendo un código de
+// 6 dígitos tipeado a mano en vez de un link clickeable.
 const PUBLIC_PATHS = [
   "/login",
   "/registro",

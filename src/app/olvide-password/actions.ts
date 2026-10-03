@@ -15,7 +15,8 @@ export async function pedirRecuperacion(formData: FormData) {
     redirectTo: `${origin}/restablecer-password`,
   });
 
-  // Mismo mensaje exista o no esa cuenta -- no hay que confirmarle a quien
-  // completa el formulario si un email está o no registrado en la app.
-  redirect("/olvide-password?enviado=1");
+  // Se manda directo a cargar el código -- no hay que confirmarle a quien
+  // completa el formulario si ese email está o no registrado en la app
+  // (por eso no se chequea el resultado de resetPasswordForEmail acá).
+  redirect(`/restablecer-password?email=${encodeURIComponent(email)}`);
 }

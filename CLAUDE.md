@@ -1009,55 +1009,88 @@ Golden).
 - **Login con Google/Facebook**: prioridad reconocida por el usuario, pero
   bloqueado hasta que él cree las cuentas de desarrollador (Google Cloud /
   Facebook Developer) -- no hay código que hacer todavía.
-- **Recuperar contraseña (construido 2026-10-02)**: flujo completo --
-  `/olvide-password` (pide el email, llama `resetPasswordForEmail`) ->
-  mail de Supabase -> `/restablecer-password` (elige contraseña nueva) ->
-  `/login` con mensaje de éxito. Link "¿Olvidaste tu contraseña?" agregado
-  en `/login`.
-  **Hallazgo real al implementarlo, no asumir el patrón "estándar" de la
-  documentación de Supabase**: se había armado primero asumiendo el flujo
-  PKCE (`?code=`, con un Route Handler haciendo
-  `exchangeCodeForSession`) porque es el que documentan los ejemplos más
-  recientes de Supabase para Next.js App Router. Probando en vivo contra
-  el proyecto real (generando un link con la API admin
-  `generate_link` y siguiendo la redirección con `curl`) se confirmó que
-  **este proyecto entrega el link de recuperación con el flujo implícito
-  clásico**: los tokens vienen en el FRAGMENTO de la URL
-  (`#access_token=...&refresh_token=...&type=recovery`), no como query
-  param -- el fragmento nunca llega al servidor, así que el Route Handler
-  jamás iba a recibir nada. Se rehizo como un componente cliente
-  (`src/components/restablecer-password-cliente.tsx`) que lee
-  `window.location.hash`, llama `supabase.auth.setSession(...)` desde el
-  browser, y hace `updateUser({ password })` también client-side (sin
-  Server Action de por medio -- la sesión de recuperación vive en el
-  cliente, no hace falta ida y vuelta al servidor). `/restablecer-password`
-  tuvo que sumarse a `PUBLIC_PATHS` en `src/lib/supabase/middleware.ts`
-  por la misma razón: el middleware ve la primera carga como "sin sesión"
-  (no puede ver el fragmento), así que sin este agregado redirigía a
-  `/login` antes de que el JS del cliente llegara a procesar el hash.
-  **Pendiente de acción del coach, no de código**: durante las pruebas
-  (generando links reales contra la API de Supabase) se confirmó que el
-  `redirect_to` personalizado cae silenciosamente al Site URL del proyecto
-  -- es decir, **`http://localhost:3000/restablecer-password` (y su
-  equivalente en producción,
-  `https://kraken-entrena-app.vercel.app/restablecer-password`) todavía no
-  están en la lista de Redirect URLs permitidas de Supabase**
-  (Authentication -> URL Configuration). Mientras no se agreguen ahí, el
-  mail real redirige a la home en vez de a la pantalla de contraseña
-  nueva -- el coach tiene que agregar esas dos URLs ahí mismo (no es algo
-  que Claude pueda tocar con las claves que tiene cargadas). Probado de
-  punta a punta generando links reales con la API admin de Supabase
-  (`/auth/v1/admin/generate_link`) contra `prueba.freetrial.kraken@gmail.com`
-  -- password restaurada a la de referencia (`PruebaTrial2026`) después de
-  la prueba, sin dejar la cuenta en otro estado.
-  **Costo: $0.** Usa el email provider que trae Supabase por default, sin
-  SMTP propio -- gratis, pero con un límite bajo de mails/hora pensado
-  para desarrollo, no para volumen real de producción. Mientras las ventas
-  sean bajas no debería notarse; si en algún momento empiezan a fallar
-  envíos de recuperación por volumen, la solución es configurar un SMTP
-  propio (ej. Resend, tiene tier gratis de 3000 mails/mes) en Supabase ->
-  Authentication -> Email -- eso si tiene costo si se supera ese free tier,
-  pero no hace falta tocarlo ahora.
+- **Recuperar contraseña (construido 2026-10-02, versión final con código
+  de 8 dígitos -- no con link)**: flujo completo -- `/olvide-password`
+  (pide el email, llama `resetPasswordForEmail`) -> mail de Supabase con
+  un código -> `/restablecer-password?email=...` (carga el código +
+  contraseña nueva) -> `/login` con mensaje de éxito. Link "¿Olvidaste tu
+  contraseña?" agregado en `/login`. Costo: **$0**, usa el email provider
+  que trae Supabase por default (ver límite de volumen más abajo).
+
+  **Historia completa de los 3 intentos -- dejar esto documentado porque
+  cada vuelta encontró un problema real distinto, no hipotético:**
+
+  1. *Primer intento, asumiendo PKCE*: se armó con un Route Handler
+     haciendo `exchangeCodeForSession(?code=)`, el patrón que documentan
+     los ejemplos más recientes de Supabase para Next.js App Router.
+     Probando en vivo contra el proyecto real (generando un link con
+     `admin/generate_link` y siguiendo la redirección con `curl`) se
+     confirmó que **este proyecto entrega el link con el flujo implícito
+     clásico**: los tokens vienen en el FRAGMENTO de la URL
+     (`#access_token=...&type=recovery`), que nunca llega al servidor --
+     el Route Handler jamás iba a recibir nada. No asumir el patrón
+     "estándar" de la documentación sin probarlo contra el proyecto real.
+  2. *Segundo intento, con el link implícito*: se rehizo como componente
+     cliente leyendo `window.location.hash` + `setSession(...)`. Andaba
+     perfecto generando el link a mano (vía API admin + `curl`, sin pasar
+     por un mail real) -- pero probando con un mail REAL a
+     `ezequiel.arce@outlook.com`, el link daba "inválido" sistemáticamente,
+     incluso generando uno nuevo y mandándoselo directo sin pasar por el
+     mail de Supabase. Se descartó Safe Links de Microsoft reescribiendo
+     el link (el coach confirmó con un long-press que el dominio mostrado
+     era el de Supabase sin modificar). **Causa real**: algún mecanismo de
+     preview automático (de la app de mail, del sistema operativo, o de
+     donde sea que el link se muestre) visita el link en segundo plano
+     para generar una vista previa -- como el link es de un solo uso, ese
+     preview silencioso lo consume antes de que la persona lo toque de
+     verdad. Pasa sin dejar rastro visible (no reescribe el dominio), así
+     que generar el link a mano y seguirlo con `curl` (que *es* ese único
+     uso) siempre "funcionaba", mientras que cualquier entrega real por
+     mail fallaba.
+  3. *Solución final*: se abandonó el link clickeable por completo.
+     Supabase genera, junto con el link, un código corto (`email_otp` en
+     la respuesta de `generate_link`) pensado para tipear a mano -- un
+     código no se puede "pre-visitar" automáticamente, es inmune al
+     problema de raíz. **Importante: son 8 dígitos, no 6** (confirmado
+     dos veces generando códigos reales -- no asumir el típico OTP de 6
+     dígitos de otros servicios). El código final:
+     `src/components/restablecer-password-cliente.tsx` pide email + código
+     + contraseña nueva, llama `supabase.auth.verifyOtp({ email, token:
+     codigo, type: "recovery" })` client-side y, si es válido, sigue con
+     `updateUser({ password })` -- todo sin Route Handler ni Server Action,
+     la sesión de recuperación vive y se resuelve enteramente en el
+     cliente. `/restablecer-password` está en `PUBLIC_PATHS` de
+     `src/lib/supabase/middleware.ts` simplemente porque ahí se escribe el
+     código ANTES de tener sesión (misma razón que `/login`).
+
+  **Acción pendiente del coach en el dashboard de Supabase (no es
+  código)**: la plantilla del mail "Reset Password" (Authentication ->
+  Emails) todavía es la que trae Supabase por default, en inglés y con el
+  link de siempre -- hay que reemplazarla por una que muestre el código
+  (`{{ .Token }}`) en texto plano, SIN ningún link ni botón (si queda un
+  link ahí, el mismo problema de preview automático lo seguiría
+  consumiendo, dejando el código generado para esa misma solicitud
+  inválido también, porque el link y el código representan el mismo
+  token de un solo uso). Mismo criterio de las dos URLs de
+  `/restablecer-password` ya agregadas a Redirect URLs (Authentication ->
+  URL Configuration) -- ya no son estrictamente necesarias para ESTE
+  flujo (no hay redirect por link), pero no está de más dejarlas.
+
+  Probado de punta a punta con códigos reales generados vía
+  `admin/generate_link` contra `prueba.freetrial.kraken@gmail.com`
+  (`email_otp` real, sin pasar por ningún mail) -- password restaurada a
+  la de referencia (`PruebaTrial2026`) después de cada prueba, sin dejar
+  la cuenta en otro estado. Confirmado también en producción con la
+  cuenta real del coach que el código llega por mail.
+
+  **Límite de volumen** (sigue aplicando igual con código que con link):
+  el email provider que trae Supabase por default tiene un límite bajo de
+  mails/hora pensado para desarrollo, no para volumen real de producción.
+  Mientras las ventas sean bajas no debería notarse; si en algún momento
+  empiezan a fallar envíos por volumen, la solución es configurar un SMTP
+  propio (ej. Resend, tier gratis de 3000 mails/mes) en Supabase ->
+  Authentication -> Email -- eso sí tiene costo si se supera ese free
+  tier, pero no hace falta tocarlo ahora.
 - **Fila de 3 accesos en Inicio** (agregada 2026-09-30, debajo de "¿Buscás
   más?"): Sitio web (se movió del ícono chico arriba a la derecha, que ya
   no existe), Soporte (WhatsApp directo al coach, reusa el mismo número de

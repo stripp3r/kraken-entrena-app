@@ -1,57 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type Estado = "procesando" | "listo" | "invalido" | "guardando";
-
-function leerTokensDeHash() {
-  if (typeof window === "undefined") return null;
-  const hash = new URLSearchParams(window.location.hash.slice(1));
-  const accessToken = hash.get("access_token");
-  const refreshToken = hash.get("refresh_token");
-  if (hash.get("type") !== "recovery" || !accessToken || !refreshToken) return null;
-  return { accessToken, refreshToken };
-}
-
-// El link del mail de recuperación redirige acá con los tokens en el
-// FRAGMENTO de la URL (#access_token=...&type=recovery), no como query
-// param -- confirmado probando contra el proyecto real de Supabase (usa el
-// flujo implícito de GoTrue para el link de "olvidé mi contraseña", no el
-// flujo PKCE con ?code=). El fragmento nunca llega al servidor, así que
-// todo este intercambio tiene que pasar por acá, client-side.
-//
-// El estado inicial se calcula en el inicializador de useState (no en el
-// effect) para que el caso sincrónico "no hay tokens válidos" no dispare un
-// setState dentro de un effect -- el effect solo hace el intercambio async
-// con Supabase.
-export function RestablecerPasswordCliente() {
+// Se abandonó el link clickeable del mail (ver CLAUDE.md, "Recuperar
+// contraseña"): algunas apps de mail (Outlook incluida) hacen un preview
+// automático del link en segundo plano, y como es de un solo uso, ese
+// preview silencioso ya lo consume antes de que el usuario lo toque de
+// verdad -- confirmado en vivo, pasaba incluso con el dominio de Supabase
+// sin reescribir (descartando que fuera Safe Links de Microsoft). Un
+// código de 8 dígitos tipeado a mano es inmune a esto: nada automático lo
+// "visita" por vos. El mail (plantilla editada en Supabase) ahora solo
+// muestra el código en texto plano, sin ningún link.
+export function RestablecerPasswordCliente({ emailInicial }: { emailInicial?: string }) {
   const router = useRouter();
-  const [estado, setEstado] = useState<Estado>(() => (leerTokensDeHash() ? "procesando" : "invalido"));
-  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState(emailInicial ?? "");
+  const [codigo, setCodigo] = useState("");
   const [password, setPassword] = useState("");
   const [confirmar, setConfirmar] = useState("");
-
-  useEffect(() => {
-    if (estado !== "procesando") return;
-    const tokens = leerTokensDeHash();
-    if (!tokens) return;
-
-    const supabase = createClient();
-    supabase.auth
-      .setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken })
-      .then(({ error }) => {
-        // Se limpia el fragmento de la URL apenas se usa -- son credenciales
-        // de sesión, no deberían quedar visibles en la barra de direcciones
-        // ni en el historial del navegador.
-        window.history.replaceState(null, "", window.location.pathname);
-        setEstado(error ? "invalido" : "listo");
-      });
-  }, [estado]);
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
 
   async function guardar() {
     setError(null);
+    if (!email.trim()) {
+      setError("Ingresá tu email.");
+      return;
+    }
+    if (!codigo.trim()) {
+      setError("Ingresá el código de 8 dígitos que te mandamos por mail.");
+      return;
+    }
     if (password.length < 6) {
       setError("La contraseña tiene que tener al menos 6 caracteres.");
       return;
@@ -61,13 +41,26 @@ export function RestablecerPasswordCliente() {
       return;
     }
 
-    setEstado("guardando");
+    setGuardando(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password });
 
-    if (error) {
-      setError(error.message);
-      setEstado("listo");
+    const { error: errorCodigo } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: codigo.trim(),
+      type: "recovery",
+    });
+
+    if (errorCodigo) {
+      setError("El código no es válido o ya venció. Pedí uno nuevo.");
+      setGuardando(false);
+      return;
+    }
+
+    const { error: errorPassword } = await supabase.auth.updateUser({ password });
+
+    if (errorPassword) {
+      setError(errorPassword.message);
+      setGuardando(false);
       return;
     }
 
@@ -78,24 +71,39 @@ export function RestablecerPasswordCliente() {
     router.push("/login?mensaje=Contrase%C3%B1a+actualizada.+Inici%C3%A1+sesi%C3%B3n+de+nuevo");
   }
 
-  if (estado === "procesando") {
-    return <p className="text-center text-sm text-gray-500">Verificando el link...</p>;
-  }
-
-  if (estado === "invalido") {
-    return (
-      <p className="text-center text-sm text-gray-400">
-        Este link no es válido o ya venció. Pedí uno nuevo desde{" "}
-        <a href="/olvide-password" className="text-gray-300 underline">
-          ¿Olvidaste tu contraseña?
-        </a>
-        .
-      </p>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="email" className="text-sm text-gray-300">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="rounded-lg border border-border bg-bg-card px-4 py-2.5 text-white outline-none focus:border-border-strong"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="codigo" className="text-sm text-gray-300">
+          Código de 8 dígitos
+        </label>
+        <input
+          id="codigo"
+          type="text"
+          inputMode="numeric"
+          value={codigo}
+          onChange={(e) => setCodigo(e.target.value)}
+          placeholder="12345678"
+          maxLength={8}
+          required
+          className="rounded-lg border border-border bg-bg-card px-4 py-2.5 text-center text-lg tracking-[0.3em] text-white outline-none focus:border-border-strong"
+        />
+      </div>
+
       <div className="flex flex-col gap-1.5">
         <label htmlFor="password" className="text-sm text-gray-300">
           Contraseña nueva
@@ -114,11 +122,11 @@ export function RestablecerPasswordCliente() {
 
       <button
         type="button"
-        disabled={estado === "guardando"}
+        disabled={guardando}
         onClick={guardar}
         className="mt-2 rounded-full bg-white px-5 py-3 font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {estado === "guardando" ? "Guardando..." : "Guardar contraseña"}
+        {guardando ? "Guardando..." : "Guardar contraseña"}
       </button>
     </div>
   );
