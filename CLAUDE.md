@@ -1062,6 +1062,28 @@ Golden).
      cliente. `/restablecer-password` está en `PUBLIC_PATHS` de
      `src/lib/supabase/middleware.ts` simplemente porque ahí se escribe el
      código ANTES de tener sesión (misma razón que `/login`).
+  4. *Ajuste de UX, probado por el coach en producción (2026-10-03)*: la
+     primera versión pedía código + contraseña nueva en un solo paso y
+     recién validaba todo junto al tocar "Guardar" -- si el código estaba
+     mal, la persona ya había tipeado la contraseña nueva dos veces para
+     nada. Se separó en dos pasos dentro del mismo componente (estado
+     `paso: "codigo" | "password"`): primero `verifyOtp` solo, con su
+     propio botón "Verificar código"; recién si es válido aparecen los
+     campos de contraseña nueva, con un cartel de confirmación visible
+     ("Código verificado"). El `updateUser` del segundo paso reusa la
+     sesión que ya dejó `verifyOtp`, no hace falta volver a mandar el
+     código.
+
+  **Otro ajuste del mismo día**: los íconos de ojo abierto/tachado en TODOS
+  los campos de contraseña de la app (`src/components/password-input.tsx`,
+  usado en login/registro, y el control equivalente dentro de
+  `restablecer-password-cliente.tsx`) tenían la convención invertida desde
+  siempre -- mostraban el ojo tachado cuando el texto SÍ se veía, y el ojo
+  abierto cuando estaba oculto (es una convención real, la usa GitHub: el
+  ícono representa "la acción al tocarlo", no el estado actual). El coach
+  lo notó confuso probando esta pantalla y se invirtió en los dos lugares
+  para que el ojo abierto signifique "se está viendo" y el tachado "está
+  oculto" -- más intuitivo, y ahora consistente en toda la app.
 
   **Acción pendiente del coach en el dashboard de Supabase (no es
   código)**: la plantilla del mail "Reset Password" (Authentication ->
