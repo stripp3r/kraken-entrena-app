@@ -59,18 +59,6 @@ export default async function EntrenamientoPage() {
         </Link>
 
         <Link
-          href="/entrenamiento/cardio"
-          className={`mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.cardio ? "text-white" : "text-gray-500"}`}
-        >
-          <img
-            src={perm.cardio ? "/section-icons/cardio.png" : "/section-icons/bloqueado.png"}
-            alt=""
-            className="h-14 w-14 rounded-xl"
-          />
-          Cardio
-        </Link>
-
-        <Link
           href="/entrenamiento/crear-rutina"
           className={`mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.limiteRutinasCreadas === 0 ? "text-gray-500" : "text-white"}`}
         >
@@ -80,6 +68,18 @@ export default async function EntrenamientoPage() {
             className="h-14 w-14 rounded-xl"
           />
           Crea tu rutina
+        </Link>
+
+        <Link
+          href="/entrenamiento/cardio"
+          className={`mt-3 flex items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-3 text-lg transition-colors hover:border-border-strong ${perm.cardio ? "text-white" : "text-gray-500"}`}
+        >
+          <img
+            src={perm.cardio ? "/section-icons/cardio.png" : "/section-icons/bloqueado.png"}
+            alt=""
+            className="h-14 w-14 rounded-xl"
+          />
+          Cardio
         </Link>
 
         {profile?.role === "coach" && (

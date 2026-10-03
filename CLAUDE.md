@@ -977,6 +977,11 @@ Golden).
   `G:\Mi unidad\PROGRAMA SOULVANZ\1 FISICOCULTURISMO\Ejercitacion en el
   GYM\EntrenaOptimo\Iconos editados\`, la carpeta de íconos editados del
   coach -- mismo criterio que el resto de `section-icons/`).
+  **Orden final (ajustado 2026-10-03)**: Rutinas adquiridas, Comparador de
+  rutinas, Crea tu rutina, Cardio -- Cardio se corrió al final a pedido
+  del coach. `crear-rutina.png` también se actualizó ese día, desde
+  `52.png` de la misma carpeta de íconos editados (mismo recorte+resize a
+  160x160).
 - **Planes autoguiados** (Grasa Sub-Cero, Híbrido, En Casa, Minimalista):
   rutinas `es_privada = true`, exclusivas de quien compró ese producto
   puntual -- NO deben quedar accesibles para Golden/trial en general.
