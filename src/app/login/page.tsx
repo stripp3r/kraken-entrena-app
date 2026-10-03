@@ -6,9 +6,9 @@ import { login } from "./actions";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; mensaje?: string }>;
 }) {
-  const { error, next } = await searchParams;
+  const { error, next, mensaje } = await searchParams;
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6">
@@ -18,6 +18,8 @@ export default async function LoginPage({
         </h1>
 
         <InstalarApp />
+
+        {mensaje && <p className="mb-4 text-center text-sm text-emerald-400">{mensaje}</p>}
 
         <form className="flex flex-col gap-4">
           {next && <input type="hidden" name="next" value={next} />}
@@ -43,6 +45,10 @@ export default async function LoginPage({
           </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
+
+          <Link href="/olvide-password" className="text-right text-xs text-gray-500 underline">
+            ¿Olvidaste tu contraseña?
+          </Link>
 
           <button
             formAction={login}

@@ -2,12 +2,40 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { esPremium } from "@/lib/premium";
 
-const PUBLIC_PATHS = ["/login", "/registro", "/compra", "/api/checkout", "/api/webhooks"];
+// "/restablecer-password" entra acá por una razón no obvia: el link del
+// mail de recuperación llega con los tokens en el FRAGMENTO de la URL
+// (#access_token=...), que el navegador nunca envía al servidor -- así que
+// en la primera carga de esa página, este middleware la ve como una
+// request sin sesión. Si no estuviera en esta lista, redirigiría a /login
+// antes de que el JS del cliente llegue a leer el fragmento y establecer
+// la sesión de recuperación.
+const PUBLIC_PATHS = [
+  "/login",
+  "/registro",
+  "/compra",
+  "/api/checkout",
+  "/api/webhooks",
+  "/olvide-password",
+  "/restablecer-password",
+];
 
 // Rutas que un usuario logueado SIN prueba/Golden vigente todavía puede ver
 // (para pagar, ver/editar sus datos, bajar un PDF que compró, o cerrar
 // sesión). Todo lo demás lo manda a /golden cuando premium_hasta venció.
-const PATHS_SIN_PREMIUM = ["/golden", "/perfil", "/login", "/registro", "/compra", "/api", "/coach"];
+// "/restablecer-password" entra acá -- la sesión de recuperación de
+// contraseña no implica tener plan vigente, no corresponde mandarlo a
+// /golden antes de dejarlo elegir su contraseña nueva.
+const PATHS_SIN_PREMIUM = [
+  "/golden",
+  "/perfil",
+  "/login",
+  "/registro",
+  "/compra",
+  "/api",
+  "/coach",
+  "/olvide-password",
+  "/restablecer-password",
+];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
