@@ -1083,14 +1083,11 @@ Golden).
   la cuenta en otro estado. Confirmado también en producción con la
   cuenta real del coach que el código llega por mail.
 
-  **Límite de volumen** (sigue aplicando igual con código que con link):
-  el email provider que trae Supabase por default tiene un límite bajo de
-  mails/hora pensado para desarrollo, no para volumen real de producción.
-  Mientras las ventas sean bajas no debería notarse; si en algún momento
-  empiezan a fallar envíos por volumen, la solución es configurar un SMTP
-  propio (ej. Resend, tier gratis de 3000 mails/mes) en Supabase ->
-  Authentication -> Email -- eso sí tiene costo si se supera ese free
-  tier, pero no hace falta tocarlo ahora.
+  **Actualización 2026-10-03 -- ya se resolvió el límite de volumen y la
+  plantilla, con dominio propio + Resend**: lo de abajo ("Límite de
+  volumen") quedó superado por esto. Ver sección completa "Dominio propio
+  + Resend (2026-10-03)" más abajo en este archivo para el detalle de cómo
+  se armó.
 - **Fila de 3 accesos en Inicio** (agregada 2026-09-30, debajo de "¿Buscás
   más?"): Sitio web (se movió del ícono chico arriba a la derecha, que ya
   no existe), Soporte (WhatsApp directo al coach, reusa el mismo número de
@@ -1101,6 +1098,50 @@ Golden).
   Por ahora comparte el link de la PWA (`URL_APP` en ese componente); el
   día que la app esté en Play Store/App Store, ese es el único lugar que
   hay que tocar para que comparta el link de la tienda en su lugar.
+
+## Dominio propio + Resend (2026-10-03)
+
+Surgió directamente del límite de "Recuperar contraseña" de más arriba: no
+se podía editar la plantilla de mail de Supabase sin SMTP propio, y un
+SMTP propio en serio (mandar a cualquier cliente, no solo a cuentas de
+prueba) necesita un dominio propio verificado por DNS. El coach decidió
+resolverlo de raíz comprando un dominio, con una condición explícita y
+ahora permanente (ver [[feedback_minimizar_gastos_recurrentes]] en la
+memoria de Claude): **gastar lo mínimo posible, un solo dominio para todo
+el ecosistema KRAKEN** (fitness, DJ, lo que venga), nunca uno por marca.
+
+- **Dominio comprado**: `krakenbrand.com` (gestionado por la OTRA sesión
+  de Claude Code, la del sitio web -- acá solo se documenta porque la app
+  también depende de él). DNS en **Cloudflare** (no en el registrador),
+  nameservers `austin.ns.cloudflare.com` / `lucy.ns.cloudflare.com`.
+- **Subdominio de la app**: `appfit.krakenbrand.com` (elegido por el coach
+  en vez de `app.krakenbrand.com` porque "capaz creo más apps" -- el
+  patrón que dejó es `app` + algo que identifique cada proyecto). Conectado
+  al proyecto `kraken-entrena-app` de Vercel. La URL vieja
+  (`kraken-entrena-app.vercel.app`) sigue funcionando en paralelo --
+  Vercel no la desactiva al agregar un dominio propio.
+- **Resend** (gratis, 3000 mails/mes) conectado como SMTP de Supabase.
+  Dominio de envío: `krakenbrand.com` (sender real: `no-reply@krakenbrand.com`,
+  nombre mostrado "KRAKEN Entrena"). Domain id en Resend:
+  `8ac823ea-2bbb-4823-8167-1bbdba887af4`.
+- **Plantilla de "Reset Password" reescrita** en Supabase (español, marca
+  KRAKEN, muestra `{{ .Token }}` en texto plano, sin ningún link -- ver la
+  razón en "Recuperar contraseña" más arriba). Probado de punta a punta
+  con un mail real a la cuenta del coach: Resend lo marca `delivered`.
+- **`uri_allow_list` de Supabase** ahora tiene las 3 URLs de
+  `/restablecer-password` (vercel.app, localhost, y
+  `appfit.krakenbrand.com`).
+- **`compartir-app-boton.tsx`** actualizado a la URL nueva.
+
+**Patrón nuevo de esta sesión, vale la pena repetirlo a futuro**: para
+toda esta configuración (Vercel, Cloudflare, Resend, Supabase Management
+API) el coach generó tokens de API de corta duración (1 día o menos) en
+vez de compartir contraseñas o loguear a Claude en los paneles -- eso SÍ
+está permitido y es el camino preferido (ver reglas de seguridad de
+Claude: nunca contraseñas, sí tokens de API acotados). Mismo patrón que
+ya se venía usando con el `service_role` de Supabase. Si hay que volver a
+tocar DNS/dominio/SMTP en el futuro, pedir un token nuevo de cada
+servicio en vez de pedirle al coach que haga los clicks a mano.
 
 ## Convenciones de código a respetar
 

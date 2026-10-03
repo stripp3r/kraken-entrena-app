@@ -6,7 +6,7 @@ import { useState } from "react";
 // día que la app esté en Play Store/App Store, este mismo botón pasa a
 // compartir ese link en su lugar -- no hace falta tocar nada más que
 // `URL_APP` acá.
-const URL_APP = "https://kraken-entrena-app.vercel.app";
+const URL_APP = "https://appfit.krakenbrand.com";
 const TEXTO = "Descargá KRAKEN Entrena, la app de entrenamiento de KRAKEN Fitness:";
 
 export function CompartirAppBoton() {
