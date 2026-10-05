@@ -982,6 +982,12 @@ Golden).
   del coach. `crear-rutina.png` también se actualizó ese día, desde
   `52.png` de la misma carpeta de íconos editados (mismo recorte+resize a
   160x160).
+  **`comparador-rutinas.png` se regeneró de nuevo el 2026-10-05**: el
+  coach retocó el `53.png` original (naranja más oscuro, lupa más sólida)
+  -- cuando pida "actualizar tal ícono con el XX.png", siempre regenerar
+  desde el archivo tal cual está en el momento, no asumir que ya está
+  hecho por una vez anterior en la sesión (el archivo fuente puede haber
+  cambiado).
 - **Planes autoguiados** (Grasa Sub-Cero, Híbrido, En Casa, Minimalista):
   rutinas `es_privada = true`, exclusivas de quien compró ese producto
   puntual -- NO deben quedar accesibles para Golden/trial en general.
@@ -1169,6 +1175,47 @@ Claude: nunca contraseñas, sí tokens de API acotados). Mismo patrón que
 ya se venía usando con el `service_role` de Supabase. Si hay que volver a
 tocar DNS/dominio/SMTP en el futuro, pedir un token nuevo de cada
 servicio en vez de pedirle al coach que haga los clicks a mano.
+
+## Rutina "Kraken Split" reescrita completa (2026-10-05, migración 090)
+
+El coach pasó un programa nuevo de 5 días (A-E) para su propia rutina
+personal ("Kraken Split", `routines.id = 7`, privada, solo la usa
+`ezequiel.arce@outlook.com`) -- a diferencia de "Kraken Standard M", esta
+NO es una rutina estandarizada compartida entre clientes de mentoría, así
+que sí se puede editar in-place sin romper nada de nadie más (confirmado
+antes de tocarla: ninguna otra fila de `profiles`/`profile_routine_access`
+apunta a `routine_id = 7`).
+
+- **Ejercicio nuevo creado**: "Tríceps katana" no existía en el catálogo
+  -- se creó con el gif prestado de "Extensión de tríceps sobre la cabeza
+  en polea" (mecánica más parecida) hasta que el coach suba material
+  propio, mismo criterio de siempre (nunca dejar `imagen_url` en null).
+- **Bug real encontrado y corregido fuera de la migración** (directo vía
+  API admin, no por SQL, porque es un upload de archivo + un solo campo,
+  no una migración de esquema/contenido): "Sentadilla con barra"
+  (`exercise_definitions.id = 123`) no mostraba video en "Cómo
+  realizarlo" pese a que el coach creía que sí lo tenía. Causa real: el
+  archivo (`Sentadillas.mp4`, carpeta local `videos-kraken-entrena/`)
+  nunca se había subido a Supabase Storage -- se subió como
+  `ejercicios-video/Sentadilla con barra.mp4` y se vinculó. Vale la pena
+  recordar esto: si un cliente dice "este ejercicio debería tener video y
+  no aparece", antes de asumir que hay que filmar uno nuevo, chequear si
+  ya existe en alguna carpeta `videos-*` de staging del repo sin subir.
+- **Interpretación de nombres coloquiales** (el coach los pasó en texto
+  libre, no con los nombres exactos del catálogo) -- avisarle si alguna
+  no es la que tenía en mente, no se le preguntó antes de cargar:
+  "vuelo con mancuernas" → "Elevación lateral con mancuernas" (el
+  catálogo reserva "vuelo" para hombro, nunca para pecho -- eso es
+  siempre "apertura" acá); "extensión de tríceps en polea unilateral" →
+  "Tríceps en polea alta a un brazo"; "elevación frontal en polea
+  unilateral" → "Elevación frontal en polea baja a un brazo"; "bíceps
+  unilateral en Scott" → "Curl en polea a un brazo en banco Scott";
+  "gemelo parado en Smith" → "Elevación de talón en máquina Smith";
+  "curl femoral tumbado" → "Curl femoral" (es la variante tumbada por
+  default en este catálogo).
+- Migración: `supabase/migration_090_kraken_split_rutina_nueva.sql` --
+  pendiente de que el coach la corra (nunca se corren migraciones sin
+  que él lo haga).
 
 ## Convenciones de código a respetar
 
