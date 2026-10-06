@@ -1214,8 +1214,15 @@ apunta a `routine_id = 7`).
   "curl femoral tumbado" → "Curl femoral" (es la variante tumbada por
   default en este catálogo).
 - Migración: `supabase/migration_090_kraken_split_rutina_nueva.sql` --
-  pendiente de que el coach la corra (nunca se corren migraciones sin
-  que él lo haga).
+  **ya corrida por el coach, 2026-10-05**.
+- **Corrección el mismo día**: "Tríceps katana" en realidad es una
+  **extensión tras nuca unilateral**, no el trazo diagonal bilateral que
+  se había asumido al crearlo. Corregido directo vía API admin (no por
+  migración -- es solo actualizar `imagen_url`/`como_hacerlo`/`unilateral`
+  de una fila ya creada, no un cambio de esquema ni de contenido masivo):
+  ahora usa el gif de "Extensión de tríceps sobre la cabeza en polea a un
+  brazo" (id 276, que también quedó como su `alternativa_id`) y
+  `unilateral = true`.
 
 ## Convenciones de código a respetar
 
