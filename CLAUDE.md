@@ -1040,17 +1040,22 @@ Golden).
     redirect correctos). Falta que el coach pruebe con su cuenta real y
     confirme que la app de Google esté **publicada** ("En producción") --
     en modo "Testing" solo dejan entrar los usuarios de prueba listados.
-  - **Facebook: botón OCULTO a propósito** (`FACEBOOK_ACTIVO = false` en
-    `botones-sociales.tsx`). Facebook NO reconoce el App ID cargado: la
-    Graph API responde código 101 "Cannot get application info" (un App ID
-    válido con secret falso responde código 1 "Error validating client
-    secret") y el diálogo de login muestra "No se encontró el contenido".
-    Hay que revisar App ID/Secret en Meta for Developers (Configuración ->
-    Básica), que la app no esté eliminada/restringida, que esté agregado el
-    producto Facebook Login con la URL de retorno de Supabase, y recordar
-    que una app en modo Desarrollo solo deja entrar a quienes tienen rol en
-    ella hasta pasarla a modo Activo. Cuando se resuelva: pasar la constante
-    a `true`.
+  - **Facebook: verificado igual que Google, hasta el login** (botón ->
+    Supabase -> pantalla real de login de Facebook con el `app_id` correcto
+    y el retorno a Supabase). Costó una vuelta: el primer App ID cargado
+    tenía **un dígito mal copiado** y Facebook respondía código 101 "Cannot
+    get application info" en la Graph API (un App ID válido con secret
+    falso responde código 1 "Error validating client secret") y "No se
+    encontró el contenido" en el diálogo -- esa diferencia de códigos es la
+    forma rápida de distinguir "ID inexistente" de "secret incorrecto"
+    (`GET graph.facebook.com/oauth/access_token?client_id=..&client_secret=..&grant_type=client_credentials`
+    devuelve el token solo si ID y secret son válidos). Después de cambiar
+    credenciales en Supabase, el servicio de auth puede tardar unos segundos
+    en usar las nuevas (se verifica con `/auth/v1/authorize?provider=..`).
+    Pendiente del coach: una app de Facebook en modo **Desarrollo** solo
+    deja entrar a quienes tienen rol en ella; hay que pasarla a modo
+    **Activo** (y tener agregado el producto Facebook Login con la URL de
+    retorno de Supabase) para que entre cualquier persona.
   - **Dos trampas encontradas al construirlo, no repetirlas**: (1) en un
     `<button formAction={serverAction}>` React PISA el atributo `name` con su
     propio id de acción, así que `name="provider" value="google"` nunca le
