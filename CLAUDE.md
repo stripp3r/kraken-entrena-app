@@ -1220,6 +1220,47 @@ ya se venía usando con el `service_role` de Supabase. Si hay que volver a
 tocar DNS/dominio/SMTP en el futuro, pedir un token nuevo de cada
 servicio en vez de pedirle al coach que haga los clicks a mano.
 
+## Backups gratuitos a Google Drive (2026-10-07)
+
+El plan gratis de Supabase NO hace backups (el panel dice "Last backup: No
+backups"), y con clientes pagando perder la base es grave. Se resolvió a
+**costo $0** (regla de [[feedback_minimizar_gastos_recurrentes]]; el plan Pro
+sale US$25/mes) con un script que corre en la compu del coach:
+- **Tamaño real medido**: toda la base pesa 14 MB (las tablas de la app < 2
+  MB); el backup comprimido pesa ~2,7 MB. Los buckets públicos
+  (`ejercicios` 204 MB de GIFs, `ejercicios-video` 162 MB) NO se copian, solo
+  se listan: son reemplazables desde las carpetas locales `gifs-*`/`videos-*`.
+  Los privados (`productos`, `Anti Flakardo`, `guias-alimenticias`,
+  `progress-photos`) sí se descargan completos.
+- **`scripts/backup-supabase.mjs`**: lee la service role key de `.env.local`
+  (nunca se copia), vuelca cada tabla de `public` a JSON **verificando que las
+  filas bajadas coincidan con el conteo de la base**, lista los usuarios de
+  Auth, descarga los archivos privados, arma un `.zip` (con el `tar.exe` de
+  Windows por ruta absoluta -- el `tar` de Git confunde `G:\` con un host
+  remoto) y lo deja en `G:\Mi unidad\KRAKEN BACKUPS APP\` (si Drive no está
+  montado cae a `~\KRAKEN BACKUPS APP` y lo avisa). Conserva 30 días + el
+  backup del día 1 de cada mes para siempre. No repite si ya hay uno de las
+  últimas 20 h (`--forzar` para saltear eso). Cada corrida escribe
+  `ULTIMO_BACKUP.txt` en esa carpeta (`OK ...` o `ERROR ...`) y un log en
+  `%LOCALAPPDATA%\kraken-backup.log`.
+- **Programado** con una tarea de Windows ("KRAKEN Backup Supabase", usuario
+  actual, sin admin): al iniciar sesión + todos los días 13:00, con "iniciar
+  apenas sea posible" si la compu estaba apagada. Lanza `cmd.exe /c node ...`
+  redirigiendo la salida a `%LOCALAPPDATA%\kraken-backup-tarea.txt`. Se
+  probaron y descartaron dos variantes: `powershell -WindowStyle Hidden`
+  (la tarea figuraba "OK" pero el script nunca corría) y `conhost --headless`
+  (tampoco corría). Sí se ve una ventana negra un segundo al ejecutarse.
+- **Limitación conocida**: la API de Auth no expone los hashes de contraseña,
+  así que el backup tiene usuarios (ids, emails, proveedor) pero no sus
+  claves -- tras una restauración entran con "Olvidé mi contraseña" o con
+  Google/Facebook. El `LEEME.txt` dentro de cada zip explica cómo restaurar.
+  **Ningún restore se probó todavía** (no hay un segundo proyecto donde
+  hacerlo); lo verificado es que el zip está completo y que los conteos
+  coinciden.
+- Revisar de vez en cuando `ULTIMO_BACKUP.txt` en esa carpeta de Drive: si dice
+  ERROR o la fecha es vieja, el backup dejó de funcionar sin que nadie se
+  entere (la compu apagada muchos días, Drive desconectado, etc.).
+
 ## Rutina "Kraken Split" reescrita completa (2026-10-05, migración 090)
 
 El coach pasó un programa nuevo de 5 días (A-E) para su propia rutina
