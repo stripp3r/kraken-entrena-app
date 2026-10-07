@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   "/api/webhooks",
   "/olvide-password",
   "/restablecer-password",
+  "/auth/callback",
 ];
 
 // Rutas que un usuario logueado SIN prueba/Golden vigente todavía puede ver
@@ -32,6 +33,7 @@ const PATHS_SIN_PREMIUM = [
   "/coach",
   "/olvide-password",
   "/restablecer-password",
+  "/auth/callback",
 ];
 
 export async function updateSession(request: NextRequest) {

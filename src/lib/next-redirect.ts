@@ -15,8 +15,15 @@ export function redirigirALogin(request: NextRequest): NextResponse {
 // se rechaza explícitamente además de cualquier cosa que no empiece con
 // "/": el navegador lo resuelve como protocol-relative (va a "evil.com"),
 // así que "empieza con una sola barra" no alcanza para considerarlo seguro.
+//
+// También se rechazan la barra invertida y cualquier carácter de control
+// (tab, salto de línea, etc.): el parser de URLs del navegador y de Node los
+// descarta o los trata como "/" -- "/<TAB>/evil.com" o "/\evil.com" se
+// resuelven a "//evil.com" y saltan a otro dominio aunque empiecen con una
+// sola barra (comprobado con `new URL(next, origin)` el 2026-10-07).
 export function rutaSiguienteSegura(next: FormDataEntryValue | null): string | null {
   if (typeof next !== "string" || !next) return null;
   if (!next.startsWith("/") || next.startsWith("//")) return null;
+  if (/[\\\u0000-\u001f\u007f]/.test(next)) return null;
   return next;
 }

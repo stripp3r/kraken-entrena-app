@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
 import { InstalarApp } from "@/components/instalar-app";
+import { BotonesSociales } from "@/components/botones-sociales";
 import { login } from "./actions";
 
 export default async function LoginPage({
@@ -57,6 +58,8 @@ export default async function LoginPage({
             Entrar
           </button>
         </form>
+
+        <BotonesSociales next={next} />
 
         <p className="mt-6 text-center text-sm text-gray-500">
           ¿Todavía no tenés cuenta?{" "}

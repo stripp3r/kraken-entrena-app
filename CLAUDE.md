@@ -1017,9 +1017,48 @@ Golden).
   el trial tiene su propia fila completa en `permisos()`. Nota dejada acá
   tachada en vez de borrada para que quede el rastro de que esto SÍ se
   terminó de definir, por si en algún momento se vuelve a dudar.
-- **Login con Google/Facebook**: prioridad reconocida por el usuario, pero
-  bloqueado hasta que él cree las cuentas de desarrollador (Google Cloud /
-  Facebook Developer) -- no hay código que hacer todavía.
+- **Login con Google/Facebook (construido 2026-10-07)**: botón "Continuar
+  con Google" en `/login` y `/registro` (`src/components/botones-sociales.tsx`,
+  en un `<form>` propio para que los `required` del de email no lo
+  bloqueen; con OAuth entrar y crear cuenta son lo mismo). Flujo PKCE:
+  server action `loginConProveedor` (`src/app/login/actions.ts`) arma la URL
+  del proveedor -> el proveedor vuelve a Supabase -> Supabase vuelve a
+  `/auth/callback` (`src/app/auth/callback/route.ts`, Route Handler: solo ahí
+  se pueden fijar las cookies al canjear el `?code=`) -> si la cuenta es
+  nueva (sin `profiles.nombre`) va a `/perfil/datos`, si no a `next` o `/`.
+  `/auth/callback` está en `PUBLIC_PATHS` y `PATHS_SIN_PREMIUM` del proxy.
+  Las cuentas nuevas reciben el trial y el "reclamo de compras por email"
+  igual que por email porque ambos cuelgan del trigger `handle_new_user()`.
+  - **Credenciales**: Client ID/Secret de Google y App ID/Secret de Facebook
+    están cargados en Supabase (Authentication -> Providers, vía Management
+    API); **NUNCA escribirlos en este archivo ni en el repo** (es público).
+    Site URL de Supabase pasó de `localhost:3000` a
+    `https://appfit.krakenbrand.com` y `uri_allow_list` suma
+    `/auth/callback` de producción, vercel.app y localhost.
+  - **Google: verificado de punta a punta hasta el login** (botón -> Supabase
+    -> pantalla "Inicia sesión: Cuentas de Google" con el Client ID y el
+    redirect correctos). Falta que el coach pruebe con su cuenta real y
+    confirme que la app de Google esté **publicada** ("En producción") --
+    en modo "Testing" solo dejan entrar los usuarios de prueba listados.
+  - **Facebook: botón OCULTO a propósito** (`FACEBOOK_ACTIVO = false` en
+    `botones-sociales.tsx`). Facebook NO reconoce el App ID cargado: la
+    Graph API responde código 101 "Cannot get application info" (un App ID
+    válido con secret falso responde código 1 "Error validating client
+    secret") y el diálogo de login muestra "No se encontró el contenido".
+    Hay que revisar App ID/Secret en Meta for Developers (Configuración ->
+    Básica), que la app no esté eliminada/restringida, que esté agregado el
+    producto Facebook Login con la URL de retorno de Supabase, y recordar
+    que una app en modo Desarrollo solo deja entrar a quienes tienen rol en
+    ella hasta pasarla a modo Activo. Cuando se resuelva: pasar la constante
+    a `true`.
+  - **Dos trampas encontradas al construirlo, no repetirlas**: (1) en un
+    `<button formAction={serverAction}>` React PISA el atributo `name` con su
+    propio id de acción, así que `name="provider" value="google"` nunca le
+    llega al servidor -- el proveedor va atado con
+    `loginConProveedor.bind(null, "google")`; (2) `rutaSiguienteSegura`
+    dejaba pasar `next` con tabulación/salto de línea/barra invertida
+    (`"/<TAB>/evil.com"` se resuelve a `//evil.com` = open redirect, comprobado
+    con `new URL`) -- ahora rechaza barra invertida y caracteres de control.
 - **Recuperar contraseña (construido 2026-10-02, versión final con código
   de 8 dígitos -- no con link)**: flujo completo -- `/olvide-password`
   (pide el email, llama `resetPasswordForEmail`) -> mail de Supabase con

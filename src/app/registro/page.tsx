@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
 import { InstalarApp } from "@/components/instalar-app";
+import { BotonesSociales } from "@/components/botones-sociales";
 import { signup } from "../login/actions";
 
 export default async function RegistroPage({
@@ -52,6 +53,8 @@ export default async function RegistroPage({
             Crear cuenta
           </button>
         </form>
+
+        <BotonesSociales next={next} />
 
         <p className="mt-6 text-center text-sm text-gray-500">
           ¿Ya tenés cuenta?{" "}
