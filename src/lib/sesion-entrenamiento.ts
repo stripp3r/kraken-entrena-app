@@ -12,7 +12,6 @@ export type SesionGuardada = {
   dia: string;
   fecha: string;
   activoId: number | null;
-  lado: "derecho" | "izquierdo" | null;
   descansoHasta: number | null;
   etiquetaDescanso: string;
 };

@@ -1295,6 +1295,51 @@ por cada `exercise_definition_id`+`fecha`, ordenar por `created_at`, y
 buscar dos filas consecutivas con el mismo `lado` (`lag(lado) over
 (partition by exercise_definition_id, fecha order by created_at)`).
 
+**Tercera vez que reaparece (2026-10-07) -- rediseño de raíz, el lado ya
+no es un toggle sino un dato derivado.** El coach lo notó de nuevo y sospechó
+(con razón) que "el lado derecho/izquierdo está establecido por un tema de
+tiempo y no hay otro criterio que lo sostenga". Confirmado leyendo el
+código: `lado` era un `useState` que `avanzarLado()` volteaba al
+terminar/saltar el cronómetro de descanso, y que `seleccionar()`/`iniciar()`
+reseteaban a `"derecho"` SIEMPRE, sin mirar lo que ya estaba registrado. Los
+dos arreglos anteriores (persistir el cronómetro en sessionStorage, el guard
+de "Saltar") eran parches sobre ese mismo diseño frágil -- cualquier
+camino nuevo que desincronizara el toggle (app 5-10 min en segundo plano ->
+cronómetro congelado, pestaña descartada, sessionStorage perdido y el
+usuario vuelve a elegir el ejercicio -> "derecho" otra vez) dejaba el lado
+mal asignado en silencio y, como es un toggle, **invertido para todo el
+resto del ejercicio**. Caso real, 2026-10-06, Meadows Row (ids 647-650):
+quedó `D, D, I, D` (imposible) -- corregido a `D, I, D, I` (los 3 últimos
+estaban invertidos por un único desfase; pesos/reps idénticos, no se
+perdió ningún dato real).
+
+**Criterio nuevo (única fuente de verdad)**: `ladoPendiente(logs)` en
+`src/lib/lado-pendiente.ts` -- el lado que toca es `"izquierdo"` si hoy hay
+más registros derechos que izquierdos para ese ejercicio, `"derecho"` en
+cualquier otro caso. Se usa en DOS lugares con el mismo criterio y la misma
+ventana de "hoy" (`inicioDelDiaArgentinaUTC`, sin filtrar por `dia`, igual
+que `contarSeriesCompletas`):
+- **Cliente** (`entrenamiento-dia-cliente.tsx`): `lado` ya no es estado, se
+  calcula de `logsPorEjercicio` en cada render. El cronómetro
+  (`terminarDescanso`) solo apaga el descanso en pantalla, ya no decide el
+  lado. `lado` salió de `SesionGuardada` (sessionStorage): no hay nada
+  que restaurar ni que "adivinar" si el descanso venció.
+- **Servidor** (`registrarSets` en `entrenamiento/actions.ts`): ya NO confía
+  en el `lado` que manda el cliente -- lo asigna contando lo registrado hoy
+  (y alterna si en una misma llamada vienen varios sets). Si el cliente
+  quedó desactualizado la base igual queda siempre alternando.
+  Borrar/editar un set se autocorrige solo, porque el lado se recalcula de
+  los registros.
+Verificado en vivo con una build de producción local contra la cuenta de
+Mentoría de prueba (Estocadas, Día C): (1) registrar derecho, borrar la
+sesión y recargar, volver a iniciar el ejercicio -> ahora muestra "Lado
+izquierdo" (antes "derecho"); (2) pestaña desactualizada que mostraba
+"izquierdo" mientras otra ya lo había registrado -> el servidor guardó
+`derecho`, sin duplicar. Los registros de prueba se borraron después.
+**No volver a modelar el lado como estado/toggle.** Detección en cualquier
+cuenta (sigue valiendo): dos filas consecutivas con el mismo `lado` por
+`exercise_definition_id`+fecha, ordenadas por `created_at`.
+
 ## Analizador de rutinas y pentágono (2026-09-22)
 
 El pentágono dejó de ser solo parte del wizard de "Crea tu rutina" -- ahora

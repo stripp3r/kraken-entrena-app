@@ -49,12 +49,9 @@ export function DescansoTimer({
         onClick={() => {
           // Mismo guard que el intervalo de abajo -- si el usuario toca
           // "Saltar" justo cuando el cronómetro llega a 0 (o lo toca dos
-          // veces rápido, antes de que el componente se desmonte), sin esto
-          // tanto este click como el tick del intervalo llaman a
-          // onTerminar/onSaltar por separado. Como los dos terminan
-          // ejecutando el mismo avanzarLado() en el padre (un simple
-          // toggle), dos llamados en vez de uno cancelan el cambio de lado
-          // -- el usuario queda cargando el mismo lado dos veces seguidas.
+          // veces rápido), solo el primero dispara onTerminar/onSaltar y la
+          // alerta suena una sola vez. (Ya no afecta al lado: ese sale de
+          // lo registrado, no de este cronómetro.)
           if (terminadoRef.current) return;
           terminadoRef.current = true;
           prepararAlertas();

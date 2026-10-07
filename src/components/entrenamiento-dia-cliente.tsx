@@ -7,6 +7,7 @@ import { finalizarEntrenamientoDia } from "@/app/entrenamiento/actions";
 import { segundosEntreLados, segundosEntreSeries, type Lado, type TipoEsfuerzo } from "@/lib/descanso";
 import { prepararAlertas } from "@/lib/sonido";
 import { hoyISO } from "@/lib/fecha";
+import { ladoPendiente } from "@/lib/lado-pendiente";
 import { leerSesionActiva, guardarSesionActiva, borrarSesionActiva } from "@/lib/sesion-entrenamiento";
 
 const OBJETIVO_SERIES_DEFAULT = 3;
@@ -85,7 +86,6 @@ export function EntrenamientoDiaCliente({
   const router = useRouter();
   const [sesionActiva, setSesionActiva] = useState(false);
   const [activoId, setActivoId] = useState<number | null>(null);
-  const [lado, setLado] = useState<Lado | null>(null);
   const [descansoHasta, setDescansoHasta] = useState<number | null>(null);
   const [etiquetaDescanso, setEtiquetaDescanso] = useState("");
   const [finalizando, setFinalizando] = useState(false);
@@ -93,6 +93,10 @@ export function EntrenamientoDiaCliente({
   const [errorFinalizar, setErrorFinalizar] = useState<string | null>(null);
 
   const activo = exercises.find((e) => e.id === activoId);
+  // El lado a registrar sale de lo ya registrado hoy, no de un estado propio
+  // (ver lib/lado-pendiente.ts) -- por eso sobrevive igual a cualquier
+  // recarga, pestaña descartada o descanso que se perdió en segundo plano.
+  const lado = activo?.unilateral ? ladoPendiente(logsPorEjercicio[activo.id] ?? []) : null;
   const seriesCompletas = activo ? contarSeriesCompletas(activo, logsPorEjercicio[activo.id] ?? []) : 0;
   const listoParaOtro = seriesCompletas >= seriesObjetivoDe(activo?.series_reps ?? null);
 
@@ -113,22 +117,16 @@ export function EntrenamientoDiaCliente({
     if (guardada?.dia === dia && exercises.some((e) => e.id === guardada.activoId)) {
       setSesionActiva(true);
       setActivoId(guardada.activoId);
-      // Si el descanso guardado ya venció mientras la app estaba cerrada/en
-      // segundo plano, no lo restauramos tal cual -- lo tratamos como si
-      // hubiese terminado normalmente (avanza de lado si era "entre lados")
-      // para no dejar la puerta abierta a cargar el mismo lado dos veces.
-      const descansoVigente = guardada.descansoHasta && guardada.descansoHasta > Date.now();
-      if (descansoVigente) {
-        setLado(guardada.lado);
+      // Solo se restaura el cronómetro si todavía no venció. Si venció con la
+      // app cerrada/en segundo plano simplemente no hay descanso que mostrar:
+      // el lado no depende de él (sale de lo ya registrado, ver
+      // lib/lado-pendiente.ts), así que no hay nada que "adivinar".
+      if (guardada.descansoHasta && guardada.descansoHasta > Date.now()) {
         setDescansoHasta(guardada.descansoHasta);
         setEtiquetaDescanso(guardada.etiquetaDescanso);
-      } else if (guardada.descansoHasta && guardada.etiquetaDescanso === "Descanso entre lados") {
-        setLado(guardada.lado === "derecho" ? "izquierdo" : "derecho");
-      } else {
-        setLado(guardada.lado);
       }
     } else {
-      guardarSesionActiva({ dia, activoId: null, lado: null, descansoHasta: null, etiquetaDescanso: "" });
+      guardarSesionActiva({ dia, activoId: null, descansoHasta: null, etiquetaDescanso: "" });
     }
     /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,8 +134,8 @@ export function EntrenamientoDiaCliente({
 
   useEffect(() => {
     if (!sesionActiva) return;
-    guardarSesionActiva({ dia, activoId, lado, descansoHasta, etiquetaDescanso });
-  }, [sesionActiva, activoId, lado, dia, descansoHasta, etiquetaDescanso]);
+    guardarSesionActiva({ dia, activoId, descansoHasta, etiquetaDescanso });
+  }, [sesionActiva, activoId, dia, descansoHasta, etiquetaDescanso]);
 
   useEffect(() => {
     if (finalizadoHoy && leerSesionActiva()?.dia === dia) {
@@ -149,7 +147,6 @@ export function EntrenamientoDiaCliente({
     prepararAlertas();
     setSesionActiva(true);
     setActivoId(exercises[0]?.id ?? null);
-    setLado(exercises[0]?.unilateral ? "derecho" : null);
     setDescansoHasta(null);
   }
 
@@ -173,7 +170,6 @@ export function EntrenamientoDiaCliente({
     setSesionActiva(false);
     setActivoId(null);
     setDescansoHasta(null);
-    setLado(null);
     borrarSesionActiva();
     router.refresh();
   }
@@ -181,9 +177,7 @@ export function EntrenamientoDiaCliente({
   function seleccionar(id: number) {
     if (id === activoId) return;
     prepararAlertas();
-    const ex = exercises.find((e) => e.id === id);
     setActivoId(id);
-    setLado(ex?.unilateral ? "derecho" : null);
     setDescansoHasta(null);
   }
 
@@ -203,17 +197,16 @@ export function EntrenamientoDiaCliente({
     }
   }
 
-  function avanzarLado() {
+  // El cronómetro solo controla el descanso en pantalla -- ya NO decide el
+  // lado (antes un toggle acá volteaba derecho<->izquierdo y cualquier
+  // llamado de más o de menos desincronizaba el lado en silencio).
+  function terminarDescanso() {
     setDescansoHasta(null);
-    if (activo?.unilateral) {
-      setLado((prev) => (prev === "derecho" ? "izquierdo" : "derecho"));
-    }
   }
 
   function finalizarEjercicio() {
     setActivoId(null);
     setDescansoHasta(null);
-    setLado(null);
   }
 
   if (finalizadoHoy) {
@@ -275,8 +268,8 @@ export function EntrenamientoDiaCliente({
                       seriesCompletas,
                       listoParaOtro,
                       onSetGuardado,
-                      onDescansoTerminado: avanzarLado,
-                      onSaltarDescanso: avanzarLado,
+                      onDescansoTerminado: terminarDescanso,
+                      onSaltarDescanso: terminarDescanso,
                       onFinalizarEjercicio: finalizarEjercicio,
                     }
                   : undefined

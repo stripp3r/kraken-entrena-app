@@ -1,8 +1,9 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { hoyISO } from "@/lib/fecha";
+import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import { rutinaIncluidaEnPlan } from "@/lib/premium";
+import { ladoOpuesto, ladoPendiente } from "@/lib/lado-pendiente";
 
 export type SetInput = {
   peso: number | null;
@@ -22,17 +23,45 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
     return { error: "Tenés que iniciar sesión de nuevo." };
   }
 
+  // El lado de un set unilateral NO se toma del que manda el cliente: se
+  // asigna acá, contando lo ya registrado hoy para este ejercicio (mismo
+  // criterio y misma ventana de "hoy" que usa la pantalla para mostrarlo --
+  // ver lib/lado-pendiente.ts). Si el cliente quedó desactualizado (app en
+  // segundo plano varios minutos, refresh que todavía no llegó) la base
+  // igual queda siempre alternando derecho/izquierdo, sin duplicar un lado.
+  let proximoLado: ReturnType<typeof ladoPendiente> | null = null;
+  if (sets.some((s) => s.lado)) {
+    const { data: previos, error: errorPrevios } = await supabase
+      .from("workout_logs")
+      .select("lado")
+      .eq("user_id", user.id)
+      .eq("exercise_definition_id", exerciseDefinitionId)
+      .gte("created_at", inicioDelDiaArgentinaUTC().toISOString());
+
+    if (errorPrevios) {
+      return { error: errorPrevios.message };
+    }
+    proximoLado = ladoPendiente(previos ?? []);
+  }
+
   const filas = sets
     .filter((s) => s.peso !== null || s.reps !== null || s.rir !== null)
-    .map((s) => ({
-      user_id: user.id,
-      exercise_definition_id: exerciseDefinitionId,
-      peso: s.peso,
-      reps: s.reps,
-      rir: s.rir,
-      lado: s.lado ?? null,
-      dia: dia ?? null,
-    }));
+    .map((s) => {
+      let lado: "derecho" | "izquierdo" | null = null;
+      if (s.lado && proximoLado) {
+        lado = proximoLado;
+        proximoLado = ladoOpuesto(proximoLado);
+      }
+      return {
+        user_id: user.id,
+        exercise_definition_id: exerciseDefinitionId,
+        peso: s.peso,
+        reps: s.reps,
+        rir: s.rir,
+        lado,
+        dia: dia ?? null,
+      };
+    });
 
   if (filas.length === 0) {
     return { error: "Cargá al menos un dato en algún set." };
