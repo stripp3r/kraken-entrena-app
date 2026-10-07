@@ -1052,10 +1052,26 @@ Golden).
     devuelve el token solo si ID y secret son válidos). Después de cambiar
     credenciales en Supabase, el servicio de auth puede tardar unos segundos
     en usar las nuevas (se verifica con `/auth/v1/authorize?provider=..`).
-    Pendiente del coach: una app de Facebook en modo **Desarrollo** solo
-    deja entrar a quienes tienen rol en ella; hay que pasarla a modo
-    **Activo** (y tener agregado el producto Facebook Login con la URL de
-    retorno de Supabase) para que entre cualquier persona.
+    **Estado al 2026-10-07 (botón OCULTO otra vez, `FACEBOOK_ACTIVO = false`
+    en `botones-sociales.tsx`)**: la app está en modo Desarrollo y solo deja
+    entrar a quienes tienen rol en ella; un cliente que tocara el botón vería
+    un error de Meta, por eso se esconde hasta poder publicar. Configuración
+    básica de Meta COMPLETA (privacidad, eliminación de datos, dominio,
+    correo, ícono, categoría; términos opcional) y "Acciones requeridas"
+    vacío, pero el botón "Publicar" del panel sigue APAGADO. En el panel nuevo
+    de Meta (basado en "casos de uso") los permisos `email` y `public_profile`
+    figuran en **"Listo para prueba"** con 0 llamadas a la API, y la doc
+    oficial dice que "Listo para modo activo" = aprobado en App Review; para
+    `public_profile` hay un botón "Aumentar acceso" (Acciones) para servir a
+    usuarios sin rol. Hipótesis sin confirmar (la pantalla no dice el motivo):
+    hace falta aumentar el acceso, lo que probablemente pide **verificación de
+    la empresa** (el portfolio "Ezequiel Arce" figura "Sin verificar"; Meta
+    acepta "particular", con documento de identidad) y **llamadas de prueba
+    a la API** de cada permiso (se pueden generar con el Graph API Explorer o
+    entrando con Facebook con la cuenta del coach; el contador puede tardar
+    ~2 días). Siguiente paso: ver qué opciones/requisitos muestra "Acciones"
+    en cada permiso. Facebook es opcional: Google + email ya cubren a casi
+    todos, así que no bloquea nada.
   - **Dos trampas encontradas al construirlo, no repetirlas**: (1) en un
     `<button formAction={serverAction}>` React PISA el atributo `name` con su
     propio id de acción, así que `name="provider" value="google"` nunca le
