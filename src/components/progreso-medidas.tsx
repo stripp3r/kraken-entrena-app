@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { escalaNaranja } from "@/lib/escala-naranja";
 
 type Medicion = {
   fecha: string;
@@ -28,8 +29,6 @@ const CAMPOS: { key: keyof Omit<Medicion, "fecha" | "peso">; label: string }[] =
   { key: "gemelos", label: "Gemelos" },
 ];
 
-const COLORES = ["#7a7a7a", "#e7e7e7", "#f97316", "#38bdf8", "#a3e635"];
-
 function fechaCorta(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y.slice(2)}`;
@@ -41,6 +40,8 @@ export function ProgresoMedidas({ historial }: { historial: Medicion[] }) {
   if (ordenado.length === 0) return null;
 
   const fechas = [...new Set(ordenado.map((m) => m.fecha))];
+  const colores = escalaNaranja(fechas.length);
+  const etiquetasFechas = fechas.map(fechaCorta);
 
   const datos = CAMPOS.map((campo) => {
     const fila: Record<string, string | number> = { medida: campo.label };
@@ -88,13 +89,18 @@ export function ProgresoMedidas({ historial }: { historial: Medicion[] }) {
                 fontSize: 12,
               }}
               labelStyle={{ color: "#e7e7e7" }}
+              itemSorter={(item) => etiquetasFechas.indexOf(String(item.dataKey))}
             />
-            <Legend wrapperStyle={{ fontSize: 11, color: "#b5b5b5" }} />
+            {/* itemSorter={null}: por defecto Recharts ordena la leyenda por
+                texto ("05/10" antes que "24/08"), no por fecha -- con la escala
+                de naranjas el tono significa "más reciente", así que la
+                leyenda tiene que respetar el orden cronológico de las series. */}
+            <Legend itemSorter={null} wrapperStyle={{ fontSize: 11, color: "#b5b5b5" }} />
             {fechas.map((f, i) => (
               <Bar
                 key={f}
                 dataKey={fechaCorta(f)}
-                fill={COLORES[i % COLORES.length]}
+                fill={colores[i]}
                 radius={[4, 4, 0, 0]}
               />
             ))}

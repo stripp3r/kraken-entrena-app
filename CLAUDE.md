@@ -1340,6 +1340,32 @@ izquierdo" (antes "derecho"); (2) pestaña desactualizada que mostraba
 cuenta (sigue valiendo): dos filas consecutivas con el mismo `lado` por
 `exercise_definition_id`+fecha, ordenadas por `created_at`.
 
+## Gráficos por fecha: escala monocromática de naranjas (2026-10-07)
+
+Los dos gráficos que comparan fechas (`grafico-volumen-ejercicios.tsx`,
+Progreso → Entrenamiento, y `progreso-medidas.tsx`, "Comparar mediciones")
+usaban una paleta multicolor fija (gris, blanco, naranja, celeste, verde,
+rosa, amarillo) asignada por posición y **repetida en ciclo** a partir de
+la 6ª-8ª fecha. El coach la vio en un video de la app y no le gustó
+("muy arcoíris"): en el Excel original todo era UN solo naranja en distintas
+tonalidades. Ahora `escalaNaranja(n)` (`src/lib/escala-naranja.ts`) genera
+`n` tonos del mismo naranja interpolando luminosidad (HSL, tono 24°): la
+fecha más vieja sale en el tono más claro (durazno, `#fbc9a7`) y la más
+reciente en el más intenso (`#f5680a`) -- el progreso se lee como "cada
+semana, más color", y funciona con cualquier cantidad de fechas sin repetir
+colores. **No volver a una lista fija de colores para series por fecha.**
+- Efecto colateral que importaba al cambiar a tonos: la leyenda y el
+  tooltip de Recharts 3 se ordenan **por texto** por defecto (`"05/10"`
+  antes que `"24/08"`), no por fecha -- con una escala donde el tono
+  significa "más reciente" eso confundía. Se fijó con `Legend
+  itemSorter={null}` y un `itemSorter` del tooltip por posición de la
+  fecha en la serie, en los dos gráficos.
+- **No se tocó a propósito**: el Comparador de rutinas (`analizador-cliente.tsx`,
+  3 colores) -- ahí cada color identifica una rutina DISTINTA, no una fecha;
+  y los colores semánticos de salud (`progreso-salud.tsx`, bueno/medio/malo).
+- Pendiente opcional (el coach no lo pidió todavía): el Excel tenía además un
+  leve resplandor/contorno claro alrededor de cada barra.
+
 ## Analizador de rutinas y pentágono (2026-09-22)
 
 El pentágono dejó de ser solo parte del wizard de "Crea tu rutina" -- ahora

@@ -3,8 +3,7 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { serieDeVolumen, type SetLog } from "@/lib/analytics";
 import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
-
-const COLORES = ["#7a7a7a", "#e7e7e7", "#f97316", "#38bdf8", "#a3e635", "#e879f9", "#facc15"];
+import { escalaNaranja } from "@/lib/escala-naranja";
 
 function fechaCorta(iso: string) {
   const [y, m, d] = iso.split("-");
@@ -43,6 +42,8 @@ export function GraficoVolumenEjercicios({
   });
 
   const alto = Math.max(120, datos.length * Math.max(50, fechas.length * 16));
+  const colores = escalaNaranja(fechas.length);
+  const etiquetasFechas = fechas.map(fechaCorta);
 
   return (
     <div style={{ height: alto }} className="w-full">
@@ -68,10 +69,13 @@ export function GraficoVolumenEjercicios({
               fontSize: 12,
             }}
             labelStyle={{ color: "#e7e7e7" }}
+            itemSorter={(item) => etiquetasFechas.indexOf(String(item.dataKey))}
           />
-          <Legend wrapperStyle={{ fontSize: 11, color: "#b5b5b5" }} />
+          {/* Ver el comentario equivalente en progreso-medidas.tsx: sin
+              itemSorter={null} la leyenda sale ordenada como texto, no por fecha. */}
+          <Legend itemSorter={null} wrapperStyle={{ fontSize: 11, color: "#b5b5b5" }} />
           {fechas.map((f, i) => (
-            <Bar key={f} dataKey={fechaCorta(f)} fill={COLORES[i % COLORES.length]} />
+            <Bar key={f} dataKey={fechaCorta(f)} fill={colores[i]} />
           ))}
         </BarChart>
       </ResponsiveContainer>
