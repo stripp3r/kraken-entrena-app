@@ -1547,6 +1547,48 @@ Pago/PayPal).
   de cualquiera de las dos.
 - Sin probar con una suscripción real: se verificó solo la UI del modal.
 
+### Coherencia entre la política de privacidad y la app (revisión 2026-10-08)
+La política vive en el sitio (`/privacidad`) y NO se cambia desde acá: estas
+son las diferencias encontradas para que el coach las ajuste allá.
+Lo que la política declara y la app cumple: obligatorios = email, contraseña
+(o Google/Facebook) y nombre (en el formulario de Datos personales solo
+`nombre` es `required`); opcionales = apellido, sexo, fecha de nacimiento,
+objetivo, actividad física, peso/medidas (incluye gemelos, muñeca y
+antebrazo) y fotos; guías alimenticias PDF para mentoría; pagos = estado,
+monto y email del comprador; proveedores = Supabase, Vercel, Resend (mails de
+recuperación vía SMTP de Supabase), Cloudflare (DNS), Mercado Pago, PayPal,
+Google y Facebook. Google Fonts se auto-hostea en el build (`next/font`): no
+hay llamadas a Google en tiempo de ejecución.
+
+**Diferencias a corregir en la política:**
+1. **IP y user agent** se guardan al aceptar Términos/Privacidad
+   (`aceptaciones_legales`, tarea del 2026-10-08) y no están declarados.
+2. **Metadatos de Google/Facebook en Supabase Auth**: además de email y
+   nombre llegan foto de perfil (URL), id del proveedor y `email_verified`.
+   La app no los usa ni los lee, pero quedan guardados hasta borrar la cuenta.
+3. **Registro de solicitudes de arrepentimiento/baja**
+   (`solicitudes_baja_arrepentimiento`: email/teléfono de contacto, fecha,
+   medio, código): se conserva por obligación legal AUNQUE se borre la cuenta;
+   la política solo menciona conservar "registro mínimo de pagos".
+4. **Almacenamiento en el dispositivo**: cookies de sesión de Supabase,
+   `localStorage`/`sessionStorage` (entrenamiento en curso, última pantalla,
+   borrador de "Crea tu rutina") y el service worker (`public/sw.js`), que
+   guarda copia de las páginas visitadas para uso offline -- incluye pantallas
+   con datos personales. La política no habla de cookies ni almacenamiento
+   local. (Los bytes de los PDF de planes están excluidos del cache.)
+5. **Pagos**: además de monto/estado/email se guarda el id de pago o de
+   suscripción del proveedor, el producto y la fecha del próximo cobro. Menor,
+   pero conviene decirlo ("datos de la transacción").
+6. **Pendiente según avance del agente de WhatsApp** (sesión aparte,
+   `src/app/api/webhooks/whatsapp`, sin commitear al 2026-10-08): procesaría
+   teléfonos y contenido de mensajes vía WhatsApp Cloud API (Meta) -- hoy el
+   webhook escribe el payload completo en los logs de Vercel --, y si el
+   agente usa Claude hay que declarar también a Anthropic como proveedor.
+- `/eliminar-datos` coincide con `borrarCuentaCompleta` (borra cuenta, perfil,
+  salud y entrenamiento, fotos, guías; conserva registro mínimo de pagos). Hoy
+  dice "si tenés una suscripción activa, indicalo": el borrado ahora la cancela
+  solo, así que ese aviso ya no es necesario.
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés
