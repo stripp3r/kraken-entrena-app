@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { esPremium } from "@/lib/premium";
+import { VERSION_LEGAL, TIPO_ACEPTACION } from "@/lib/aceptacion-legal-version";
 
 // "/restablecer-password" entra acá porque ahí se escribe el código de
 // recuperación ANTES de tener sesión -- ver "Recuperar contraseña" en
@@ -36,6 +37,23 @@ const PATHS_SIN_PREMIUM = [
   "/auth/callback",
 ];
 
+// Rutas que NO exigen tener aceptados los Términos vigentes: las públicas
+// (sin sesión no hay nada que exigir), los webhooks y el login social, y la
+// propia pantalla de aceptación. A propósito "/api/checkout" NO está acá:
+// aunque sea pública para el proxy (se llega desde el sitio web y redirige a
+// /login), una cuenta que todavía no aceptó no puede llegar a pagar.
+const PATHS_SIN_ACEPTACION = [
+  "/login",
+  "/registro",
+  "/compra",
+  "/api/webhooks",
+  "/api/admin",
+  "/olvide-password",
+  "/restablecer-password",
+  "/auth/callback",
+  "/aceptar-terminos",
+];
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -69,6 +87,30 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Aceptación de Términos y Privacidad: todo usuario logueado (nuevo, de
+  // Google/Facebook, o previo a que existiera esto) tiene que haber aceptado
+  // la VERSION_LEGAL vigente. Falla ABIERTO si la consulta da error (ej. la
+  // migración 092 todavía no corrió): un error de base no puede dejar a todos
+  // los clientes afuera de la app.
+  if (user && !PATHS_SIN_ACEPTACION.some((path) => pathname.startsWith(path))) {
+    const { data: aceptacion, error } = await supabase
+      .from("aceptaciones_legales")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("tipo", TIPO_ACEPTACION)
+      .eq("version", VERSION_LEGAL)
+      .limit(1);
+
+    if (error) {
+      console.error("proxy: no se pudo leer aceptaciones_legales:", error.message);
+    } else if (!aceptacion?.length) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/aceptar-terminos";
+      url.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;
+      return NextResponse.redirect(url);
+    }
   }
 
   // Muro de pago: usuario logueado pero sin prueba ni Golden vigente ->

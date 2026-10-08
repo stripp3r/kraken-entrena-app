@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { rutaSiguienteSegura } from "@/lib/next-redirect";
+import { registrarAceptacion } from "@/lib/aceptacion-legal";
 
 const PROVEEDORES_SOCIALES = ["google", "facebook"] as const;
 
@@ -68,7 +69,18 @@ export async function signup(formData: FormData) {
   const supabase = await createClient();
   const next = rutaSiguienteSegura(formData.get("next"));
 
-  const { error } = await supabase.auth.signUp({
+  // La casilla "Acepto los Términos y la Política de Privacidad" se valida
+  // acá del lado servidor además del `required` del formulario: sin ella no
+  // se crea la cuenta. El email vuelve prellenado para no perder lo escrito.
+  if (formData.get("acepto") !== "on") {
+    const sufijoNext = next ? `&next=${encodeURIComponent(next)}` : "";
+    const email = encodeURIComponent((formData.get("email") as string) ?? "");
+    redirect(
+      `/registro?error=${encodeURIComponent("Tenés que aceptar los Términos y la Política de Privacidad para crear tu cuenta.")}&email=${email}${sufijoNext}`
+    );
+  }
+
+  const { data, error } = await supabase.auth.signUp({
     email: formData.get("email") as string,
     password: formData.get("password") as string,
   });
@@ -76,6 +88,12 @@ export async function signup(formData: FormData) {
   if (error) {
     const sufijoNext = next ? `&next=${encodeURIComponent(next)}` : "";
     redirect(`/registro?error=${encodeURIComponent(error.message)}${sufijoNext}`);
+  }
+
+  // Guarda la aceptación (versión, fecha, user agent, IP). Si falla no se
+  // corta el alta: el proxy lo va a volver a pedir en /aceptar-terminos.
+  if (data.user?.id) {
+    await registrarAceptacion(data.user.id).catch(() => false);
   }
 
   revalidatePath("/", "layout");

@@ -4,6 +4,7 @@ import { InstalarApp } from "@/components/instalar-app";
 import { BotonesSociales } from "@/components/botones-sociales";
 import { LinksLegales } from "@/components/links-legales";
 import { signup } from "../login/actions";
+import { URL_PRIVACIDAD, URL_TERMINOS } from "@/lib/legal";
 
 export default async function RegistroPage({
   searchParams,
@@ -45,6 +46,21 @@ export default async function RegistroPage({
             <PasswordInput id="password" name="password" required minLength={6} />
           </div>
 
+          <label className="flex items-start gap-3 text-sm text-gray-300">
+            <input type="checkbox" name="acepto" required className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500" />
+            <span>
+              Acepto los{" "}
+              <a href={URL_TERMINOS} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white">
+                Términos y Condiciones
+              </a>{" "}
+              y la{" "}
+              <a href={URL_PRIVACIDAD} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white">
+                Política de Privacidad
+              </a>
+              .
+            </span>
+          </label>
+
           {error && <p className="text-sm text-red-400">{error}</p>}
 
           <button
@@ -56,6 +72,10 @@ export default async function RegistroPage({
         </form>
 
         <BotonesSociales next={next} />
+        <p className="mt-3 text-center text-xs text-gray-600">
+          Si entrás con Google o Facebook, te vamos a pedir aceptar los Términos y la Política de
+          Privacidad antes de seguir.
+        </p>
 
         <p className="mt-6 text-center text-sm text-gray-500">
           ¿Ya tenés cuenta?{" "}

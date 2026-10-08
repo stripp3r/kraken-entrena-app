@@ -1325,6 +1325,49 @@ apunta a `routine_id = 7`).
   brazo" (id 276, que también quedó como su `alternativa_id`) y
   `unilateral = true`.
 
+## Cumplimiento legal (tanda del 2026-10-08)
+
+Referencia legal = las páginas del SITIO WEB (otro repo, no se tocan desde
+acá): `https://fit.krakenbrand.com/{privacidad,terminos,eliminar-datos,arrepentimiento,baja}`.
+Las URLs viven TODAS en `src/lib/legal.ts` (también `URL_PLANES`,
+`URL_MENTORIAS`, `URL_SITIO_WEB`); no hardcodear el dominio en pantallas.
+El sitio viejo `kraken-fitness-web.vercel.app` ya no se referencia en ningún
+lado.
+
+**Estado al 2026-10-08**: `/arrepentimiento` y `/baja` todavía devolvían 404
+en el sitio cuando se armó esto. NO desplegar la app hasta que existan: los
+dos botones obligatorios apuntarían a una página rota.
+
+### Botones obligatorios (Disposición 954/2025)
+`<FranjaLegal />` (`src/components/franja-legal.tsx`, montada en
+`layout.tsx`) es una franja fina `sticky top-0` con el texto exacto "BOTÓN DE
+ARREPENTIMIENTO" y "BOTÓN DE BAJA DE SERVICIO". Se ve sin loguearse ni
+scrollear en `/`, `/login`, `/registro`, `/golden` y `/compra/*` (lista
+`RUTAS` del componente; agregar ahí si se suma otra pantalla de venta). Son
+`<a>` externos al sitio: NO pasan por registro ni por ningún paso previo de
+la app, y esa es la condición legal -- no ponerles nada en el medio.
+Pie con Privacidad/Términos en `/login` y `/registro`, y con "Eliminar mis
+datos" además en Perfil (`<LinksLegales />`).
+
+### Aceptación de Términos y Privacidad
+- Tabla `aceptaciones_legales` (migración 092): `user_id, tipo, version,
+  aceptado_at, user_agent, ip`, único por (usuario, tipo, versión). RLS: el
+  usuario solo lee las suyas; las altas las hace el servidor con service role
+  (`registrarAceptacion()` en `src/lib/aceptacion-legal.ts`).
+- Versión vigente = `VERSION_LEGAL` en `src/lib/aceptacion-legal-version.ts`
+  (archivo sin imports para que el proxy lo lea). **Cambiarla obliga a todos
+  a aceptar de nuevo** en su próximo ingreso.
+- `/registro`: casilla obligatoria, validada TAMBIÉN en el servidor (`signup`
+  en `src/app/login/actions.ts`); al crear la cuenta guarda la aceptación.
+- Gate central en `src/lib/supabase/middleware.ts`: cualquier usuario
+  logueado sin la versión vigente va a `/aceptar-terminos?next=...` (cubre
+  Google/Facebook nuevos y cuentas existentes con el mismo código). Rutas
+  exentas: `PATHS_SIN_ACEPTACION`. `/api/checkout` NO está exenta a propósito
+  (no se puede pagar sin haber aceptado). **Falla abierto** si la consulta
+  da error (p.ej. migración sin correr): un error de base no deja afuera a
+  los clientes.
+- Orden de despliegue: correr la migración 092 ANTES de pushear el código.
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés
