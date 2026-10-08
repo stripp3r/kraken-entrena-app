@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { guardarUltimaPantalla, leerUltimaPantalla } from "@/lib/ultima-pantalla";
 
-const OCULTAR_EN = ["/login", "/registro"];
+const OCULTAR_EN = ["/login", "/registro", "/aceptar-terminos"];
 
 export function BottomNav({ genero }: { genero: "femenino" | "masculino" }) {
   const pathname = usePathname();
