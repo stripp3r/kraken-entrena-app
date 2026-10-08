@@ -8,9 +8,9 @@ import { login } from "./actions";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string; mensaje?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; mensaje?: string; facebook?: string }>;
 }) {
-  const { error, next, mensaje } = await searchParams;
+  const { error, next, mensaje, facebook } = await searchParams;
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6">
@@ -60,7 +60,7 @@ export default async function LoginPage({
           </button>
         </form>
 
-        <BotonesSociales next={next} />
+        <BotonesSociales next={next} mostrarFacebook={facebook === "1"} />
 
         <p className="mt-6 text-center text-sm text-gray-500">
           ¿Todavía no tenés cuenta?{" "}

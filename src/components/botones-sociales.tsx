@@ -1,10 +1,15 @@
 import { loginConProveedor } from "@/app/login/actions";
 
-// Facebook OCULTO de nuevo (2026-10-07) hasta que Meta deje publicar la app:
-// mientras está en modo Desarrollo el botón solo funciona para quienes tienen
-// rol en la app (el coach); a cualquier cliente le muestra un error de Meta.
-// El flujo ya está cableado y probado hasta la pantalla de login de Facebook.
+// Facebook OCULTO (2026-10-07) hasta que Meta deje publicar la app: mientras
+// está en modo Desarrollo el botón solo funciona para quienes tienen rol en la
+// app (el coach); a cualquier cliente le muestra un error de Meta. El flujo ya
+// está cableado y probado hasta la pantalla de login de Facebook.
 // Pasar a `true` recién cuando "Publicar" en Meta Developers esté en "Activo".
+//
+// Excepción (2026-10-08): el revisor de Meta tiene que poder ver y probar el
+// botón para aprobar la app. Se le da el link `/login?facebook=1`, que lo
+// muestra sin afectar a los clientes (que nunca entran por ese link). Una vez
+// publicada la app, `FACEBOOK_ACTIVO = true` y este parámetro deja de importar.
 const FACEBOOK_ACTIVO = false;
 
 const CLASE_BOTON =
@@ -13,7 +18,7 @@ const CLASE_BOTON =
 // "Continuar con Google / Facebook". Va en un <form> propio, separado del de
 // email/contraseña, para que los `required` de ese formulario no bloqueen el
 // botón. Sirve igual para entrar que para crear cuenta.
-export function BotonesSociales({ next }: { next?: string }) {
+export function BotonesSociales({ next, mostrarFacebook = false }: { next?: string; mostrarFacebook?: boolean }) {
   return (
     <div className="mt-6">
       <div className="mb-4 flex items-center gap-3 text-xs text-gray-600">
@@ -35,7 +40,7 @@ export function BotonesSociales({ next }: { next?: string }) {
           Continuar con Google
         </button>
 
-        {FACEBOOK_ACTIVO && (
+        {(FACEBOOK_ACTIVO || mostrarFacebook) && (
           <button formAction={loginConProveedor.bind(null, "facebook")} className={CLASE_BOTON}>
             <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
               <path
