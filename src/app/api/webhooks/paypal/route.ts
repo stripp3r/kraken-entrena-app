@@ -138,12 +138,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // Solo el cobro FALLIDO da las 48 h de gracia; una suspensión a secas
+  // (ej. pausada a mano) no. PayPal manda PAYMENT.FAILED antes del SUSPENDED
+  // que sigue a un fallo, así que la gracia se otorga con el primero.
   if (
     (tipo === "BILLING.SUBSCRIPTION.SUSPENDED" ||
       tipo === "BILLING.SUBSCRIPTION.PAYMENT.FAILED") &&
     recurso.id
   ) {
-    await pausarGolden("paypal", recurso.id);
+    await pausarGolden("paypal", recurso.id, {
+      pagoRechazado: tipo === "BILLING.SUBSCRIPTION.PAYMENT.FAILED",
+    });
     return NextResponse.json({ ok: true });
   }
 

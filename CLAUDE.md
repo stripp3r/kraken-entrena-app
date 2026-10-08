@@ -1491,6 +1491,34 @@ responde con un código dentro de las 24 h.
   rechazo de `borrar` sin `confirmarEmail`. Probar con una cuenta descartable
   antes de usarlo con un cliente.
 
+### 48 horas de gracia ante un cobro de renovación rechazado (migración 094)
+Política del coach: si falla la renovación de una suscripción, el acceso se
+mantiene 48 horas más desde el vencimiento y después se suspende si no se
+regularizó. **Mecánica elegida (cambio mínimo, sin tocar pantallas)**: al
+rechazarse el cobro, `pausarGolden(proveedor, subId, {pagoRechazado: true})`
+corre `profiles.premium_hasta` +2 días y guarda el vencimiento original en
+`suscripciones.gracia_premium_original`. Como TODA la app ya decide el acceso
+con `premium_hasta`, la gracia se respeta en todos lados sin cambios.
+- Solo para suscripciones **Golden y Mentoría Online** (`premium_origen` golden
+  o mentoria, no perpetuo): nunca trial, compra suelta ni Founder.
+- Solo si la suscripción estaba `activa` (o `pausada` sin gracia previa): una
+  `cancelada` no recibe gracia, y una sola vez por ciclo (la marca evita
+  extender de nuevo cuando MP/PayPal reintentan y rechazan otra vez).
+- Disparadores: Mercado Pago `authorized_payment.status = rejected` (Golden y
+  Mentoría) y PayPal `BILLING.SUBSCRIPTION.PAYMENT.FAILED`. Un `paused`/
+  `SUSPENDED` a secas (pausa manual) NO da gracia.
+- Si el cobro se regulariza (`acreditarCobroGolden`/`...MentoriaOnline`), el
+  período nuevo se cuenta desde el vencimiento ORIGINAL (no se regalan los 2
+  días) y se limpia la marca. Si la suscripción se cancela (`cancelarGolden`),
+  se vuelve al vencimiento original: las canceladas no tienen gracia. Si no
+  se regulariza, el acceso se corta solo cuando `premium_hasta` vence.
+- Robustez: la marca se guarda ANTES de mover `premium_hasta`, y las lecturas/
+  escrituras de la columna nueva van en consultas aparte, para que correr el
+  código antes que la migración 094 no rompa el dedupe de cobros ni la
+  acreditación real de pagos.
+- Sin probar contra eventos reales de MP/PayPal; revisar con la primera
+  renovación fallida que ocurra (sub pausada + `premium_hasta` +2 días).
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés

@@ -29,6 +29,40 @@ function unMesDesde(fechaISO: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+function sumarDias(fechaISO: string, dias: number): string {
+  const d = new Date(`${fechaISO}T00:00:00-03:00`);
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
+// Días de gracia ante un cobro de renovación rechazado (política del coach,
+// 2026-10-08: 48 horas antes de cortar el acceso).
+const DIAS_GRACIA_PAGO_RECHAZADO = 2;
+
+// Vencimiento original guardado cuando se otorgó la gracia (null si no hay).
+// Consulta APARTE a propósito: si la migración 094 todavía no corrió, esta
+// lectura falla y devuelve null SIN romper el dedupe de cobros de las
+// funciones de acreditación (que dependen de otra consulta).
+async function graciaOriginal(proveedor: string, proveedorSubId: string): Promise<string | null> {
+  const { data } = await createAdminClient()
+    .from("suscripciones")
+    .select("gracia_premium_original")
+    .eq("proveedor", proveedor)
+    .eq("proveedor_sub_id", proveedorSubId)
+    .maybeSingle();
+  return (data?.gracia_premium_original as string | null | undefined) ?? null;
+}
+
+// Borra la marca de gracia (en una consulta aparte y sin mirar el error: si la
+// migración 094 no corrió, simplemente no hay nada que borrar).
+async function limpiarGracia(proveedor: string, proveedorSubId: string) {
+  await createAdminClient()
+    .from("suscripciones")
+    .update({ gracia_premium_original: null })
+    .eq("proveedor", proveedor)
+    .eq("proveedor_sub_id", proveedorSubId);
+}
+
 // Marca/actualiza la suscripción como activa sin tocar premium_hasta.
 // Se llama cuando el proveedor confirma que la suscripción quedó autorizada
 // (el período de acceso lo suma el cobro, no la autorización).
@@ -111,8 +145,12 @@ export async function acreditarCobroGolden({
     .eq("id", userId)
     .single();
 
-  const base =
-    perfil?.premium_hasta && perfil.premium_hasta > hoy ? perfil.premium_hasta : hoy;
+  // Si venía de una gracia por pago rechazado, premium_hasta tiene 2 días de
+  // más: el período nuevo se cuenta desde el vencimiento ORIGINAL, no desde
+  // el extendido (si no, se regalaría la gracia).
+  const original = await graciaOriginal(proveedor, proveedorSubId);
+  const vigente = original ?? perfil?.premium_hasta ?? null;
+  const base = vigente && vigente > hoy ? vigente : hoy;
   const nuevoHasta = frecuencia === "mensual" ? unMesDesde(base) : unAnioDesde(base);
 
   await supabase
@@ -141,6 +179,8 @@ export async function acreditarCobroGolden({
     },
     { onConflict: "proveedor,proveedor_sub_id" }
   );
+
+  if (original) await limpiarGracia(proveedor, proveedorSubId);
 
   return { ok: true, premiumHasta: nuevoHasta };
 }
@@ -215,7 +255,10 @@ export async function acreditarCobroMentoriaOnline({
     .eq("id", userId)
     .single();
 
-  const base = perfil?.premium_hasta && perfil.premium_hasta > hoy ? perfil.premium_hasta : hoy;
+  // Ver el mismo bloque en acreditarCobroGolden: la gracia no se regala.
+  const original = await graciaOriginal(proveedor, proveedorSubId);
+  const vigente = original ?? perfil?.premium_hasta ?? null;
+  const base = vigente && vigente > hoy ? vigente : hoy;
   const nuevoHasta = unMesDesde(base);
 
   await supabase
@@ -242,27 +285,104 @@ export async function acreditarCobroMentoriaOnline({
     { onConflict: "proveedor,proveedor_sub_id" }
   );
 
+  if (original) await limpiarGracia(proveedor, proveedorSubId);
+
   return { ok: true, premiumHasta: nuevoHasta, tier };
 }
 
-// La suscripción se pausó (pago rechazado, tarjeta vencida). NO se toca
-// premium_hasta: el usuario sigue con acceso hasta que venza el período
-// que ya pagó.
-export async function pausarGolden(proveedor: string, proveedorSubId: string) {
+// 48 horas de gracia: extiende premium_hasta DIAS_GRACIA_PAGO_RECHAZADO días y
+// guarda el vencimiento original. Solo aplica a Golden o Mentoría (nunca a
+// cuentas cuyo acceso no sea de suscripción: trial, compra, Founder,
+// perpetuo). pausarGolden decide cuándo llamarla (nunca para canceladas ni
+// dos veces en el mismo ciclo).
+async function otorgarGraciaPorPagoRechazado(
+  proveedor: string,
+  proveedorSubId: string,
+  userId: string
+) {
   const supabase = createAdminClient();
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("premium_hasta, premium_origen, golden_perpetuo")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (
+    !perfil?.premium_hasta ||
+    perfil.golden_perpetuo ||
+    (perfil.premium_origen !== "golden" && perfil.premium_origen !== "mentoria")
+  ) {
+    return;
+  }
+
+  // Primero se guarda la marca: si esto falla (migración 094 sin correr) NO se
+  // toca premium_hasta, así nunca queda una extensión sin forma de deshacerla.
+  const { error } = await supabase
+    .from("suscripciones")
+    .update({ gracia_premium_original: perfil.premium_hasta })
+    .eq("proveedor", proveedor)
+    .eq("proveedor_sub_id", proveedorSubId);
+  if (error) {
+    console.error("gracia por pago rechazado: no se pudo guardar la marca:", error.message);
+    return;
+  }
+
+  await supabase
+    .from("profiles")
+    .update({ premium_hasta: sumarDias(perfil.premium_hasta, DIAS_GRACIA_PAGO_RECHAZADO) })
+    .eq("id", userId);
+}
+
+// La suscripción se pausó. NO se toca premium_hasta por la pausa en sí: el
+// usuario sigue con acceso hasta que venza el período que ya pagó. Si la
+// pausa es por un cobro de renovación RECHAZADO (`pagoRechazado`), además se
+// le dan 48 horas más desde ese vencimiento antes de cortarle el acceso (ver
+// otorgarGraciaPorPagoRechazado y la migración 094). Una sola vez por ciclo
+// (la marca evita extender de nuevo cuando el proveedor reintenta y vuelve a
+// rechazar) y nunca sobre una suscripción ya cancelada.
+export async function pausarGolden(
+  proveedor: string,
+  proveedorSubId: string,
+  { pagoRechazado = false }: { pagoRechazado?: boolean } = {}
+) {
+  const supabase = createAdminClient();
+
+  // Estado previo. Si la migración 094 no corrió, esta consulta falla y
+  // simplemente no se otorga gracia.
+  const { data: previa } = pagoRechazado
+    ? await supabase
+        .from("suscripciones")
+        .select("user_id, estado, gracia_premium_original")
+        .eq("proveedor", proveedor)
+        .eq("proveedor_sub_id", proveedorSubId)
+        .maybeSingle()
+    : { data: null };
+
   await supabase
     .from("suscripciones")
     .update({ estado: "pausada", updated_at: new Date().toISOString() })
     .eq("proveedor", proveedor)
     .eq("proveedor_sub_id", proveedorSubId);
+
+  if (
+    pagoRechazado &&
+    previa &&
+    (previa.estado === "activa" || previa.estado === "pausada") &&
+    !previa.gracia_premium_original
+  ) {
+    await otorgarGraciaPorPagoRechazado(proveedor, proveedorSubId, previa.user_id);
+  }
 }
 
 // El usuario canceló la renovación. Sigue con acceso hasta proximo_cobro.
+// Una cancelación anula la gracia por pago rechazado: se vuelve al
+// vencimiento original (las canceladas no tienen gracia).
 export async function cancelarGolden(proveedor: string, proveedorSubId: string) {
   const supabase = createAdminClient();
   const { data: sub } = await supabase
     .from("suscripciones")
-    .select("proximo_cobro")
+    .select("proximo_cobro, user_id")
     .eq("proveedor", proveedor)
     .eq("proveedor_sub_id", proveedorSubId)
     .maybeSingle();
@@ -276,4 +396,22 @@ export async function cancelarGolden(proveedor: string, proveedorSubId: string) 
     })
     .eq("proveedor", proveedor)
     .eq("proveedor_sub_id", proveedorSubId);
+
+  const original = await graciaOriginal(proveedor, proveedorSubId);
+  if (original && sub?.user_id) {
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("premium_hasta, premium_origen")
+      .eq("id", sub.user_id)
+      .maybeSingle();
+    // Solo se revierte si el acceso sigue siendo de suscripción y el
+    // vencimiento sigue siendo el extendido (nada lo movió desde entonces).
+    if (
+      perfil?.premium_hasta === sumarDias(original, DIAS_GRACIA_PAGO_RECHAZADO) &&
+      (perfil.premium_origen === "golden" || perfil.premium_origen === "mentoria")
+    ) {
+      await supabase.from("profiles").update({ premium_hasta: original }).eq("id", sub.user_id);
+    }
+    await limpiarGracia(proveedor, proveedorSubId);
+  }
 }

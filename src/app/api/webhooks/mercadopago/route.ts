@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
           proximoCobro: soloFecha(ap.next_payment_date),
         });
       } else if (ap.status === "rejected") {
-        await pausarGolden("mercadopago", ap.preapproval_id);
+        await pausarGolden("mercadopago", ap.preapproval_id, { pagoRechazado: true });
       }
       return NextResponse.json({ ok: true, status: ap.status });
     }
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
         proximoCobro: soloFecha(ap.next_payment_date),
       });
     } else if (ap.status === "rejected") {
-      await pausarGolden("mercadopago", ap.preapproval_id);
+      await pausarGolden("mercadopago", ap.preapproval_id, { pagoRechazado: true });
     }
     return NextResponse.json({ ok: true, status: ap.status });
   }
