@@ -5,6 +5,7 @@ import { RegisterServiceWorker } from "./register-sw";
 import { BottomNav } from "@/components/bottom-nav";
 import { TrialBanner } from "@/components/trial-banner";
 import { OrientationGuard } from "@/components/orientation-guard";
+import { FranjaLegal } from "@/components/franja-legal";
 import { createClient } from "@/lib/supabase/server";
 import { diasRestantesTrial } from "@/lib/premium";
 
@@ -59,6 +60,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="es" className={`${bebasNeue.variable} ${inter.variable} h-full`}>
       <body className="min-h-full flex flex-col pb-16 antialiased">
         <OrientationGuard />
+        <FranjaLegal />
         {diasTrial != null && <TrialBanner dias={diasTrial} />}
         {children}
         <BottomNav genero={genero} />

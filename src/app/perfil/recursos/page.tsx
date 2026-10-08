@@ -5,8 +5,7 @@ import { BackLink } from "@/components/back-link";
 import { DescargarPdfBoton } from "@/components/descargar-pdf-boton";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { permisos } from "@/lib/premium";
-
-const URL_PLANES = "https://kraken-fitness-web.vercel.app/#planes";
+import { URL_PLANES } from "@/lib/legal";
 
 type ProductoConPdf = { id: number; nombre: string };
 

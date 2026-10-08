@@ -4,10 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES, esGoldenTier } from "@/lib/premium";
 import { CompartirAppBoton } from "@/components/compartir-app-boton";
 import { linkWhatsapp } from "@/lib/contacto";
+import { URL_PLANES, URL_SITIO_WEB, URL_MENTORIAS } from "@/lib/legal";
 
-const URL_PLANES = "https://kraken-fitness-web.vercel.app/#planes";
-const URL_SITIO_WEB = "https://kraken-fitness-web.vercel.app/#inicio";
-const URL_MENTORIAS = "https://kraken-fitness-web.vercel.app/#mentorias";
 const WHATSAPP_SOPORTE = linkWhatsapp("Hola KRAKEN, tengo un problema con la app");
 
 export default async function Home() {

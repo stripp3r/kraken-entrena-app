@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
 import { InstalarApp } from "@/components/instalar-app";
 import { BotonesSociales } from "@/components/botones-sociales";
+import { LinksLegales } from "@/components/links-legales";
 import { login } from "./actions";
 
 export default async function LoginPage({
@@ -70,6 +71,8 @@ export default async function LoginPage({
             Registrate
           </Link>
         </p>
+
+        <LinksLegales />
       </div>
     </main>
   );

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
 import { permisos } from "@/lib/premium";
+import { LinksLegales } from "@/components/links-legales";
 
 export default async function PerfilPage() {
   const supabase = await createClient();
@@ -91,6 +92,8 @@ export default async function PerfilPage() {
             Cerrar sesión
           </button>
         </form>
+
+        <LinksLegales eliminarDatos className="mt-8" />
       </div>
     </main>
   );
