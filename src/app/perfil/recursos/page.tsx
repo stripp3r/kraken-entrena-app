@@ -1,13 +1,13 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BackLink } from "@/components/back-link";
-import { DescargarPdfBoton } from "@/components/descargar-pdf-boton";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { permisos } from "@/lib/premium";
 import { URL_PLANES } from "@/lib/legal";
 
-type ProductoConPdf = { id: number; nombre: string };
+type ProductoConPdf = { id: number; nombre: string; slug: string };
 
 export default async function RecursosPage() {
   const supabase = await createClient();
@@ -50,7 +50,7 @@ export default async function RecursosPage() {
   // profile_routine_access).
   const { data: compras } = await admin
     .from("compras")
-    .select("productos(id, nombre, pdf_storage_path)")
+    .select("productos(id, nombre, slug, pdf_storage_path)")
     .eq("user_id", user.id)
     .eq("estado", "aprobado");
 
@@ -61,12 +61,13 @@ export default async function RecursosPage() {
     const producto = compra.productos as unknown as {
       id: number;
       nombre: string;
+      slug: string;
       pdf_storage_path: string | null;
     } | null;
 
     if (producto?.pdf_storage_path && !vistos.has(producto.id)) {
       vistos.add(producto.id);
-      productos.push({ id: producto.id, nombre: producto.nombre });
+      productos.push({ id: producto.id, nombre: producto.nombre, slug: producto.slug });
     }
   }
 
@@ -84,7 +85,7 @@ export default async function RecursosPage() {
           <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-6 text-center">
             <p className="text-sm text-gray-400">
               Todavía no tenés ningún PDF disponible. Se habilitan solos al comprar un plan
-              autoguiado -- rutina + guía en PDF, orientado a tu objetivo.
+              autoguiado -- rutina + guía en PDF, orientado a tu objetivo, para leer dentro de la app.
             </p>
             <a
               href={URL_PLANES}
@@ -103,7 +104,12 @@ export default async function RecursosPage() {
                 className="flex items-center justify-between rounded-lg border border-border bg-bg-card px-4 py-3"
               >
                 <span className="text-sm text-white">{producto.nombre}</span>
-                <DescargarPdfBoton productoId={producto.id} />
+                <Link
+                  href={`/perfil/recursos/${encodeURIComponent(producto.slug)}/leer`}
+                  className="rounded-full bg-white px-4 py-1.5 text-xs font-medium text-black transition-opacity hover:opacity-90"
+                >
+                  Leer PDF
+                </Link>
               </div>
             ))}
           </div>

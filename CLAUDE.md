@@ -1368,6 +1368,46 @@ datos" además en Perfil (`<LinksLegales />`).
   los clientes.
 - Orden de despliegue: correr la migración 092 ANTES de pushear el código.
 
+### PDF de planes autoguiados: solo lectura, sin descarga
+Objetivo (definido por el coach): el comprador LEE el PDF dentro de la app y
+no se lo puede llevar, así el arrepentimiento de 14 días aplica sin
+excepciones (si se revoca la compra, se revoca el acceso y no se queda con
+nada).
+- Mis PDFs (`perfil/recursos/page.tsx`) ya no tiene "Descargar PDF": cada
+  producto linkea a `/perfil/recursos/[slug]/leer` (`VisorPdf`,
+  `src/components/visor-pdf.tsx`, pdf.js sobre `<canvas>`, sin barra nativa,
+  sin descargar/imprimir, menú contextual y Ctrl+S/P bloqueados, `@media
+  print` oculto, marca de agua con el email del usuario DIBUJADA en el
+  canvas de cada página, links del PDF —videos de Drive— clickeables vía
+  overlay de `<a>`).
+- Los bytes salen de `perfil/recursos/[producto]/pdf/route.ts`: exige sesión,
+  `permisos().misPdfs` y compra `aprobado` del producto
+  (`productoPdfConAcceso()` en `src/lib/pdf-acceso.ts`), responde
+  `Cache-Control: no-store` y RECHAZA navegaciones directas
+  (`Sec-Fetch-Dest: document|iframe|embed|object` o cross-site), para que no
+  se pueda abrir la URL y hacer "Guardar como". El archivo NUNCA se expone
+  con URL pública ni firmada (se borró `obtenerLinkDescargaPdf` y
+  `descargar-pdf-boton.tsx`).
+- `public/sw.js` NO cachea esa ruta (antes cacheaba todo GET: los bytes del
+  PDF habrían quedado guardados en el dispositivo y seguido disponibles
+  offline después de una revocación).
+- **Límite honesto**: no se puede impedir una captura de pantalla ni que
+  alguien técnico reconstruya el archivo desde las peticiones del visor. El
+  objetivo es no ENTREGAR el archivo, no blindarlo.
+- `pdfjs-dist` (v6) es dependencia nueva; `destroy()` está en la tarea de
+  carga (`getDocument()`), no en el documento, y `render()` recibe `canvas`.
+- La Guía alimenticia de mentorías (`descargar-guia-boton.tsx`,
+  `alimentacion/actions.ts`) NO se tocó: sigue siendo descarga por URL
+  firmada de 5 min; es otro producto (servicio, no plan de pago único).
+- Comportamiento real del acceso al PDF (aclaración pedida 2026-10-08): el
+  comentario viejo de `lib/compras.ts` decía que el PDF "queda para siempre",
+  pero `permisos(misPdfs)` se corta cuando vence `premium_hasta` (3 meses en
+  una compra suelta; 14 días en trial no aplica, trial no tiene Mis PDFs):
+  pasado ese plazo Mis PDFs muestra la pantalla bloqueada. Antes de este
+  cambio la server action de descarga solo chequeaba `compras`, así que
+  alguien que la llamara a mano seguía pudiendo bajarlo; la ruta nueva
+  alinea el servidor con la UI. Comentario corregido.
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés

@@ -55,3 +55,11 @@ select {
   -webkit-user-select: text;
   user-select: text;
 }
+
+/* Visor de PDF de planes (solo lectura): no se imprime ni se guarda como PDF
+   desde el navegador -- ver components/visor-pdf.tsx. */
+@media print {
+  .visor-pdf {
+    display: none !important;
+  }
+}

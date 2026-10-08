@@ -1,8 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO } from "@/lib/fecha";
 
-// Meses de acceso completo a la app que da comprar un plan suelto (el PDF y
-// las rutinas quedan para siempre; el uso de la app, acotado a esto).
+// Meses de acceso completo a la app que da comprar un plan suelto. Ese acceso
+// incluye ver el PDF dentro de la app (solo lectura, sin descarga): cuando
+// premium_hasta vence, permisos().misPdfs se corta y el PDF deja de verse
+// (las filas de `compras` y las rutinas en profile_routine_access quedan, pero
+// la app las bloquea hasta que vuelva a haber acceso vigente).
 const MESES_ACCESO_POR_COMPRA = 3;
 
 // Punto único al que llegan los webhooks de pago (Mercado Pago, PayPal)
@@ -14,7 +17,8 @@ const MESES_ACCESO_POR_COMPRA = 3;
 // La entrega del producto (PDF + rutinas) es 100% dentro de la app: el
 // comprador baja la app y se registra con el mismo email del pago -> el
 // trigger handle_new_user reclama esta compra y le da el acceso; el PDF lo
-// descarga desde Perfil -> Mis PDFs. No se manda ningún mail.
+// lee dentro de la app desde Perfil -> Mis PDFs (visor de solo lectura, no se
+// descarga). No se manda ningún mail.
 export async function procesarCompraAprobada({
   proveedor,
   proveedorPaymentId,

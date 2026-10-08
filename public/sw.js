@@ -19,6 +19,10 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // Los bytes de los PDF de planes (visor de solo lectura) nunca se guardan
+  // en cache ni se sirven offline: la ruta responde no-store y el acceso se
+  // puede revocar (arrepentimiento), asi que siempre va a la red.
+  if (/^\/perfil\/recursos\/[^/]+\/pdf$/.test(new URL(event.request.url).pathname)) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
