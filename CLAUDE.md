@@ -1519,6 +1519,34 @@ con `premium_hasta`, la gracia se respeta en todos lados sin cambios.
 - Sin probar contra eventos reales de MP/PayPal; revisar con la primera
   renovación fallida que ocurra (sub pausada + `premium_hasta` +2 días).
 
+### Pop-up de cambio de precio (migración 095)
+Solo el MECANISMO; no cambia ningún precio real (eso se hace aparte en Mercado
+Pago/PayPal).
+- Tablas `avisos_precio` (`titulo, cuerpo, producto_slug, precio_nuevo, moneda,
+  vigente_desde, creado_at`; lectura para logueados, los crea el coach) y
+  `avisos_precio_confirmaciones` (`user_id, aviso_id, confirmado_at`; cada
+  usuario lee/inserta solo las suyas).
+- **Cómo crea un aviso el coach** (SQL Editor, un INSERT; el ejemplo completo
+  está en el encabezado de `migration_095_avisos_precio.sql`):
+  `insert into public.avisos_precio (titulo, cuerpo, producto_slug,
+  precio_nuevo, moneda, vigente_desde) values ('Cambio de precio de Golden
+  mensual', 'A partir del …', 'golden-mensual', 12000, 'ARS', '2026-12-01');`
+  `producto_slug`: `golden-mensual | golden-anual | mentoria-online-basic |
+  mentoria-online-vip`. Para retirarlo: `delete from avisos_precio where id = …`.
+- Al abrir la app, `layout.tsx` llama a `avisoPrecioPendiente()`
+  (`src/lib/aviso-precio.ts`): si el usuario tiene una suscripción
+  `activa`/`pausada` del producto afectado y no confirmó el primer aviso
+  pendiente, se monta `<AvisoPrecioModal />`: no se cierra sin "Leí y acepto el
+  nuevo precio" e incluye el link a `URL_BAJA`. No aparece en /login,
+  /registro, /aceptar-terminos ni recuperar contraseña. Cualquier error
+  (migración sin correr) → no hay modal, nunca bloquea el uso de la app.
+- `suscripciones.producto_slug` lo completan los webhooks al activarse la
+  suscripción (en un update aparte, tolerante a la migración sin correr). Las
+  suscripciones anteriores quedan en null y se infieren: Golden por
+  `frecuencia`; Mentoría Online sin saber Basic/VIP, así que le llega un aviso
+  de cualquiera de las dos.
+- Sin probar con una suscripción real: se verificó solo la UI del modal.
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés

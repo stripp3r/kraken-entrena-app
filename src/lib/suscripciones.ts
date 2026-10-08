@@ -74,6 +74,7 @@ export async function marcarSuscripcionActiva({
   precio,
   moneda,
   proximoCobro,
+  productoSlug,
 }: {
   userId: string;
   proveedor: "mercadopago" | "paypal";
@@ -82,6 +83,10 @@ export async function marcarSuscripcionActiva({
   precio: number | null;
   moneda: string | null;
   proximoCobro: string | null;
+  // De qué producto es esta suscripción (golden-mensual, mentoria-online-vip,
+  // etc.) -- lo usan los avisos de cambio de precio. Opcional y escrito en
+  // una consulta aparte: si la migración 095 no corrió, no rompe la alta.
+  productoSlug?: string;
 }) {
   const supabase = createAdminClient();
   await supabase.from("suscripciones").upsert(
@@ -99,6 +104,14 @@ export async function marcarSuscripcionActiva({
     },
     { onConflict: "proveedor,proveedor_sub_id" }
   );
+
+  if (productoSlug) {
+    await supabase
+      .from("suscripciones")
+      .update({ producto_slug: productoSlug })
+      .eq("proveedor", proveedor)
+      .eq("proveedor_sub_id", proveedorSubId);
+  }
 }
 
 // Un cobro de Golden se acreditó (alta o renovación): empuja premium_hasta

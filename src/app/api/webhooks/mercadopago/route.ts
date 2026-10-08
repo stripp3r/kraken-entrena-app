@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
         precio: pre.auto_recurring?.transaction_amount ?? null,
         moneda: pre.auto_recurring?.currency_id ?? "ARS",
         proximoCobro: soloFecha(pre.next_payment_date),
+        productoSlug: mentoria ? `mentoria-online-${mentoria.tier}` : `golden-${frecuencia}`,
       });
     } else if (pre.status === "cancelled") {
       await cancelarGolden("mercadopago", pre.id);

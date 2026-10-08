@@ -6,6 +6,8 @@ import { BottomNav } from "@/components/bottom-nav";
 import { TrialBanner } from "@/components/trial-banner";
 import { OrientationGuard } from "@/components/orientation-guard";
 import { FranjaLegal } from "@/components/franja-legal";
+import { AvisoPrecioModal } from "@/components/aviso-precio-modal";
+import { avisoPrecioPendiente, type AvisoPrecio } from "@/lib/aviso-precio";
 import { createClient } from "@/lib/supabase/server";
 import { diasRestantesTrial } from "@/lib/premium";
 
@@ -46,6 +48,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   let genero: "femenino" | "masculino" = "masculino";
   let diasTrial: number | null = null;
+  let avisoPrecio: AvisoPrecio | null = null;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -54,6 +57,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       .single();
     if (profile?.sexo === "femenino") genero = "femenino";
     diasTrial = diasRestantesTrial(profile);
+    avisoPrecio = await avisoPrecioPendiente(supabase, user.id, profile?.premium_origen);
   }
 
   return (
@@ -64,6 +68,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         {diasTrial != null && <TrialBanner dias={diasTrial} />}
         {children}
         <BottomNav genero={genero} />
+        {avisoPrecio && <AvisoPrecioModal aviso={avisoPrecio} />}
         <RegisterServiceWorker />
       </body>
     </html>

@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
         : null,
       moneda: recurso.billing_info?.last_payment?.amount?.currency_code ?? "USD",
       proximoCobro: recurso.billing_info?.next_billing_time?.slice(0, 10) ?? null,
+      productoSlug: mentoria ? `mentoria-online-${mentoria.tier}` : `golden-${frecuencia}`,
     });
     return NextResponse.json({ ok: true });
   }
