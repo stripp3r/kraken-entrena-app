@@ -1456,6 +1456,41 @@ responde con un código dentro de las 24 h.
   solo por tipos; probar con una suscripción/compra real chica antes de
   confiar la automatización.
 
+### Borrado de cuenta (derecho de supresión) y permisos de Google/Facebook
+- `borrarCuentaCompleta({email, soloVerificar?})` en `src/lib/borrar-cuenta.ts`
+  (server-only, irreversible). HTTP: `POST /api/admin/cuentas` con
+  `Authorization: Bearer $ADMIN_API_SECRET`: `{accion:"verificar", email}` (no
+  borra: devuelve qué se borraría) y `{accion:"borrar", email, confirmarEmail}`
+  (`confirmarEmail` debe repetir el email exacto).
+- Orden: 1) cancela en el proveedor toda suscripción activa/pausada (si falla,
+  no borra nada: si no, seguiría pagando una cuenta inexistente) → 2) borra
+  fotos de evolución (`progress-photos/<user_id>/…`) y la guía alimenticia
+  (`guias-alimenticias`) → 3) borra las rutinas que armó ella misma
+  (`creada_por_usuario`) → 4) anonimiza `compras` (queda monto, moneda, fecha y
+  estado; email = `eliminado@eliminado.invalid`, sin usuario; esto además evita
+  que la compra se re-reclame si alguien se registra con ese email) → 5)
+  `auth.admin.deleteUser`, y el resto cae por `on delete cascade` (perfil,
+  mediciones, entrenamiento, cardio, historial y acceso a rutinas,
+  suscripciones, aceptaciones, guía).
+- NO se borra: `solicitudes_baja_arrepentimiento` (registro obligatorio por la
+  Disposición 954/2025) ni las rutinas privadas que el coach armó para esa
+  persona (se listan en `rutinasPrivadasDelCoach` para borrarlas a mano si se
+  quiere).
+- **Tokens de Google/Facebook: no hay nada que revocar.** Verificado
+  2026-10-08: Supabase Auth guarda por identidad solo perfil (email, nombre,
+  `picture`/`avatar_url`, id del proveedor), nunca `provider_token` ni
+  `provider_refresh_token`, y el código de la app no los lee ni persiste. Por
+  eso el borrado no llama al endpoint de revocación de Google ni a la API de
+  Graph. Si algún día se guardaran tokens (ej. para usar APIs de Google),
+  habría que revocarlos acá.
+- Scopes que pide hoy el login (leídos del redirect de `/auth/v1/authorize`):
+  Google `email profile`; Facebook `email` (más `public_profile`, que Facebook
+  Login incluye siempre). Nada más. No agregar scopes sin revisar la política
+  de privacidad ni la verificación de la app en Google/Meta.
+- Sin probar el borrado real (destructivo): se probó solo `verificar` y el
+  rechazo de `borrar` sin `confirmarEmail`. Probar con una cuenta descartable
+  antes de usarlo con un cliente.
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés
