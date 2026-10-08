@@ -317,6 +317,15 @@ export async function crearSuscripcionMentoriaOnlinePaypal({
   return { id: sub.id as string | undefined, aprobarUrl };
 }
 
+// Cancela una suscripción en PayPal (frena las renovaciones; no reembolsa
+// nada). PayPal responde 204 sin cuerpo, de ahí el catch en paypalFetch.
+export async function cancelarSuscripcionPaypal(id: string, motivo: string) {
+  await paypalFetch(`/v1/billing/subscriptions/${id}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason: motivo.slice(0, 128) }),
+  });
+}
+
 export async function obtenerSuscripcionPaypal(id: string): Promise<{
   id: string;
   status: string;

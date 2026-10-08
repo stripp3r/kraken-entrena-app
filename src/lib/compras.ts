@@ -6,7 +6,7 @@ import { hoyISO } from "@/lib/fecha";
 // premium_hasta vence, permisos().misPdfs se corta y el PDF deja de verse
 // (las filas de `compras` y las rutinas en profile_routine_access quedan, pero
 // la app las bloquea hasta que vuelva a haber acceso vigente).
-const MESES_ACCESO_POR_COMPRA = 3;
+export const MESES_ACCESO_POR_COMPRA = 3;
 
 // Punto único al que llegan los webhooks de pago (Mercado Pago, PayPal)
 // una vez que confirmaron -- contra la API del proveedor, no solo confiando
@@ -126,6 +126,19 @@ export async function procesarCompraAprobada({
         .from("profiles")
         .update({ premium_hasta: d.toISOString().slice(0, 10), premium_origen: "compra" })
         .eq("id", userId);
+
+      // Guarda cómo estaba el perfil ANTES de esta compra, para poder
+      // deshacer el acceso si se revoca (revocarCompra, src/lib/solicitudes.ts).
+      // Si la migración 093 todavía no corrió este update falla sin romper la
+      // compra (el error de supabase-js se devuelve, no se lanza).
+      await supabase
+        .from("compras")
+        .update({
+          premium_aplicado: true,
+          premium_previo_hasta: perfil?.premium_hasta ?? null,
+          premium_previo_origen: perfil?.premium_origen ?? null,
+        })
+        .eq("id", compra.id);
     }
 
     // A propósito NO se activa ninguna rutina automáticamente acá -- el

@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/compra",
   "/api/checkout",
   "/api/webhooks",
+  "/api/admin",
   "/olvide-password",
   "/restablecer-password",
   "/auth/callback",

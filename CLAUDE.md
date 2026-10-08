@@ -1408,6 +1408,54 @@ nada).
   alguien que la llamara a mano seguía pudiendo bajarlo; la ruta nueva
   alinea el servidor con la UI. Comentario corregido.
 
+### Arrepentimiento y baja: registro + funciones server-only (migración 093)
+Reglas de negocio ya publicadas en `/terminos` (definidas por el coach):
+arrepentimiento = 14 días corridos desde la compra, 100% de devolución dentro
+del plazo, ninguna fuera; baja de suscripción = se frena la renovación y el
+acceso sigue hasta el fin del período pagado; si pide la baja antes de la
+renovación y igual se le cobra, se le devuelve ese cobro. Los pedidos llegan
+por WhatsApp (3412672887) o email y la automatización (otro Claude Code)
+responde con un código dentro de las 24 h.
+
+- Tabla `solicitudes_baja_arrepentimiento` (RLS sin policies: solo service
+  role). Código legible `ARR-2026-000123` / `BAJ-2026-000123` armado por un
+  trigger a partir del id. Estados: `recibida` → `codigo_enviado` →
+  `procesada` | `rechazada`. NO se borra al eliminar una cuenta: es el registro
+  que la norma obliga a llevar.
+- `src/lib/solicitudes.ts` (server-only): `registrarSolicitud`,
+  `actualizarSolicitud`, `cancelarSuscripcion`, `revocarCompra`,
+  `buscarUsuarioPorEmail`. Importables desde la automatización, o por HTTP:
+  `POST /api/admin/solicitudes` con `Authorization: Bearer $ADMIN_API_SECRET`
+  y cuerpo `{accion, ...}`:
+  - `registrar` `{tipo: "arrepentimiento"|"baja", medio: "whatsapp"|"email"|"app", contacto, emailCuenta?, productoSlug?, notas?}` → `{codigo, recibidaAt}`
+  - `actualizar` `{codigo, estado, notas?}` (`codigo_enviado` fija `codigo_informado_at`)
+  - `cancelar_suscripcion` `{email}` o `{suscripcionId}` → cancela en Mercado
+    Pago (preapproval) / PayPal (subscription), deja `estado='cancelada'` y
+    `cancelada_al = premium_hasta`. NO corta el acceso.
+  - `revocar_compra` `{email, productoSlug, compraId?}` → `compras.estado =
+    'revocado'` (el PDF deja de verse), quita `profile_routine_access` de las
+    rutinas que daba esa compra (salvo las que den otras compras aprobadas),
+    desactiva la rutina activa si ya no le corresponde y deshace el
+    `premium_hasta/premium_origen` que dio, SOLO si el acceso actual sigue
+    siendo `premium_origen='compra'` (no toca Golden/mentoría/Founder). Si
+    compró el mismo producto 2 veces revoca la más reciente.
+- `ADMIN_API_SECRET` (≥24 caracteres) tiene que existir en Vercel y en
+  `.env.local`; sin él `/api/admin/*` responde 503 (cerrado). `/api/admin` está
+  en `PUBLIC_PATHS` del proxy a propósito: el secreto es la única barrera.
+- **Reembolsos: SIEMPRE a mano** desde el panel de Mercado Pago / PayPal.
+  `lib/mercadopago.ts` y `lib/paypal.ts` no tienen reembolso por API a
+  propósito (mueve plata real y no se puede probar sin gastar). `revocarCompra`
+  devuelve `reembolsoManual` (proveedor, id de pago, monto) para hacerlo.
+- `compras` guarda `premium_aplicado/premium_previo_hasta/premium_previo_origen`
+  (los completa `procesarCompraAprobada`) para poder deshacer el acceso. Para
+  compras viejas o reclamadas por el trigger `handle_new_user` se resta
+  `MESES_ACCESO_POR_COMPRA` al vencimiento. Limitación: `profile_routine_access`
+  no distingue una rutina comprada de una asignada a mano por el coach.
+- Sin probar contra los proveedores reales (no hay sandbox cargado): la
+  cancelación en Mercado Pago/PayPal y la reversión de premium se verificaron
+  solo por tipos; probar con una suscripción/compra real chica antes de
+  confiar la automatización.
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés

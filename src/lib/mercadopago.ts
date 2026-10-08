@@ -135,6 +135,13 @@ export async function crearSuscripcionMentoriaOnline({
   return { id: result.id ?? null, initPoint: result.init_point ?? null };
 }
 
+// Cancela una suscripción en Mercado Pago (frena las renovaciones; no
+// reembolsa nada). Usado por cancelarSuscripcion() en src/lib/solicitudes.ts.
+export async function cancelarPreApproval(id: string) {
+  const preapproval = new PreApproval(config());
+  return preapproval.update({ id, body: { status: "cancelled" } });
+}
+
 export async function obtenerPreApproval(id: string) {
   const preapproval = new PreApproval(config());
   return preapproval.get({ id });
