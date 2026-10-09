@@ -1589,6 +1589,38 @@ hay llamadas a Google en tiempo de ejecución.
   dice "si tenés una suscripción activa, indicalo": el borrado ahora la cancela
   solo, así que ese aviso ya no es necesario.
 
+## Cobros: qué se probó con plata REAL en producción (registro, 2026-10-08)
+Este registro faltaba en el documento (las notas viejas decían que solo se
+había simulado); reconstruido desde el historial de las sesiones de
+septiembre. Todo en PRODUCCIÓN, con cuentas reales y montos mínimos:
+- **PayPal, pago único**: pago real de US$0.01 (producto `anti-flakardo` con
+  precio puesto temporalmente en 0.01 y restaurado a 29.99), transacción
+  `5S763367LG792763Y`, el webhook **Live** acreditó la compra en `compras`
+  (`proveedor='paypal'`, `estado='aprobado'`) y la app redirigió a "GRACIAS".
+  Webhook de PayPal creado en modo **Live** (no sandbox), con `PAYPAL_WEBHOOK_ID`
+  de Live cargado en Vercel junto con `PAYPAL_ENVIRONMENT=production`.
+  Eventos suscriptos en ese webhook Live: `PAYMENT.CAPTURE.COMPLETED`, los 6
+  `BILLING.SUBSCRIPTION.*` y `PAYMENT.SALE.COMPLETED`.
+- **Mercado Pago, pago único**: compra real de Anti-Flakardo (Rocío), con el
+  reclamo automático al registrarse con el mismo email: las 2 rutinas
+  quedaron desbloqueadas solas.
+- **Golden (suscripción)**: validado de punta a punta con 2 cuentas reales:
+  Mercado Pago (Rocío y Maximiliano) y PayPal (Maximiliano). El webhook sumó
+  el año y el badge quedó "Golden · renueva 11/09/2027".
+- **Mentoría Online**: Mercado Pago llegó hasta la pantalla de pago real de MP
+  (no se completó un cobro); PayPal solo contra la API sandbox. **No hay un
+  cobro real completo de Mentoría Online** todavía; los cobros recurrentes
+  siguen esperando su primera renovación real.
+- Verificado 2026-10-07 que el checkout de Golden por PayPal en producción
+  manda a `www.paypal.com` (no a sandbox); el `.env.local` local sí usa
+  credenciales de sandbox, no confundirlo con producción.
+- NO probado con plata real: cancelación y revocación desde
+  `/api/admin/solicitudes`, borrado de cuenta, las 48 h de gracia y el pop-up
+  de precio (todo de la tanda legal del 2026-10-08).
+- Decisión del coach 2026-10-08: el token personal de Supabase `claude-smtp`
+  NO se revoca (dice que nadie lo va a usar; vence solo el 2026-10-10). Si se
+  necesita tocar la configuración de Supabase, usar un token nuevo.
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés
