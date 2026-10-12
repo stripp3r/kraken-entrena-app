@@ -22,9 +22,16 @@ export function parsearSeriesReps(texto: string | null | undefined): SeriesRepsP
   if (!principal) return { ...POR_DEFECTO };
 
   const [, serieDesde, serieHasta, repsCrudo] = principal;
-  const series = serieHasta
+  const seriesComunes = serieHasta
     ? Math.round((Number(serieDesde) + Number(serieHasta)) / 2)
     : Number(serieDesde);
+
+  // Con drop sets ("2 x al fallo + 1-2 x drop set") las series con drop set se
+  // suman a las comunes: cada una cuenta como UNA serie (las bajadas son parte
+  // de ella, ver lib/dropset.ts).
+  const drop = texto.match(/\+\s*(\d+)(?:\s*-\s*(\d+))?\s*[x×X]\s*drop/i);
+  const seriesDrop = drop ? Math.round((Number(drop[1]) + Number(drop[2] ?? drop[1])) / 2) : 0;
+  const series = seriesComunes + seriesDrop;
 
   // Series descendentes ("15-12-10") o rangos ("8-12") -- nos quedamos con
   // el mínimo y el máximo de todos los números que aparecen.

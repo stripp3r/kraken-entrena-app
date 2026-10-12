@@ -6,6 +6,13 @@ import { borrarSet, editarSet, registrarSets } from "@/app/entrenamiento/actions
 import { DescansoTimer } from "./descanso-timer";
 import type { Lado } from "@/lib/descanso";
 import { prepararAlertas } from "@/lib/sonido";
+import {
+  estadoDropset,
+  pesoSugeridoBajada,
+  planDeSeries,
+  tieneDropset,
+  type TipoSerie,
+} from "@/lib/dropset";
 
 type WorkoutLog = {
   id: number;
@@ -13,6 +20,8 @@ type WorkoutLog = {
   reps: number | null;
   rir: number | null;
   lado: Lado | null;
+  tipo_serie: TipoSerie;
+  drop_de: number | null;
   created_at: string;
 };
 
@@ -46,7 +55,9 @@ export type SesionActiva = {
   etiquetaDescanso: string;
   seriesCompletas: number;
   listoParaOtro: boolean;
-  onSetGuardado: () => void;
+  // sinDescanso: true cuando lo registrado es el tramo de un drop set que se
+  // sigue SIN descanso con la próxima bajada.
+  onSetGuardado: (opciones?: { sinDescanso?: boolean }) => void;
   onDescansoTerminado: () => void;
   onSaltarDescanso: () => void;
   onFinalizarEjercicio: () => void;
@@ -93,6 +104,15 @@ export function ExerciseCard({
   const [editRow, setEditRow] = useState(emptyRow);
   const [mostrarComoHacerlo, setMostrarComoHacerlo] = useState(false);
   const [mostrarAlternativa, setMostrarAlternativa] = useState(false);
+  const [modoElegido, setModoElegido] = useState<"normal" | "dropset" | null>(null);
+  const [cerradoId, setCerradoId] = useState<number | null>(null);
+  const [ahora, setAhora] = useState(0);
+
+  const plan = planDeSeries(exercise.series_reps);
+  const conDropset = tieneDropset(plan);
+  const { pendiente, modoSugerido } = estadoDropset(logsDeHoy, plan, ahora, cerradoId);
+  const modo = modoElegido ?? modoSugerido;
+  const pesoSugeridoDrop = pendiente ? pesoSugeridoBajada(pendiente.pesos) : null;
 
   // La tarjeta nunca se desmonta durante la sesión (solo cambian sus props),
   // así que si no se limpia el formulario de serie al cambiar de "activo"
@@ -106,6 +126,27 @@ export function ExerciseCard({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [activo]);
 
+  // Cada vez que cambian los registros de hoy: se renueva "ahora" (para la
+  // ventana de bajadas) y se suelta la elección manual de modo, así vuelve a
+  // seguir lo que corresponde según lo ya registrado.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setAhora(Date.now());
+    setModoElegido(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [logsDeHoy.length]);
+
+  // Al pasar a la próxima bajada, el peso viene sugerido (mismo salto que la
+  // bajada anterior) para tocar solo las reps -- se puede corregir.
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (pendiente) {
+      setSetActivo({ peso: pesoSugeridoDrop?.toString() ?? "", reps: "", rir: "" });
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendiente?.padreId, pendiente?.numero]);
+
   async function registrarSetDeSesion() {
     if (!sesion) return;
     if (!setActivo.peso && !setActivo.reps && !setActivo.rir) return;
@@ -114,14 +155,19 @@ export function ExerciseCard({
     setSaving(true);
     setError(null);
 
+    const tipo: TipoSerie = pendiente ? "drop" : conDropset && modo === "dropset" ? "dropset" : "normal";
+
     const result = await registrarSets(
       exercise.id,
       [
         {
           peso: setActivo.peso ? Number(setActivo.peso) : null,
           reps: setActivo.reps ? Number(setActivo.reps) : null,
-          rir: setActivo.rir ? Number(setActivo.rir) : null,
+          // Una bajada es siempre al fallo: no se pregunta el RIR.
+          rir: tipo === "drop" ? 0 : setActivo.rir ? Number(setActivo.rir) : null,
           lado: sesion.lado,
+          tipo,
+          dropDe: pendiente?.padreId ?? null,
         },
       ],
       dia
@@ -137,7 +183,11 @@ export function ExerciseCard({
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 1800);
     router.refresh();
-    sesion.onSetGuardado();
+    // Sin descanso entre tramos de un mismo drop set; el descanso real
+    // arranca al terminar la última bajada prevista.
+    const quedanBajadas =
+      tipo === "dropset" ? plan.bajadas > 0 : tipo === "drop" && pendiente ? pendiente.numero < plan.bajadas : false;
+    sesion.onSetGuardado({ sinDescanso: quedanBajadas });
   }
 
   function empezarEdicion(log: WorkoutLog) {
@@ -317,8 +367,17 @@ export function ExerciseCard({
           {logsDeHoy.length > 0 && (
             <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3">
               <p className="text-[11px] uppercase tracking-wide text-gray-500">Hoy</p>
-              {logsDeHoy.map((log) =>
-                editingId === log.id ? (
+              {logsDeHoy.map((log, indice) => {
+                const numeroSerie = logsDeHoy.slice(0, indice + 1).filter((l) => l.tipo_serie !== "drop").length;
+                const etiquetaSerie =
+                  log.tipo_serie === "drop"
+                    ? `↳ Bajada ${logsDeHoy.filter((l) => l.drop_de === log.drop_de && l.id <= log.id).length}`
+                    : log.tipo_serie === "dropset"
+                      ? `Serie ${numeroSerie} · drop set`
+                      : conDropset
+                        ? `Serie ${numeroSerie}`
+                        : null;
+                return editingId === log.id ? (
                   <div key={log.id} className="flex items-center gap-1.5">
                     <input
                       value={editRow.peso}
@@ -356,10 +415,14 @@ export function ExerciseCard({
                     </button>
                   </div>
                 ) : (
-                  <div key={log.id} className="flex items-center justify-between text-sm text-gray-300">
+                  <div
+                    key={log.id}
+                    className={`flex items-center justify-between text-sm text-gray-300 ${log.tipo_serie === "drop" ? "pl-4" : ""}`}
+                  >
                     <span>
-                      {horaDe(log.created_at)} — {log.peso ?? "-"}kg × {log.reps ?? "-"} (RIR{" "}
-                      {log.rir ?? "-"})
+                      {etiquetaSerie && <span className="text-orange-300">{etiquetaSerie} · </span>}
+                      {horaDe(log.created_at)} — {log.peso ?? "-"}kg × {log.reps ?? "-"}
+                      {log.tipo_serie !== "drop" && <> (RIR {log.rir ?? "-"})</>}
                       {log.lado && (
                         <span className="text-gray-500"> · {labelLado(log.lado)}</span>
                       )}
@@ -377,8 +440,8 @@ export function ExerciseCard({
                       </button>
                     </span>
                   </div>
-                )
-              )}
+                );
+              })}
             </div>
           )}
 
@@ -400,6 +463,54 @@ export function ExerciseCard({
               <>
                 {sesion.lado && (
                   <p className="text-sm font-medium text-emerald-300">{labelLado(sesion.lado)}</p>
+                )}
+                {conDropset && !pendiente && !sesion.lado && (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex gap-2">
+                      {(["normal", "dropset"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setModoElegido(m)}
+                          className={`flex-1 rounded-md border py-1.5 text-xs font-medium ${
+                            modo === m
+                              ? "border-orange-400 bg-orange-400/15 text-orange-300"
+                              : "border-border-strong text-gray-400"
+                          }`}
+                        >
+                          {m === "normal" ? "Serie normal" : "Con drop set"}
+                        </button>
+                      ))}
+                    </div>
+                    {modo === "dropset" && (
+                      <p className="text-[11px] text-gray-500">
+                        Registrá primero la serie pesada al fallo. Después vas a cargar {plan.bajadas}{" "}
+                        bajadas seguidas, sin descanso.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {pendiente && (
+                  <div className="flex flex-col gap-1 rounded-md border border-orange-400/40 bg-orange-400/10 p-3">
+                    <p className="text-sm font-medium text-orange-300">
+                      Bajada {pendiente.numero} de {plan.bajadas} — sin descanso
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      Bajá el peso
+                      {pesoSugeridoDrop !== null && <> (sugerido: {pesoSugeridoDrop} kg)</>} y seguí al
+                      fallo.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCerradoId(logsDeHoy[logsDeHoy.length - 1]?.id ?? null);
+                        sesion.onSetGuardado();
+                      }}
+                      className="self-start text-xs text-gray-400 underline"
+                    >
+                      Terminar drop set
+                    </button>
+                  </div>
                 )}
                 <div className="flex items-end gap-2">
                   <div className="flex flex-1 flex-col gap-1">
@@ -423,7 +534,7 @@ export function ExerciseCard({
                       className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
                     />
                   </div>
-                  <div className="flex flex-1 flex-col gap-1">
+                  <div className={`flex flex-1 flex-col gap-1 ${pendiente ? "hidden" : ""}`}>
                     <label className="text-[11px] text-gray-500">RIR</label>
                     <input
                       value={setActivo.rir}
@@ -441,7 +552,7 @@ export function ExerciseCard({
                   onClick={registrarSetDeSesion}
                   className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
                 >
-                  {saving ? "Guardando..." : "Registrar serie"}
+                  {saving ? "Guardando..." : pendiente ? "Registrar bajada" : "Registrar serie"}
                 </button>
               </>
             )}

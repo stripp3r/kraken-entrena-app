@@ -1621,6 +1621,64 @@ septiembre. Todo en PRODUCCIÓN, con cuentas reales y montos mínimos:
   NO se revoca (dice que nadie lo va a usar; vence solo el 2026-10-10). Si se
   necesita tocar la configuración de Supabase, usar un token nuevo.
 
+## Rutina "Kraken Dorian" y registro de drop sets (2026-10-12, migraciones 096 y 097)
+
+**Kraken Dorian** (en honor a Dorian Yates) es la rutina personal del coach desde
+el 2026-10-12: privada, solo para `ezequiel.arce@outlook.com` (migración 097 le
+da acceso y la deja activa; para otra cuenta propia, un insert más en
+`profile_routine_access`, ejemplo al final de la migración). 5 días A-E (lunes A,
+martes B, jueves C, viernes D, sábado E; miércoles y domingo descanso: la app no
+modela días de la semana, solo A-E). Volumen bajo/moderado, **todas las series al
+fallo** (`RIR 0`), 2 a 3 series por ejercicio.
+
+- Texto de `series_reps`: `2-3 x al fallo (RIR 0)` (ejercicio común) y
+  `2 x al fallo (RIR 0) + 1-2 x drop set (2 bajadas)` (ejercicios con drop set:
+  elevación lateral, tríceps en polea bilateral, curl sentado, gemelos,
+  curl en polea, extensión de cuádriceps). El coach no dio rangos de repeticiones
+  (al fallo), así que el analizador usa el rango por defecto 8-12.
+- **Contradicción a confirmar con el coach**: pidió "máximo 3 series por
+  ejercicio" pero describió drop sets como "2 series normales + 1 o 2 con drop
+  set". Se cargó 2 normales + **1-2** drop sets; la app da el ejercicio por hecho
+  a las 3 series (objetivo = normales + mínimo de drop sets) y deja seguir.
+- Interpretaciones de nombres coloquiales: están listadas en el encabezado de
+  `migration_097_kraken_dorian.sql` (ej. "vuelo lateral" -> Elevación lateral con
+  mancuernas; "gemelos de pie" -> Elevación de talón en máquina Smith; "curl
+  sentado" -> Curl en banco inclinado; "circuito de abdominales" -> Abdominales en
+  banco declinado + Elevación de piernas colgado, 2 filas seguidas).
+
+### Cómo se registran los drop sets
+Un drop set es una serie al fallo seguida, SIN descanso, de N bajadas (se baja el
+peso y se sigue al fallo: 30 -> 25 -> 20 kg). Es UNA serie, no varias.
+- Esquema (migración 096, aditiva): `workout_logs.tipo_serie`
+  (`normal` | `dropset` = serie principal | `drop` = bajada) y `drop_de` (id de
+  la fila principal, `on delete cascade`: borrar la principal borra sus bajadas).
+  Las filas existentes quedan `normal`.
+- `src/lib/dropset.ts` (lógica pura, probada): `planDeSeries()` lee el texto de
+  `series_reps` (`+ N x drop`, `(N bajadas)`; default 2 bajadas),
+  `estadoDropset()` deriva de lo ya registrado hoy si hay una bajada pendiente y
+  qué modo corresponde (nada de estado local que se pierda al recargar; ventana de
+  10 min entre tramos), `pesoSugeridoBajada()` repite el salto de la bajada
+  anterior (30,25 -> 20; primera bajada: -20%).
+- UI (`exercise-card.tsx`): en ejercicios con `+ N x drop` aparece el selector
+  "Serie normal / Con drop set" (sugiere drop set cuando ya se hicieron las series
+  normales previstas). Al registrar la serie pesada la tarjeta pasa sola a
+  "Bajada 1 de 2 - sin descanso" con el peso sugerido y SIN cronómetro; el
+  descanso arranca recién tras la última bajada. "Terminar drop set" cierra antes
+  (menos bajadas que las previstas). La lista de "Hoy" muestra "Serie 3 · drop
+  set" y "↳ Bajada 1" indentada. No se pregunta RIR en las bajadas (se guarda 0).
+- **Las bajadas NO cuentan como series** (`contarSeriesPrincipales`) **ni entran
+  al top set / 1RM estimado / sugerencia de peso** (`.neq("tipo_serie", "drop")` en
+  `entrenamiento/[dia]/page.tsx` y `progreso/entrenamiento/page.tsx`): son más
+  livianas y con fatiga y contaminarían el progreso. Sí se ven en el día y en el
+  Historial. `parsearSeriesReps` suma las series con drop set a las comunes.
+- Solo para ejercicios bilaterales: los drop sets con alternancia de lado
+  (unilaterales) no están soportados (el selector no aparece si hay lado).
+- `registrarSets` valida en el servidor que una bajada cuelgue de una serie
+  principal del mismo usuario y ejercicio, y máximo 5 bajadas por serie. Las
+  series normales no mandan las columnas nuevas: registrar sigue funcionando aunque
+  la 096 no esté corrida, pero las pantallas que LEEN `tipo_serie` fallan sin ella.
+  **Correr la 096 antes de desplegar este código.**
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés

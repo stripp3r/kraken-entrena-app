@@ -4,13 +4,20 @@ import { createClient } from "@/lib/supabase/server";
 import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import { rutinaIncluidaEnPlan } from "@/lib/premium";
 import { ladoOpuesto, ladoPendiente } from "@/lib/lado-pendiente";
+import type { TipoSerie } from "@/lib/dropset";
 
 export type SetInput = {
   peso: number | null;
   reps: number | null;
   rir: number | null;
   lado?: "derecho" | "izquierdo" | null;
+  // Drop sets (ver lib/dropset.ts): 'dropset' = serie principal de un drop
+  // set, 'drop' = una bajada (requiere dropDe, el id de la principal).
+  tipo?: TipoSerie;
+  dropDe?: number | null;
 };
+
+const MAX_BAJADAS_POR_SERIE = 5;
 
 export async function registrarSets(exerciseDefinitionId: number, sets: SetInput[], dia?: string) {
   const supabase = await createClient();
@@ -44,6 +51,35 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
     proximoLado = ladoPendiente(previos ?? []);
   }
 
+  // Una bajada solo puede colgar de una serie principal de drop set de ESTE
+  // usuario y de ESTE ejercicio, y con un máximo de bajadas: se valida acá
+  // porque el cliente puede mandar cualquier id.
+  const bajadas = sets.filter((s) => s.tipo === "drop");
+  if (bajadas.length > 0) {
+    const padreIds = [...new Set(bajadas.map((s) => s.dropDe))];
+    if (padreIds.length !== 1 || padreIds[0] == null || sets.some((s) => s.tipo !== "drop")) {
+      return { error: "Las bajadas tienen que pertenecer a una sola serie con drop set." };
+    }
+    const { data: padre } = await supabase
+      .from("workout_logs")
+      .select("id")
+      .eq("id", padreIds[0])
+      .eq("user_id", user.id)
+      .eq("exercise_definition_id", exerciseDefinitionId)
+      .eq("tipo_serie", "dropset")
+      .maybeSingle();
+    if (!padre) {
+      return { error: "No encontramos la serie principal de ese drop set." };
+    }
+    const { count } = await supabase
+      .from("workout_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("drop_de", padreIds[0]);
+    if ((count ?? 0) + bajadas.length > MAX_BAJADAS_POR_SERIE) {
+      return { error: "Ese drop set ya tiene el máximo de bajadas." };
+    }
+  }
+
   const filas = sets
     .filter((s) => s.peso !== null || s.reps !== null || s.rir !== null)
     .map((s) => {
@@ -52,6 +88,7 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
         lado = proximoLado;
         proximoLado = ladoOpuesto(proximoLado);
       }
+      const tipo: TipoSerie = s.tipo === "dropset" || s.tipo === "drop" ? s.tipo : "normal";
       return {
         user_id: user.id,
         exercise_definition_id: exerciseDefinitionId,
@@ -60,6 +97,9 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
         rir: s.rir,
         lado,
         dia: dia ?? null,
+        // Las filas comunes no mandan estas columnas: así registrar una serie
+        // normal sigue funcionando aunque la migración 096 no esté corrida.
+        ...(tipo !== "normal" ? { tipo_serie: tipo, drop_de: tipo === "drop" ? s.dropDe : null } : {}),
       };
     });
 

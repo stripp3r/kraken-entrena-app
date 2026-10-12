@@ -122,7 +122,7 @@ export default async function HistorialDetallePage({
 
   let logsQuery = supabase
     .from("workout_logs")
-    .select("exercise_definition_id, peso, reps, rir, lado, created_at")
+    .select("exercise_definition_id, peso, reps, rir, lado, tipo_serie, created_at")
     .eq("user_id", user.id)
     .in("exercise_definition_id", exerciseIds)
     .gte("created_at", desde.toISOString())
@@ -134,7 +134,7 @@ export default async function HistorialDetallePage({
 
   const { data: logs } = exerciseIds.length
     ? await logsQuery
-    : { data: [] as { exercise_definition_id: number | null; peso: number | null; reps: number | null; rir: number | null; lado: Lado | null; created_at: string }[] };
+    : { data: [] as { exercise_definition_id: number | null; peso: number | null; reps: number | null; rir: number | null; lado: Lado | null; tipo_serie: "normal" | "dropset" | "drop"; created_at: string }[] };
 
   const logsPorEjercicio = new Map<number, typeof logs>();
   for (const log of logs ?? []) {
@@ -186,8 +186,15 @@ export default async function HistorialDetallePage({
                           <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2">
                             {logsEj.map((log, i) => (
                               <p key={i} className="text-sm text-gray-300">
+                                {log.tipo_serie === "drop" && (
+                                  <span className="text-orange-300">↳ Bajada · </span>
+                                )}
+                                {log.tipo_serie === "dropset" && (
+                                  <span className="text-orange-300">Drop set · </span>
+                                )}
                                 {fechaHoraLegible(log.created_at)} — {log.peso ?? "-"}kg ×{" "}
-                                {log.reps ?? "-"} (RIR {log.rir ?? "-"})
+                                {log.reps ?? "-"}
+                                {log.tipo_serie !== "drop" && <> (RIR {log.rir ?? "-"})</>}
                                 {log.lado && (
                                   <span className="text-gray-500"> · {labelLado(log.lado)}</span>
                                 )}

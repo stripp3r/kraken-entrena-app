@@ -8,18 +8,19 @@ import { segundosEntreLados, segundosEntreSeries, type Lado, type TipoEsfuerzo }
 import { prepararAlertas } from "@/lib/sonido";
 import { hoyISO } from "@/lib/fecha";
 import { ladoPendiente } from "@/lib/lado-pendiente";
+import { contarSeriesPrincipales, planDeSeries, seriesObjetivoDelPlan, type TipoSerie } from "@/lib/dropset";
 import { leerSesionActiva, guardarSesionActiva, borrarSesionActiva } from "@/lib/sesion-entrenamiento";
 
 const OBJETIVO_SERIES_DEFAULT = 3;
 
 // Saca la cantidad de series recomendadas del texto de series_reps
-// (ej. "4 x 5-8" -> 4, "3-4 x 8-12 por pierna" -> 3, el mínimo del rango).
-// Si el ejercicio no tiene esa recomendación cargada (rutinas viejas sin
-// series_reps), se usa el default de siempre.
+// (ej. "4 x 5-8" -> 4, "3-4 x 8-12 por pierna" -> 3, el mínimo del rango; con
+// drop sets, "2 x al fallo + 1-2 x drop set" -> 2 + 1 = 3). Si el ejercicio no
+// tiene esa recomendación cargada (rutinas viejas sin series_reps), se usa el
+// default de siempre.
 function seriesObjetivoDe(seriesReps: string | null): number {
   if (!seriesReps) return OBJETIVO_SERIES_DEFAULT;
-  const match = seriesReps.match(/^(\d+)/);
-  const n = match ? Number(match[1]) : NaN;
+  const n = seriesObjetivoDelPlan(planDeSeries(seriesReps));
   return Number.isFinite(n) && n > 0 ? n : OBJETIVO_SERIES_DEFAULT;
 }
 
@@ -36,6 +37,8 @@ type WorkoutLog = {
   reps: number | null;
   rir: number | null;
   lado: Lado | null;
+  tipo_serie: TipoSerie;
+  drop_de: number | null;
   created_at: string;
 };
 
@@ -59,7 +62,8 @@ export type ExerciseFull = {
 };
 
 function contarSeriesCompletas(ex: ExerciseFull, logs: WorkoutLog[]): number {
-  if (!ex.unilateral) return logs.length;
+  // Las bajadas de un drop set no son series: son parte de la serie principal.
+  if (!ex.unilateral) return contarSeriesPrincipales(logs);
   const derecho = logs.filter((l) => l.lado === "derecho").length;
   const izquierdo = logs.filter((l) => l.lado === "izquierdo").length;
   return Math.min(derecho, izquierdo);
@@ -184,8 +188,13 @@ export function EntrenamientoDiaCliente({
   // onSetGuardado solo se dispara desde el botón "Guardar serie" de
   // ExerciseCard (nunca durante el render) -- necesita el reloj real para
   // saber hasta cuándo dura el descanso.
-  function onSetGuardado() {
+  function onSetGuardado(opciones?: { sinDescanso?: boolean }) {
     if (!activo) return;
+    // Entre el tramo pesado de un drop set y sus bajadas no hay descanso.
+    if (opciones?.sinDescanso) {
+      setDescansoHasta(null);
+      return;
+    }
     if (activo.unilateral && lado === "derecho") {
       setEtiquetaDescanso("Descanso entre lados");
       // eslint-disable-next-line react-hooks/purity

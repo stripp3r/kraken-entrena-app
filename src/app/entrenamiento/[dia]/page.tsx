@@ -106,7 +106,7 @@ export default async function DiaEntrenamientoPage({
     exerciseIds.length
       ? supabase
           .from("workout_logs")
-          .select("id, exercise_definition_id, peso, reps, rir, lado, created_at")
+          .select("id, exercise_definition_id, peso, reps, rir, lado, tipo_serie, drop_de, created_at")
           .eq("user_id", user.id)
           .in("exercise_definition_id", exerciseIds)
           .gte("created_at", hoyInicio.toISOString())
@@ -119,6 +119,8 @@ export default async function DiaEntrenamientoPage({
             reps: number | null;
             rir: number | null;
             lado: "derecho" | "izquierdo" | null;
+            tipo_serie: "normal" | "dropset" | "drop";
+            drop_de: number | null;
             created_at: string;
           }[],
         }),
@@ -129,6 +131,8 @@ export default async function DiaEntrenamientoPage({
             .select("exercise_definition_id, peso, reps, created_at, dia")
             .eq("user_id", user.id)
             .in("exercise_definition_id", exerciseIds)
+            // Las bajadas de un drop set no entran a la sugerencia de peso.
+            .neq("tipo_serie", "drop")
             .lt("created_at", hoyInicio.toISOString())
             .order("created_at", { ascending: true });
           if (desdeVentanaMasAntigua !== null) {

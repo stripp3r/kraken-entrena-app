@@ -81,6 +81,9 @@ export default async function ProgresoPage() {
           .select("exercise_definition_id, peso, reps, created_at, dia")
           .eq("user_id", user.id)
           .in("exercise_definition_id", exerciseIds)
+          // Las bajadas de un drop set (más livianas y con fatiga) no cuentan
+          // para el top set / 1RM estimado.
+          .neq("tipo_serie", "drop")
           .order("created_at", { ascending: true });
         if (desdeMasAntiguo !== null) query = query.gte("created_at", new Date(desdeMasAntiguo).toISOString());
         return query;
