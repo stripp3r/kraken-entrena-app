@@ -1679,6 +1679,37 @@ peso y se sigue al fallo: 30 -> 25 -> 20 kg). Es UNA serie, no varias.
   la 096 no esté corrida, pero las pantallas que LEEN `tipo_serie` fallan sin ella.
   **Correr la 096 antes de desplegar este código.**
 
+## Aplicar migraciones desde la terminal (PENDIENTE, decidido 2026-10-12)
+
+El coach quiere que Claude corra las migraciones en vez de pegarlas a mano en el
+SQL Editor. Estado al 2026-10-12:
+- **Hecho**: hay un token personal de Supabase de vida corta en `.env.local` como
+  `SUPABASE_ACCESS_TOKEN` (git lo ignora; NO copiarlo a ningún otro lado ni al
+  chat) y se verificó con una consulta de solo lectura contra
+  `https://api.supabase.com/v1/projects/<ref>/database/query` (`<ref>` sale de
+  `NEXT_PUBLIC_SUPABASE_URL`). Cuando venza, el coach crea otro en
+  `supabase.com/dashboard/account/tokens` y lo pega él en `.env.local`.
+- **Pendiente**: crear `scripts/migrar.mjs`. La herramienta de seguridad bloqueó
+  la primera escritura del archivo (clasificador del modo automático, sin motivo);
+  no se esquivó. En la sesión nueva: pedir el archivo de nuevo y, si se vuelve a
+  bloquear, el coach tiene que agregar una regla de permiso para escribir
+  `scripts/migrar.mjs` desde la configuración de Claude Code.
+- **Diseño del script** (a respetar): acepta solo `supabase/migration_NNN_*.sql`
+  dentro de este repo; parte el SQL en sentencias (respetando comentarios,
+  strings y cuerpos `$$`), muestra qué tablas/sentencias toca y se niega a seguir
+  ante DROP TABLE/SCHEMA/COLUMN, TRUNCATE, DELETE o UPDATE sin WHERE salvo
+  `--permitir-destructivo`; `--dry` solo analiza; hace
+  `node scripts/backup-supabase.mjs --forzar` ANTES y si falla no migra; registra
+  cada migración en `public.migraciones_aplicadas` (nombre, huella, fecha; RLS sin
+  policies) y no la re-aplica salvo `--forzar`; `--solo-registrar` anota las que
+  el coach corrió a mano (096 y 097 ya están aplicadas en producción, anotarlas).
+- **Reglas de uso** una vez creado: Claude solo corre migraciones que armó en la
+  sesión y que el coach pidió; cualquier operación destructiva se confirma con él
+  antes; después de aplicar se verifica el resultado contra la base (como se hizo
+  con la 096/097). Esto REEMPLAZA la regla vieja de "No correr ninguna migración
+  SQL contra producción" de la sección "Qué NO hacer": hasta que el script exista
+  y funcione, esa regla sigue vigente.
+
 ## Convenciones de código a respetar
 
 - Español en nombres de variables/funciones/columnas de negocio, inglés
