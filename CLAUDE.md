@@ -1706,9 +1706,16 @@ SQL Editor. Estado al 2026-10-12:
 - **Reglas de uso** una vez creado: Claude solo corre migraciones que armó en la
   sesión y que el coach pidió; cualquier operación destructiva se confirma con él
   antes; después de aplicar se verifica el resultado contra la base (como se hizo
-  con la 096/097). Esto REEMPLAZA la regla vieja de "No correr ninguna migración
-  SQL contra producción" de la sección "Qué NO hacer": hasta que el script exista
-  y funcione, esa regla sigue vigente.
+  con la 096/097).
+- **AUTORIZADO por el coach el 2026-10-12** ("quiero que vos corras las
+  migraciones"): esto REEMPLAZA la regla vieja de "No correr ninguna migración SQL
+  contra producción" de la sección "Qué NO hacer". El script NO es condición para
+  empezar: cuando el coach pide aplicar una migración, Claude la corre directo
+  contra la API con `SUPABASE_ACCESS_TOKEN` haciendo a mano las mismas
+  precauciones (backup con `node scripts/backup-supabase.mjs --forzar`, mostrar
+  qué toca, confirmar antes si hay algo destructivo, verificar después). Si la
+  herramienta de seguridad bloquea la ejecución, no esquivarla: avisarle al coach
+  que tiene que habilitar el permiso.
 
 ## Convenciones de código a respetar
 
@@ -3030,9 +3037,10 @@ se da a mano por
 
 ## Qué NO hacer sin preguntarle antes al usuario
 
-- No correr ninguna migración SQL contra la base de producción -- se
-  puede escribir el archivo `migration_0XX.sql`, pero el coach es quien la
-  corre a mano en el SQL Editor.
+- (Actualizado 2026-10-12) Las migraciones SQL contra producción SÍ las corre
+  Claude cuando el coach lo pide, con las precauciones de la sección "Aplicar
+  migraciones desde la terminal"; nunca por iniciativa propia ni con
+  operaciones destructivas sin confirmar antes.
 - No tocar `.env.local` ni pedir la `SUPABASE_SERVICE_ROLE_KEY` por chat.
 - No hacer `git push --force`, no reescribir historial.
 - No sacar ni modificar ningún disclaimer legal (Alimentación, Medidas).
