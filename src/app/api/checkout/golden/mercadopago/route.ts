@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       email: user.email,
       precioArs: golden.precio_ars,
       reason: `KRAKEN Golden (suscripcion ${frecuencia})`,
-      backUrl: `${origin}/compra/gracias`,
+      backUrl: `${origin}/compra/gracias?tipo=golden`,
     });
 
     if (!initPoint) {

@@ -60,5 +60,5 @@ async function manejarRetorno(request: NextRequest) {
     return NextResponse.redirect(new URL("/compra/error", request.url));
   }
 
-  return NextResponse.redirect(new URL("/compra/gracias", request.url));
+  return NextResponse.redirect(new URL(`/compra/gracias?tipo=plan&producto=${encodeURIComponent(productoSlug)}`, request.url));
 }

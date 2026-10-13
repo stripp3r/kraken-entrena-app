@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       tier,
       email: user.email,
       precioArs: producto.precio_ars,
-      backUrl: `${origin}/compra/gracias`,
+      backUrl: `${origin}/compra/gracias?tipo=mentoria&tier=${tier}`,
     });
 
     if (!initPoint) {

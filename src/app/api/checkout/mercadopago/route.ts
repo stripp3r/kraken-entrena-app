@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     productoSlug: slug,
     nombre: producto.nombre,
     precioArs: producto.precio_ars,
-    successUrl: `${origin}/compra/gracias`,
+    successUrl: `${origin}/compra/gracias?tipo=plan&producto=${encodeURIComponent(slug)}`,
     pendingUrl: `${origin}/compra/pendiente`,
     failureUrl: `${origin}/compra/error`,
   });

@@ -34,5 +34,5 @@ export async function GET(request: NextRequest) {
     proximoCobro: sub.billing_info?.next_billing_time?.slice(0, 10) ?? null,
   });
 
-  return NextResponse.redirect(new URL("/compra/gracias", request.url));
+  return NextResponse.redirect(new URL(`/compra/gracias?tipo=mentoria&tier=${decodificado.tier}`, request.url));
 }
