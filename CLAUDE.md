@@ -1416,7 +1416,7 @@ arrepentimiento = 14 días corridos desde la compra, 100% de devolución dentro
 del plazo, ninguna fuera; baja de suscripción = se frena la renovación y el
 acceso sigue hasta el fin del período pagado; si pide la baja antes de la
 renovación y igual se le cobra, se le devuelve ese cobro. Los pedidos llegan
-por WhatsApp (3412672887) o email y la automatización (otro Claude Code)
+por WhatsApp (3417211050 (antes 3412672887, dado de baja el 2026-10-12)) o email y la automatización (otro Claude Code)
 responde con un código dentro de las 24 h.
 
 - Tabla `solicitudes_baja_arrepentimiento` (RLS sin policies: solo service
