@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO } from "@/lib/fecha";
+import { VERSION_LEGAL } from "@/lib/aceptacion-legal-version";
+import { notificarCompraUnica } from "@/lib/notificaciones";
 
 // Meses de acceso completo a la app que da comprar un plan suelto. Ese acceso
 // incluye ver el PDF dentro de la app (solo lectura, sin descarga): cuando
@@ -76,6 +78,8 @@ export async function procesarCompraAprobada({
       moneda,
       estado: "aprobado",
       user_id: userId ?? null,
+      // Evidencia de qué versión de los Términos regía al comprar.
+      terminos_version: VERSION_LEGAL,
     })
     .select("id")
     .single();
@@ -152,6 +156,19 @@ export async function procesarCompraAprobada({
     // que sí activa sola la rutina en altas de mentoría armadas a mano por
     // el coach -- es un flujo distinto, con otro criterio.
   }
+
+  // Comprobante al comprador + aviso al coach. Idempotente y sin lanzar: un
+  // problema de email no rompe la compra (ver lib/notificaciones.ts).
+  await notificarCompraUnica({
+    compraId: compra.id,
+    productoSlug,
+    proveedor,
+    pagoId: proveedorPaymentId,
+    email: emailNorm,
+    monto,
+    moneda,
+    tieneCuenta: Boolean(userId),
+  });
 
   return { ok: true, compraId: compra.id, desbloqueado: Boolean(userId) };
 }

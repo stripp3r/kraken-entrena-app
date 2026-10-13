@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO } from "@/lib/fecha";
+import { notificarBajaSuscripcion, notificarCobroSuscripcion, notificarPagoRechazado } from "@/lib/notificaciones";
 
 export type Frecuencia = "mensual" | "anual";
 
@@ -143,7 +144,7 @@ export async function acreditarCobroGolden({
 
   const { data: sub } = await supabase
     .from("suscripciones")
-    .select("ultimo_cobro_id, proximo_cobro")
+    .select("ultimo_cobro_id, proximo_cobro, estado")
     .eq("proveedor", proveedor)
     .eq("proveedor_sub_id", proveedorSubId)
     .maybeSingle();
@@ -194,6 +195,19 @@ export async function acreditarCobroGolden({
   );
 
   if (original) await limpiarGracia(proveedor, proveedorSubId);
+
+  await notificarCobroSuscripcion({
+    userId,
+    proveedor,
+    proveedorSubId,
+    cobroId,
+    productoSlug: `golden-${frecuencia}`,
+    frecuencia,
+    monto: precio,
+    moneda,
+    esAlta: !sub?.ultimo_cobro_id,
+    estadoPrevio: (sub?.estado as string | null | undefined) ?? null,
+  });
 
   return { ok: true, premiumHasta: nuevoHasta };
 }
@@ -253,7 +267,7 @@ export async function acreditarCobroMentoriaOnline({
 
   const { data: sub } = await supabase
     .from("suscripciones")
-    .select("ultimo_cobro_id, proximo_cobro")
+    .select("ultimo_cobro_id, proximo_cobro, estado")
     .eq("proveedor", proveedor)
     .eq("proveedor_sub_id", proveedorSubId)
     .maybeSingle();
@@ -299,6 +313,19 @@ export async function acreditarCobroMentoriaOnline({
   );
 
   if (original) await limpiarGracia(proveedor, proveedorSubId);
+
+  await notificarCobroSuscripcion({
+    userId,
+    proveedor,
+    proveedorSubId,
+    cobroId,
+    productoSlug: `mentoria-online-${tier}`,
+    frecuencia: "mensual",
+    monto: precio,
+    moneda,
+    esAlta: !sub?.ultimo_cobro_id,
+    estadoPrevio: (sub?.estado as string | null | undefined) ?? null,
+  });
 
   return { ok: true, premiumHasta: nuevoHasta, tier };
 }
@@ -385,6 +412,19 @@ export async function pausarGolden(
     !previa.gracia_premium_original
   ) {
     await otorgarGraciaPorPagoRechazado(proveedor, proveedorSubId, previa.user_id);
+
+    // Aviso por email a la persona (con la fecha exacta de suspensión) y al coach.
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("premium_hasta")
+      .eq("id", previa.user_id)
+      .maybeSingle();
+    await notificarPagoRechazado({
+      userId: previa.user_id,
+      proveedor,
+      proveedorSubId,
+      fechaCorte: (perfil?.premium_hasta as string | null | undefined) ?? null,
+    });
   }
 }
 
@@ -427,4 +467,11 @@ export async function cancelarGolden(proveedor: string, proveedorSubId: string) 
     }
     await limpiarGracia(proveedor, proveedorSubId);
   }
+
+  await notificarBajaSuscripcion({
+    userId: sub?.user_id ?? null,
+    proveedor,
+    proveedorSubId,
+    accesoHasta: sub?.proximo_cobro ?? null,
+  });
 }
