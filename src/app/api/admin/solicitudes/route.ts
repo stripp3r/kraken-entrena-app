@@ -3,6 +3,7 @@ import { exigirSecretoAdmin } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { reintentarPendientes } from "@/lib/email";
 import { reclamarCompraParaUsuario } from "@/lib/compras";
+import { procesarAvisosVencidos } from "@/lib/aviso-precio-servidor";
 import {
   registrarSolicitud,
   actualizarSolicitud,
@@ -34,6 +35,9 @@ import {
 //   vincular_compra      { emailCuenta, compraId? | pagoId? } -> enlaza a mano una compra sin
 //                        cuenta a la cuenta de ese email (recuperación de compra, camino admin)
 //   reintentar_emails    {} -> reenvía la bandeja de emails pendientes/con error
+//   avisos_precio_vencidos { ejecutar?: boolean, diasAntes?: number } -> lista (o, con
+//                        ejecutar:true, CANCELA) las suscripciones que no respondieron un
+//                        aviso de cambio de precio cuya vigencia llegó. Correr 1 vez por día.
 const TIPOS: TipoSolicitud[] = ["arrepentimiento", "baja"];
 const MEDIOS: MedioSolicitud[] = ["whatsapp", "email", "app"];
 const ESTADOS: EstadoSolicitud[] = ["recibida", "codigo_enviado", "procesada", "rechazada"];
@@ -135,6 +139,13 @@ export async function POST(request: NextRequest) {
       }
       if (compraId == null) return NextResponse.json({ error: "No se encontró esa compra" }, { status: 422 });
       resultado = await reclamarCompraParaUsuario(compraId, userId);
+      break;
+    }
+    case "avisos_precio_vencidos": {
+      resultado = await procesarAvisosVencidos({
+        ejecutar: body.ejecutar === true,
+        diasAntes: Number.isInteger(body.diasAntes) ? (body.diasAntes as number) : 1,
+      });
       break;
     }
     case "reintentar_emails": {

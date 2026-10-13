@@ -7,6 +7,7 @@ import { TrialBanner } from "@/components/trial-banner";
 import { OrientationGuard } from "@/components/orientation-guard";
 import { FranjaLegal } from "@/components/franja-legal";
 import { AvisoPrecioModal } from "@/components/aviso-precio-modal";
+import { AvisoPagoRechazado } from "@/components/aviso-pago-rechazado";
 import { avisoPrecioPendiente, type AvisoPrecio } from "@/lib/aviso-precio";
 import { createClient } from "@/lib/supabase/server";
 import { diasRestantesTrial } from "@/lib/premium";
@@ -49,6 +50,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   let genero: "femenino" | "masculino" = "masculino";
   let diasTrial: number | null = null;
   let avisoPrecio: AvisoPrecio | null = null;
+  let fechaCortePago: string | null = null;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -58,6 +60,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     if (profile?.sexo === "femenino") genero = "femenino";
     diasTrial = diasRestantesTrial(profile);
     avisoPrecio = await avisoPrecioPendiente(supabase, user.id, profile?.premium_origen);
+
+    // Cobro de renovación rechazado en gracia (migración 094): se avisa en la app
+    // con la fecha exacta de suspensión. Un fallo de la consulta no rompe la app.
+    try {
+      const { data: enGracia } = await supabase
+        .from("suscripciones")
+        .select("gracia_premium_original")
+        .eq("user_id", user.id)
+        .eq("estado", "pausada")
+        .not("gracia_premium_original", "is", null)
+        .limit(1);
+      if (enGracia?.length && profile?.premium_hasta) fechaCortePago = profile.premium_hasta;
+    } catch {
+      fechaCortePago = null;
+    }
   }
 
   return (
@@ -65,6 +82,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col pb-16 antialiased">
         <OrientationGuard />
         <FranjaLegal />
+        {fechaCortePago && <AvisoPagoRechazado fechaCorte={fechaCortePago} />}
         {diasTrial != null && <TrialBanner dias={diasTrial} />}
         {children}
         <BottomNav genero={genero} />

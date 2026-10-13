@@ -1,6 +1,5 @@
 import { escaparHtml } from "@/lib/email";
 import {
-  DATOS_PROVEEDOR,
   DIAS_ARREPENTIMIENTO_COMERCIAL,
   DIAS_ARREPENTIMIENTO_LEGAL,
   PIE_PROVEEDOR,

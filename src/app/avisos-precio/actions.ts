@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { rechazarAvisoPrecio } from "@/lib/aviso-precio-servidor";
 
 // El usuario confirma que leyó y aceptó el aviso de cambio de precio. Se
 // inserta con SU sesión (RLS: solo puede insertar filas con su propio
@@ -21,4 +22,21 @@ export async function confirmarAvisoPrecio(avisoId: number) {
 
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+// "No acepto el nuevo precio": se cancela la renovación de la suscripción (la
+// persona conserva el acceso hasta el fin del período ya pagado) y no se le
+// cobra el precio nuevo. Ver lib/aviso-precio-servidor.ts.
+export async function rechazarNuevoPrecio(avisoId: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tenés que iniciar sesión de nuevo." };
+
+  const r = await rechazarAvisoPrecio(user.id, avisoId);
+  if ("error" in r && r.error) return { error: r.error };
+
+  revalidatePath("/", "layout");
+  return { ok: true, accesoHasta: "accesoHasta" in r ? r.accesoHasta : null };
 }

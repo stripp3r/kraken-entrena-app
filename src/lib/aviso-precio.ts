@@ -16,7 +16,7 @@ const SLUGS_MENTORIA_ONLINE = ["mentoria-online-basic", "mentoria-online-vip"];
 // 095) se infiere: Golden por su frecuencia, y mentoría online sin saber si es
 // Basic o VIP, así que un aviso de cualquiera de las dos le llega (preferible
 // a que alguien con la suscripción afectada no se entere).
-function slugsDeSuscripcion(
+export function slugsDeSuscripcion(
   sub: { producto_slug?: string | null; frecuencia?: string | null },
   esMentoria: boolean
 ): string[] {
