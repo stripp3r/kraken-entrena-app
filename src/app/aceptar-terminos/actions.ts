@@ -2,7 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { registrarAceptacion } from "@/lib/aceptacion-legal";
+import { registrarAceptaciones } from "@/lib/aceptacion-legal";
+import { aceptacionesFaltantes, TIPO_ACEPTACION, TIPO_MAYOR_18, TIPO_TRANSFERENCIA } from "@/lib/aceptacion-legal-version";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { rutaSiguienteSegura } from "@/lib/next-redirect";
 
 export async function aceptarTerminos(formData: FormData) {
@@ -15,15 +17,28 @@ export async function aceptarTerminos(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Validación del lado servidor: el `required` del checkbox solo es una
-  // ayuda de UI, acá se vuelve a exigir.
-  if (formData.get("acepto") !== "on") {
+  // Solo se piden (y se exigen) las aceptaciones que le faltan a esta persona.
+  const { data: previas } = await createAdminClient()
+    .from("aceptaciones_legales")
+    .select("tipo, version")
+    .eq("user_id", user.id);
+  const faltantes = aceptacionesFaltantes(previas ?? []);
+
+  // Validación del lado servidor: el `required` de los checkbox solo es una
+  // ayuda de UI, acá se vuelve a exigir cada una.
+  const campo: Record<string, string> = {
+    [TIPO_ACEPTACION]: "acepto",
+    [TIPO_MAYOR_18]: "mayor18",
+    [TIPO_TRANSFERENCIA]: "transferencia",
+  };
+  const sinTildar = faltantes.filter((f) => formData.get(campo[f.tipo]) !== "on");
+  if (sinTildar.length > 0) {
     redirect(
-      `/aceptar-terminos?error=${encodeURIComponent("Tenés que aceptar los Términos y la Política de Privacidad para continuar.")}${sufijoNext}`
+      `/aceptar-terminos?error=${encodeURIComponent("Para continuar tenés que tildar todas las casillas.")}${sufijoNext}`
     );
   }
 
-  const ok = await registrarAceptacion(user.id);
+  const ok = await registrarAceptaciones(user.id, faltantes);
   if (!ok) {
     redirect(
       `/aceptar-terminos?error=${encodeURIComponent("No pudimos guardar tu aceptación. Probá de nuevo.")}${sufijoNext}`

@@ -5,6 +5,7 @@ import { BotonesSociales } from "@/components/botones-sociales";
 import { LinksLegales } from "@/components/links-legales";
 import { signup } from "../login/actions";
 import { URL_PRIVACIDAD, URL_TERMINOS } from "@/lib/legal";
+import { TEXTO_MAYOR_18, TEXTO_TRANSFERENCIA } from "@/lib/aceptacion-legal-version";
 
 export default async function RegistroPage({
   searchParams,
@@ -61,6 +62,21 @@ export default async function RegistroPage({
             </span>
           </label>
 
+          <label className="flex items-start gap-3 text-sm text-gray-300">
+            <input type="checkbox" name="mayor18" required className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500" />
+            <span>{TEXTO_MAYOR_18}</span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm text-gray-300">
+            <input type="checkbox" name="transferencia" required className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500" />
+            <span>
+              {TEXTO_TRANSFERENCIA}{" "}
+              <a href={URL_PRIVACIDAD} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-white">
+                Ver Política de Privacidad
+              </a>
+            </span>
+          </label>
+
           {error && <p className="text-sm text-red-400">{error}</p>}
 
           <button
@@ -74,7 +90,8 @@ export default async function RegistroPage({
         <BotonesSociales next={next} />
         <p className="mt-3 text-center text-xs text-gray-600">
           Si entrás con Google o Facebook, te vamos a pedir aceptar los Términos y la Política de
-          Privacidad antes de seguir.
+          Privacidad, confirmar que sos mayor de 18 años y autorizar el tratamiento de tus datos fuera
+          de Argentina antes de seguir.
         </p>
 
         <p className="mt-6 text-center text-sm text-gray-500">

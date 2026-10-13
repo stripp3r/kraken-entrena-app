@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProgresoSalud } from "@/components/progreso-salud";
 import { BackLink } from "@/components/back-link";
+import { GateSalud } from "@/components/gate-salud";
 
 export default async function ProgresoSaludPage() {
   const supabase = await createClient();
@@ -35,6 +36,7 @@ export default async function ProgresoSaludPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
+      <GateSalud volverA="/progreso" />
       <div className="w-full max-w-sm">
         <div className="relative mb-2">
           <BackLink href="/progreso" />

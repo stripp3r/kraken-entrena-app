@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MedicionForm } from "@/components/medicion-form";
 import { GuiaMedidas } from "@/components/guia-medidas";
 import { BackLink } from "@/components/back-link";
+import { GateSalud } from "@/components/gate-salud";
 
 export default async function MedidasPage() {
   const supabase = await createClient();
@@ -23,6 +24,7 @@ export default async function MedidasPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
+      <GateSalud volverA="/" />
       <div className="w-full max-w-sm">
         <div className="relative mb-2">
           <BackLink href="/perfil" />

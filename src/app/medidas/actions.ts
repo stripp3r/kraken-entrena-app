@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { tieneConsentimientoSalud } from "@/lib/consentimiento-salud";
 
 export type MedicionInput = {
   fecha: string;
@@ -27,6 +28,10 @@ export async function guardarMedicion(medicion: MedicionInput) {
 
   if (!user) {
     return { error: "Tenés que iniciar sesión de nuevo." };
+  }
+
+  if (!(await tieneConsentimientoSalud(supabase, user.id))) {
+    return { error: "Antes de cargar datos de salud tenés que dar tu consentimiento." };
   }
 
   const { error } = await supabase

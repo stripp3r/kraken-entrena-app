@@ -5,6 +5,7 @@ import { BackLink } from "@/components/back-link";
 import { DisclaimerGate } from "@/components/disclaimer-gate";
 import { calcularEdad } from "@/lib/fecha";
 import { permisos } from "@/lib/premium";
+import { GateSalud } from "@/components/gate-salud";
 import {
   calcularEstimacionNutricional,
   type ActividadNutricional,
@@ -89,6 +90,7 @@ export default async function CalculadoraCaloriasPage() {
         />
       )}
       <main className="flex flex-1 flex-col items-center px-6 py-12">
+        <GateSalud volverA="/alimentacion" />
         <div className="w-full max-w-sm">
           <div className="relative mb-2">
             <BackLink href="/alimentacion" />

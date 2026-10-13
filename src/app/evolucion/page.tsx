@@ -5,6 +5,7 @@ import { BorrarFotoBoton } from "@/components/borrar-foto-boton";
 import { BackLink } from "@/components/back-link";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { permisos } from "@/lib/premium";
+import { GateSalud } from "@/components/gate-salud";
 
 export default async function EvolucionPage() {
   const supabase = await createClient();
@@ -60,6 +61,7 @@ export default async function EvolucionPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
+      <GateSalud volverA="/perfil" />
       <div className="w-full max-w-sm">
         <div className="relative mb-2">
           <BackLink href="/perfil" />

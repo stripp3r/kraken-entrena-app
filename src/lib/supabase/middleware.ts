@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { esPremium } from "@/lib/premium";
-import { VERSION_LEGAL, TIPO_ACEPTACION } from "@/lib/aceptacion-legal-version";
+import { ACEPTACIONES_REQUERIDAS, aceptacionesFaltantes } from "@/lib/aceptacion-legal-version";
 
 // "/restablecer-password" entra acá porque ahí se escribe el código de
 // recuperación ANTES de tener sesión -- ver "Recuperar contraseña" en
@@ -98,17 +98,17 @@ export async function updateSession(request: NextRequest) {
   // migración 092 todavía no corrió): un error de base no puede dejar a todos
   // los clientes afuera de la app.
   if (user && !PATHS_SIN_ACEPTACION.some((path) => pathname.startsWith(path))) {
-    const { data: aceptacion, error } = await supabase
+    // Términos y Privacidad + mayor de 18 + consentimiento de transferencia
+    // internacional: las tres con su versión vigente (aceptacion-legal-version.ts).
+    const { data: aceptaciones, error } = await supabase
       .from("aceptaciones_legales")
-      .select("id")
+      .select("tipo, version")
       .eq("user_id", user.id)
-      .eq("tipo", TIPO_ACEPTACION)
-      .eq("version", VERSION_LEGAL)
-      .limit(1);
+      .in("tipo", ACEPTACIONES_REQUERIDAS.map((a) => a.tipo));
 
     if (error) {
       console.error("proxy: no se pudo leer aceptaciones_legales:", error.message);
-    } else if (!aceptacion?.length) {
+    } else if (aceptacionesFaltantes(aceptaciones ?? []).length > 0) {
       const url = request.nextUrl.clone();
       url.pathname = "/aceptar-terminos";
       url.search = `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`;

@@ -72,11 +72,11 @@ export async function signup(formData: FormData) {
   // La casilla "Acepto los Términos y la Política de Privacidad" se valida
   // acá del lado servidor además del `required` del formulario: sin ella no
   // se crea la cuenta. El email vuelve prellenado para no perder lo escrito.
-  if (formData.get("acepto") !== "on") {
+  if (formData.get("acepto") !== "on" || formData.get("mayor18") !== "on" || formData.get("transferencia") !== "on") {
     const sufijoNext = next ? `&next=${encodeURIComponent(next)}` : "";
     const email = encodeURIComponent((formData.get("email") as string) ?? "");
     redirect(
-      `/registro?error=${encodeURIComponent("Tenés que aceptar los Términos y la Política de Privacidad para crear tu cuenta.")}&email=${email}${sufijoNext}`
+      `/registro?error=${encodeURIComponent("Para crear tu cuenta tenés que tildar las tres casillas: Términos y Privacidad, ser mayor de 18 años y la autorización de tratamiento de datos fuera de Argentina.")}&email=${email}${sufijoNext}`
     );
   }
 
