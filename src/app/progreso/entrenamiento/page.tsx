@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProgresoAnalitica } from "@/components/progreso-analitica";
 import { BackLink } from "@/components/back-link";
 import type { SetLog } from "@/lib/analytics";
+import { objetivoDeEjercicio, type LogCompleto } from "@/lib/analisis-ejecutado";
 import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
 import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
 
@@ -47,7 +48,7 @@ export default async function ProgresoPage() {
 
   const { data: routineExercises } = await supabase
     .from("routine_exercises")
-    .select("dia, orden, exercise_definition_id, series_reps, rir_objetivo, exercise_definitions(nombre)")
+    .select("dia, orden, exercise_definition_id, series_reps, rir_objetivo, exercise_definitions(nombre, grupos_musculares)")
     .eq("routine_id", profile.routine_id)
     .order("orden", { ascending: true });
 
@@ -60,7 +61,13 @@ export default async function ProgresoPage() {
       const def = Array.isArray(re.exercise_definitions)
         ? re.exercise_definitions[0]
         : re.exercise_definitions;
-      return { id: re.exercise_definition_id as number, nombre: def?.nombre ?? "", dia: re.dia };
+      return {
+        id: re.exercise_definition_id as number,
+        nombre: def?.nombre ?? "",
+        dia: re.dia,
+        grupos: (def?.grupos_musculares ?? []) as string[],
+        objetivo: objetivoDeEjercicio(re.series_reps, re.rir_objetivo),
+      };
     });
 
   const exerciseIds = exercises.map((e) => e.id);
@@ -78,18 +85,19 @@ export default async function ProgresoPage() {
     ? await (() => {
         let query = supabase
           .from("workout_logs")
-          .select("exercise_definition_id, peso, reps, created_at, dia")
+          .select("id, exercise_definition_id, peso, reps, rir, tipo_serie, drop_de, created_at, dia")
           .eq("user_id", user.id)
           .in("exercise_definition_id", exerciseIds)
-          // Las bajadas de un drop set (más livianas y con fatiga) no cuentan
-          // para el top set / 1RM estimado.
-          .neq("tipo_serie", "drop")
           .order("created_at", { ascending: true });
         if (desdeMasAntiguo !== null) query = query.gte("created_at", new Date(desdeMasAntiguo).toISOString());
         return query;
       })()
     : {
         data: [] as {
+          id: number;
+          rir: number | null;
+          tipo_serie: LogCompleto["tipo_serie"];
+          drop_de: number | null;
           exercise_definition_id: number | null;
           peso: number | null;
           reps: number | null;
@@ -106,11 +114,27 @@ export default async function ProgresoPage() {
   // descanso previo vs. Día C con menos) hace que el rendimiento no sea
   // comparable, así que mezclar el historial taparía esa señal en vez de
   // mostrarla. Ver la nota "Independencia estricta por día" en CLAUDE.md.
+  // `logsByExercise` (top set / 1RM) NO incluye las bajadas de drop sets: son
+  // más livianas y con fatiga, contaminarían el 1RM estimado.
+  // `logsCompletosByExercise` sí las trae, junto con el RIR, para el análisis
+  // de lo ejecutado (lib/analisis-ejecutado.ts).
   const logsByExercise: Record<string, SetLog[]> = {};
+  const logsCompletosByExercise: Record<string, LogCompleto[]> = {};
   for (const ex of exercises) {
-    logsByExercise[claveEjercicioDia(ex.id, ex.dia)] = (logs ?? [])
-      .filter((l) => l.exercise_definition_id === ex.id && l.dia === ex.dia)
+    const clave = claveEjercicioDia(ex.id, ex.dia);
+    const delEjercicio = (logs ?? []).filter((l) => l.exercise_definition_id === ex.id && l.dia === ex.dia);
+    logsByExercise[clave] = delEjercicio
+      .filter((l) => l.tipo_serie !== "drop")
       .map((l) => ({ peso: l.peso, reps: l.reps, created_at: l.created_at }));
+    logsCompletosByExercise[clave] = delEjercicio.map((l) => ({
+      id: l.id,
+      peso: l.peso,
+      reps: l.reps,
+      rir: l.rir,
+      tipo_serie: l.tipo_serie,
+      drop_de: l.drop_de,
+      created_at: l.created_at,
+    }));
   }
 
   return (
@@ -130,6 +154,8 @@ export default async function ProgresoPage() {
           dias={dias}
           exercises={exercises}
           logsByExercise={logsByExercise}
+          logsCompletosByExercise={logsCompletosByExercise}
+          diasPorSemana={routine.dias}
         />
       </div>
     </main>

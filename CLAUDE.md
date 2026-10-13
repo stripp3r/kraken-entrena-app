@@ -356,8 +356,9 @@ ojo:
 - **Selector de grupos musculares por día**: pasó de chips sueltos a un
   desplegable (pedido explícito del usuario) -- se abre/cierra con
   `gruposAbierto`, y cambiar de día (`irADia`) lo cierra automáticamente.
-- **Pendiente de decidir**: gate de acceso (¿esto es para cualquier Golden,
-  o exclusivo de algún tier?) -- no asumido, preguntar antes de gatear.
+- **Gate de acceso decidido 2026-10-13**: cualquier Golden tiene acceso a
+  "Crea tu rutina" y al análisis sobre su propia rutina; no es exclusivo de
+  ningún tier.
 - **Bug encontrado y corregido en el primer test real (2026-09-21)**: al
   guardar con "Crea tu rutina" la nueva rutina se activa sola (sin opción
   de solo guardar sin usar) -- y el botón para volver a cambiar de rutina
@@ -742,11 +743,10 @@ Golden).
       `/api/checkout/mentoria-online/paypal?tier=basic|vip`. El link
       "Mentoría personalizada" de Inicio en la app también apunta ahí
       (`#mentorias` del sitio) en vez de ir directo a WhatsApp.
-      **Pendiente**: el botón del sitio hoy solo ofrece PayPal -- falta
-      sumar la opción de Mercado Pago ahí (la ruta ya existe en la app,
-      `/api/checkout/mentoria-online/mercadopago?tier=...`, el sitio todavía
-      no la usa). Lo arma el chat de Code que lleva el sitio web, no esta
-      sesión.
+      **Corregido 2026-10-13 (el coach lo aclaró)**: el sitio YA ofrece
+      PayPal y Mercado Pago en las mentorías; la nota vieja de "falta Mercado
+      Pago" estaba desactualizada. El sitio lo lleva el chat de Code del sitio
+      web, no esta sesión.
     - **Fricción conocida, sin resolver**: si alguien sin cuenta en la app
       toca "Empezar ahora" desde el sitio, lo manda a `/login` y después
       de loguearse/registrarse NO vuelve solo al checkout (aterriza en
@@ -1156,8 +1156,10 @@ Golden).
   para que el ojo abierto signifique "se está viendo" y el tachado "está
   oculto" -- más intuitivo, y ahora consistente en toda la app.
 
-  **Acción pendiente del coach en el dashboard de Supabase (no es
-  código)**: la plantilla del mail "Reset Password" (Authentication ->
+  **(2026-10-13: el coach probó el flujo de reseteo y funciona bien; la nota
+  de abajo es el contexto original de la plantilla del mail.)**
+  Acción que había quedado pendiente del coach en el dashboard de Supabase (no es
+  código): la plantilla del mail "Reset Password" (Authentication ->
   Emails) todavía es la que trae Supabase por default, en inglés y con el
   link de siempre -- hay que reemplazarla por una que muestre el código
   (`{{ .Token }}`) en texto plano, SIN ningún link ni botón (si queda un
@@ -1679,7 +1681,14 @@ peso y se sigue al fallo: 30 -> 25 -> 20 kg). Es UNA serie, no varias.
   la 096 no esté corrida, pero las pantallas que LEEN `tipo_serie` fallan sin ella.
   **Correr la 096 antes de desplegar este código.**
 
-## Aplicar migraciones desde la terminal (PENDIENTE, decidido 2026-10-12)
+## Aplicar migraciones desde la terminal (HECHO 2026-10-12: `scripts/migrar.mjs`)
+
+**Estado actual**: el script existe y funciona. Uso:
+`node scripts/migrar.mjs supabase/migration_NNN_x.sql [--dry] [--permitir-destructivo] [--forzar] [--solo-registrar]`.
+Manda el archivo entero en una sola consulta (transacción implícita: todo o
+nada), hace backup antes y registra en `public.migraciones_aplicadas`. La 096 y
+la 097 ya están registradas (`--solo-registrar`). Lo que sigue es el diseño
+original (ya implementado; los puntos "Pendiente" quedaron resueltos).
 
 El coach quiere que Claude corra las migraciones en vez de pegarlas a mano en el
 SQL Editor. Estado al 2026-10-12:
@@ -1689,7 +1698,7 @@ SQL Editor. Estado al 2026-10-12:
   `https://api.supabase.com/v1/projects/<ref>/database/query` (`<ref>` sale de
   `NEXT_PUBLIC_SUPABASE_URL`). Cuando venza, el coach crea otro en
   `supabase.com/dashboard/account/tokens` y lo pega él en `.env.local`.
-- **Pendiente**: crear `scripts/migrar.mjs`. La herramienta de seguridad bloqueó
+- ~~**Pendiente**~~ (HECHO 2026-10-12, ya existe): crear `scripts/migrar.mjs`. La herramienta de seguridad bloqueó
   la primera escritura del archivo (clasificador del modo automático, sin motivo);
   no se esquivó. En la sesión nueva: pedir el archivo de nuevo y, si se vuelve a
   bloquear, el coach tiene que agregar una regla de permiso para escribir
@@ -2494,9 +2503,16 @@ marcando él, no asumir un orden fijo).
     original) -- el error real no es el nombre, es que el archivo GIF
     (`imagen_url`) está pisado/cambiado por el de otro ejercicio. Se
     revirtió el nombre a "Patada de glúteo cruzada Fire Hydrant" (el
-    original). **Pendiente**: conseguir/subir un GIF que muestre
-    realmente el fire hydrant para reemplazar el actual; no se tocó
-    todavía porque no hay una imagen correcta a mano.
+    original). **RESUELTO 2026-10-13 (migración 098)**: el coach confirmó
+    que el GIF es un puente de glúteos con una pierna elevada (target
+    glúteo) y pidió renombrar a lo que muestra el GIF: ahora se llama
+    "Puente de glúteos con una pierna elevada" y su `como_hacerlo` describe
+    ese ejercicio. **Pendiente menor**: `video_url` de id 107 sigue siendo un
+    video de patada de glúteo en cuadrupedia con banda (no coincide con el
+    GIF) y ningún ejercicio hermano (194/195/197) tiene video para prestarle;
+    reemplazarlo cuando haya un video del puente con pierna elevada. Sin
+    ruteo en rutinas (0 usos). id 93 (Elevación de rodillas sentado): el coach
+    confirmó que está bien, ya no es pendiente.
 - **Octava tanda (Hombros, migración 072), 7 nombres**: los 7 eran
   ejercicios reales faltantes (aparatos/variantes distintos a los ya
   cargados), ninguno duplicado -- Elevación frontal acostada en polea,
@@ -3038,10 +3054,50 @@ se da a mano por
 ## Qué NO hacer sin preguntarle antes al usuario
 
 - (Actualizado 2026-10-12) Las migraciones SQL contra producción SÍ las corre
-  Claude cuando el coach lo pide, con las precauciones de la sección "Aplicar
-  migraciones desde la terminal"; nunca por iniciativa propia ni con
-  operaciones destructivas sin confirmar antes.
+  Claude cuando el coach lo pide, **siempre con `scripts/migrar.mjs`** (primero
+  `--dry`; no pegar SQL suelto a la API); nunca por iniciativa propia, y
+  `--permitir-destructivo` solo después de confirmar con el coach.
 - No tocar `.env.local` ni pedir la `SUPABASE_SERVICE_ROLE_KEY` por chat.
 - No hacer `git push --force`, no reescribir historial.
 - No sacar ni modificar ningún disclaimer legal (Alimentación, Medidas).
 - No retomar rutinas multi-día nuevas sin que el usuario lo pida él mismo.
+
+## Análisis de lo ejecutado: series, RIR, bajadas, semana real (2026-10-12)
+
+El análisis viejo (`lib/analytics.ts`) usa un solo top set por día por ejercicio
+(herencia del Excel) y NO se tocó: 1RM, RM, IRP, PR y volumen máx/mín siguen
+igual, sin bajadas de drop sets. Se le agregó una capa aparte, aditiva, en
+`lib/analisis-ejecutado.ts` (funciones puras) que mira TODAS las series:
+- **Serie** = fila `tipo_serie != 'drop'`. Las bajadas (`drop`) suman volumen
+  pero nunca series ni 1RM. **Serie efectiva** = RIR cargado ≤ 2
+  (`UMBRAL_SERIE_EFECTIVA`, decidido por el coach); las series sin RIR se cuentan
+  aparte (`sinRir`) y se muestran, no se asumen efectivas.
+- Por ejercicio (`DetalleEjercicio` en `components/progreso-ejecutado.tsx`):
+  última sesión con todas las series y bajadas, caída de reps, RIR promedio por
+  sesión vs objetivo, estado de progresión (subir carga / estancado / progresando
+  / pocos datos) y volumen total real. "Subir carga" solo si la prescripción tiene
+  rango de reps explícito; con "al fallo" sin reps solo evalúa estancamiento.
+- Global: `ResumenSemanal` (semana lunes–domingo, hora Argentina; esta o la
+  anterior): series efectivas por grupo muscular contra MEV/MAV/MRV usando los
+  mismos pesos que el volumen planificado (`pesoPorGrupo`: 1 / 0,5 / 0,25), y
+  cumplimiento (entrenamientos, series hechas vs prescritas, RIR vs objetivo).
+- El objetivo de RIR sale de `routine_exercises.rir_objetivo` o del texto de
+  `series_reps` SOLO si menciona RIR (el parser devuelve 2 por defecto y ese
+  valor inventado no se usa para comparar).
+- `app/progreso/entrenamiento/page.tsx` ahora trae `rir, tipo_serie, drop_de` y
+  filtra las bajadas en JS para `logsByExercise` (1RM); `logsCompletosByExercise`
+  las conserva. Sin migraciones nuevas.
+- **Cómo verlo con datos reales (cuenta de prueba kraken.test.qa2@gmail.com)**:
+  sesión sin contraseña con `admin.generateLink` + `verifyOtp` vía `@supabase/ssr`
+  (cookies servidas por un helper local en otro puerto, así el token no pasa por
+  el chat). La app frena a esa cuenta con DOS muros: (1) `/aceptar-terminos` si
+  no tiene `aceptaciones_legales` de la `VERSION_LEGAL` vigente y (2) `/golden`
+  si `profiles.premium_hasta` venció; juntos dan un bucle de redirecciones.
+  Para mirar: extender `premium_hasta` de forma temporal, aceptar los términos,
+  sembrar `workout_logs` (4 semanas, 4 días, con un drop set, un estancado y uno
+  con RIR faltante) y al terminar restaurar TODO: borrar los logs sembrados por
+  id, borrar la fila de `aceptaciones_legales` creada ese día (columna
+  `aceptado_at`) y volver `premium_hasta` al valor original (2026-10-10).
+- Limitación conocida: en la semana en curso, "Series hechas" se compara contra
+  las series de la semana COMPLETA (ej. 19 / 84 un lunes); se lee bien recién con
+  la semana cerrada ("Anterior").
