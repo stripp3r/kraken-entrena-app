@@ -35,6 +35,9 @@ export async function procesarCompraAprobada({
   moneda: string | null;
 }) {
   const supabase = createAdminClient();
+  // La base también normaliza (migración 099), pero se normaliza acá para que
+  // la búsqueda del usuario y lo guardado coincidan sin depender de eso.
+  const emailNorm = email.trim().toLowerCase();
 
   const { data: producto } = await supabase
     .from("productos")
@@ -59,7 +62,7 @@ export async function procesarCompraAprobada({
   }
 
   const { data: userId } = await supabase.rpc("buscar_usuario_por_email", {
-    p_email: email,
+    p_email: emailNorm,
   });
 
   const { data: compra, error: compraError } = await supabase
@@ -68,7 +71,7 @@ export async function procesarCompraAprobada({
       proveedor,
       proveedor_payment_id: proveedorPaymentId,
       producto_id: producto.id,
-      email_comprador: email,
+      email_comprador: emailNorm,
       monto,
       moneda,
       estado: "aprobado",
