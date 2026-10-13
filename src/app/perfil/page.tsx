@@ -84,6 +84,13 @@ export default async function PerfilPage() {
           </Link>
         </div>
 
+        <Link
+          href="/perfil/recuperar-compra"
+          className="mt-6 block text-center text-sm text-gray-400 underline underline-offset-2"
+        >
+          ¿Ya compraste y no ves tu plan?
+        </Link>
+
         <form>
           <button
             formAction={logout}

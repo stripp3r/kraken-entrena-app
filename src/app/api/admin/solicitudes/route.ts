@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exigirSecretoAdmin } from "@/lib/admin-auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { reintentarPendientes } from "@/lib/email";
+import { reclamarCompraParaUsuario } from "@/lib/compras";
 import {
   registrarSolicitud,
   actualizarSolicitud,
   cancelarSuscripcion,
   revocarCompra,
+  procesarSolicitud,
+  registrarReembolsoHecho,
+  buscarUsuarioPorEmail,
   type TipoSolicitud,
   type MedioSolicitud,
   type EstadoSolicitud,
@@ -19,6 +25,15 @@ import {
 //   actualizar           { codigo, estado, notas? }
 //   cancelar_suscripcion { email } | { suscripcionId }
 //   revocar_compra       { email, productoSlug, compraId? }
+//   procesar             { codigo }  -> ejecuta la baja/arrepentimiento registrado (cancela
+//                        la suscripción o revoca la compra, crea la tarea de reembolso y
+//                        marca la solicitud como procesada)
+//   reembolso_hecho      { codigo? , tareaId?, importe, moneda, fecha?, referencia? } -> deja
+//                        asentado el reembolso manual, cierra la tarea y avisa a la persona
+//   pendientes           {} -> solicitudes sin procesar, tareas de reembolso y emails sin enviar
+//   vincular_compra      { emailCuenta, compraId? | pagoId? } -> enlaza a mano una compra sin
+//                        cuenta a la cuenta de ese email (recuperación de compra, camino admin)
+//   reintentar_emails    {} -> reenvía la bandeja de emails pendientes/con error
 const TIPOS: TipoSolicitud[] = ["arrepentimiento", "baja"];
 const MEDIOS: MedioSolicitud[] = ["whatsapp", "email", "app"];
 const ESTADOS: EstadoSolicitud[] = ["recibida", "codigo_enviado", "procesada", "rechazada"];
@@ -75,6 +90,55 @@ export async function POST(request: NextRequest) {
         productoSlug: str(body.productoSlug)!,
         compraId: Number.isInteger(body.compraId) ? (body.compraId as number) : undefined,
       });
+      break;
+    }
+    case "procesar": {
+      if (!str(body.codigo)) return NextResponse.json({ error: "Falta codigo" }, { status: 400 });
+      resultado = await procesarSolicitud(str(body.codigo)!);
+      break;
+    }
+    case "reembolso_hecho": {
+      const importe = typeof body.importe === "number" ? body.importe : NaN;
+      if (!Number.isFinite(importe) || !str(body.moneda) || (!str(body.codigo) && !Number.isInteger(body.tareaId))) {
+        return NextResponse.json({ error: "Faltan: importe, moneda y codigo o tareaId" }, { status: 400 });
+      }
+      resultado = await registrarReembolsoHecho({
+        codigo: str(body.codigo),
+        tareaId: Number.isInteger(body.tareaId) ? (body.tareaId as number) : undefined,
+        importe,
+        moneda: str(body.moneda)!,
+        fecha: str(body.fecha),
+        referencia: str(body.referencia),
+      });
+      break;
+    }
+    case "pendientes": {
+      const admin = createAdminClient();
+      const [sol, tareas, mails] = await Promise.all([
+        admin.from("solicitudes_baja_arrepentimiento").select("codigo, tipo, medio, email_cuenta, producto_slug, verificacion, recibida_at, estado").not("estado", "in", "(procesada,rechazada)").order("recibida_at"),
+        admin.from("tareas_reembolso").select("id, motivo, proveedor, proveedor_payment_id, email, monto, moneda, solicitud_codigo, creada_at").eq("estado", "pendiente").order("creada_at"),
+        admin.from("emails_salientes").select("id, tipo, ref, para, estado, intentos, error, creado_at").in("estado", ["pendiente", "error"]).order("id"),
+      ]);
+      resultado = { ok: true, solicitudes: sol.data ?? [], tareasReembolso: tareas.data ?? [], emailsSinEnviar: mails.data ?? [] };
+      break;
+    }
+    case "vincular_compra": {
+      if (!str(body.emailCuenta) || (!Number.isInteger(body.compraId) && !str(body.pagoId))) {
+        return NextResponse.json({ error: "Faltan: emailCuenta y compraId o pagoId" }, { status: 400 });
+      }
+      const userId = await buscarUsuarioPorEmail(str(body.emailCuenta)!);
+      if (!userId) return NextResponse.json({ error: `No existe una cuenta con el email ${body.emailCuenta}` }, { status: 422 });
+      let compraId = Number.isInteger(body.compraId) ? (body.compraId as number) : null;
+      if (compraId == null) {
+        const { data } = await createAdminClient().from("compras").select("id").eq("proveedor_payment_id", str(body.pagoId)!).maybeSingle();
+        compraId = (data?.id as number | undefined) ?? null;
+      }
+      if (compraId == null) return NextResponse.json({ error: "No se encontró esa compra" }, { status: 422 });
+      resultado = await reclamarCompraParaUsuario(compraId, userId);
+      break;
+    }
+    case "reintentar_emails": {
+      resultado = { ok: true, ...(await reintentarPendientes()) };
       break;
     }
     default:

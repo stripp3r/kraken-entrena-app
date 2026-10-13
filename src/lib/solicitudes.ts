@@ -22,7 +22,7 @@ import { rutinaIncluidaEnPlan } from "@/lib/premium";
 //   hay reembolso por API en lib/mercadopago ni lib/paypal; ver CLAUDE.md).
 
 export type TipoSolicitud = "arrepentimiento" | "baja";
-export type MedioSolicitud = "whatsapp" | "email" | "app";
+export type MedioSolicitud = "whatsapp" | "email" | "app" | "web";
 export type EstadoSolicitud = "recibida" | "codigo_enviado" | "procesada" | "rechazada";
 
 const normalizarEmail = (email: string) => email.trim().toLowerCase();
@@ -48,6 +48,7 @@ export async function registrarSolicitud({
   emailCuenta,
   productoSlug,
   notas,
+  extra,
 }: {
   tipo: TipoSolicitud;
   medio: MedioSolicitud;
@@ -55,6 +56,9 @@ export async function registrarSolicitud({
   emailCuenta?: string | null;
   productoSlug?: string | null;
   notas?: string | null;
+  // Columnas del registro completo (migración 100): compra_id, suscripcion_id,
+  // verificacion, ip_hash, numero_operacion.
+  extra?: Record<string, unknown>;
 }) {
   const { data, error } = await createAdminClient()
     .from("solicitudes_baja_arrepentimiento")
@@ -67,6 +71,7 @@ export async function registrarSolicitud({
       email_cuenta: emailCuenta ? normalizarEmail(emailCuenta) : null,
       producto_slug: productoSlug ?? null,
       notas: notas ?? null,
+      ...(extra ?? {}),
     })
     .select("codigo, recibida_at")
     .single();
@@ -386,4 +391,131 @@ export async function revocarCompra({
   }
 
   return resultado;
+}
+
+// ---------- Procesar una solicitud ya registrada ----------
+
+// Ejecuta el efecto de una solicitud registrada, a partir de su código:
+// - baja: cancela la/s suscripción/es activa/s de la cuenta (el acceso sigue
+//   hasta el fin del período pagado);
+// - arrepentimiento: revoca la compra asociada (quita acceso) y deja una tarea
+//   de reembolso manual con los datos del pago.
+// Marca la solicitud como 'procesada'. NO valida el plazo (el coach nunca invoca
+// la excepción del art. 3 inc. b: reembolso total dentro del plazo siempre).
+export async function procesarSolicitud(codigo: string) {
+  const admin = createAdminClient();
+  const { data: sol } = await admin
+    .from("solicitudes_baja_arrepentimiento")
+    .select("codigo, tipo, email_cuenta, producto_slug, compra_id, estado")
+    .eq("codigo", codigo)
+    .maybeSingle();
+  if (!sol) return { error: `No existe la solicitud ${codigo}` };
+  if (sol.estado === "procesada") return { ok: true, yaProcesada: true };
+  if (!sol.email_cuenta) return { error: "La solicitud no tiene email de cuenta: resolverla a mano." };
+
+  let efecto: Record<string, unknown>;
+  if (sol.tipo === "baja") {
+    efecto = await cancelarSuscripcion({ email: sol.email_cuenta });
+  } else {
+    let slug = sol.producto_slug as string | null;
+    if (!slug && sol.compra_id) {
+      const { data: c } = await admin.from("compras").select("producto_id").eq("id", sol.compra_id).maybeSingle();
+      if (c?.producto_id) {
+        const { data: pr } = await admin.from("productos").select("slug").eq("id", c.producto_id).maybeSingle();
+        slug = (pr?.slug as string | undefined) ?? null;
+      }
+    }
+    if (!slug) return { error: "No se sabe qué producto revocar: indicar producto o resolver a mano." };
+    efecto = await revocarCompra({
+      email: sol.email_cuenta,
+      productoSlug: slug,
+      compraId: sol.compra_id ?? undefined,
+    });
+    if (!efecto.error) {
+      const r = efecto as { compraId?: number; reembolsoManual?: { proveedor: string; pagoId: string; monto: number | null; moneda: string | null } };
+      await admin.from("tareas_reembolso").insert({
+        origen_ref: `solicitud:${sol.codigo}`,
+        motivo: `Arrepentimiento ${sol.codigo}: reembolso del 100%.`,
+        proveedor: r.reembolsoManual?.proveedor ?? null,
+        proveedor_payment_id: r.reembolsoManual?.pagoId ?? null,
+        email: sol.email_cuenta,
+        monto: r.reembolsoManual?.monto ?? null,
+        moneda: r.reembolsoManual?.moneda ?? null,
+        solicitud_codigo: sol.codigo,
+      });
+    }
+  }
+
+  if (efecto.error) return { error: String(efecto.error), efecto };
+  await actualizarSolicitud(codigo, { estado: "procesada" });
+  return { ok: true, efecto };
+}
+
+// Registra que el reembolso de una solicitud (o de una tarea) ya se hizo a mano
+// en el panel del proveedor, cierra la tarea y avisa a la persona por email.
+export async function registrarReembolsoHecho({
+  codigo,
+  tareaId,
+  fecha,
+  importe,
+  moneda,
+  referencia,
+}: {
+  codigo?: string;
+  tareaId?: number;
+  fecha?: string;
+  importe: number;
+  moneda: string;
+  referencia?: string;
+}) {
+  const admin = createAdminClient();
+  const dia = fecha ?? hoyISO();
+
+  let cod = codigo ?? null;
+  let email: string | null = null;
+  if (tareaId != null) {
+    const { data: t } = await admin.from("tareas_reembolso").select("solicitud_codigo, email").eq("id", tareaId).maybeSingle();
+    if (!t) return { error: `No existe la tarea ${tareaId}` };
+    cod = cod ?? (t.solicitud_codigo as string | null);
+    email = t.email as string | null;
+    await admin
+      .from("tareas_reembolso")
+      .update({ estado: "hecha", resuelta_at: new Date().toISOString(), notas: referencia ?? null })
+      .eq("id", tareaId);
+  }
+  if (cod) {
+    const { data: s } = await admin
+      .from("solicitudes_baja_arrepentimiento")
+      .update({ reembolso_fecha: dia, reembolso_importe: importe, reembolso_moneda: moneda, reembolso_referencia: referencia ?? null })
+      .eq("codigo", cod)
+      .select("email_cuenta, producto_slug")
+      .maybeSingle();
+    email = email ?? ((s?.email_cuenta as string | null) ?? null);
+    await admin
+      .from("tareas_reembolso")
+      .update({ estado: "hecha", resuelta_at: new Date().toISOString() })
+      .eq("solicitud_codigo", cod)
+      .eq("estado", "pendiente");
+    if (s?.producto_slug) {
+      await admin
+        .from("compras")
+        .update({ reembolsada_at: new Date().toISOString(), reembolso_referencia: referencia ?? null })
+        .eq("estado", "revocado")
+        .is("reembolsada_at", null)
+        .eq("email_comprador", (email ?? "").trim().toLowerCase());
+    }
+  }
+  if (!cod && tareaId == null) return { error: "Falta codigo o tareaId" };
+
+  if (email && cod) {
+    const { reembolsoRealizado, importeLegible } = await import("@/lib/emails-plantillas");
+    const { enviarEmail } = await import("@/lib/email");
+    await enviarEmail({
+      tipo: "reembolso",
+      ref: `${cod}:${referencia ?? dia}`,
+      para: email,
+      ...reembolsoRealizado({ codigo: cod, importe: importeLegible(importe, moneda), referencia: referencia ?? null }),
+    });
+  }
+  return { ok: true };
 }
