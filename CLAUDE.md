@@ -3163,8 +3163,9 @@ que el registro empiece limpio en `ARR/BAJ-2026-000001`.
   la clave la pega el coach.
 - Plantillas en `src/lib/emails-plantillas.ts`; datos del proveedor (CUIT
   20-37449501-2, Aliau 3458, Rosario) en `src/lib/proveedor.ts`. El WhatsApp sale de
-  la constante única `WHATSAPP_COACH_NUMERO` (`src/lib/contacto.ts`): el número
-  definitivo todavía no está elegido, no se hardcodeó otro.
+  la constante única `WHATSAPP_COACH_NUMERO` (`src/lib/contacto.ts`), que otro chat
+  cambió a 3417211050 (commit 9143d33) mientras se hacía esta tanda: los emails y la
+  página de gracias usan la constante, no hay ningún número hardcodeado.
 - Qué se manda: comprobante de compra/cobro (producto, importe, fecha, medio,
   operación, renovación si es suscripción, plazos 10/14, links y versión de términos),
   constancia de arrepentimiento/baja con código, aviso de cobro rechazado con fecha
