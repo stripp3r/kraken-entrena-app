@@ -3,11 +3,12 @@ import { hoyISO } from "@/lib/fecha";
 import { VERSION_LEGAL } from "@/lib/aceptacion-legal-version";
 import { notificarCompraUnica } from "@/lib/notificaciones";
 
-// Meses de acceso completo a la app que da comprar un plan suelto. Ese acceso
-// incluye ver el PDF dentro de la app (solo lectura, sin descarga): cuando
-// premium_hasta vence, permisos().misPdfs se corta y el PDF deja de verse
-// (las filas de `compras` y las rutinas en profile_routine_access quedan, pero
-// la app las bloquea hasta que vuelva a haber acceso vigente).
+// Meses de acceso completo a la app que da comprar un plan suelto (decisión del
+// coach, 2026-10-13): la compra da N meses de uso de la app con las
+// restricciones del plan. El PDF comprado NO depende de esto: se puede leer
+// siempre que la compra esté aprobada, aunque premium_hasta venza (visor de
+// solo lectura, nunca se descarga; ver lib/pdf-acceso.ts). Lo que sí vence a los
+// N meses son las funciones de la app (rutinas, análisis, etc.).
 export const MESES_ACCESO_POR_COMPRA = 3;
 
 // Punto único al que llegan los webhooks de pago (Mercado Pago, PayPal)

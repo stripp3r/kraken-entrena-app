@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { permisos } from "@/lib/premium";
 import { productoPdfConAcceso } from "@/lib/pdf-acceso";
 
 // Entrega los bytes del PDF de un plan autoguiado SOLO al visor de la app
@@ -35,17 +34,10 @@ export async function GET(
     return new NextResponse("No autenticado", { status: 401, headers: { "Cache-Control": "no-store" } });
   }
 
-  // Mismo criterio que la pantalla Mis PDFs (permisos().misPdfs): un acceso
-  // vencido no ve el PDF, igual que no lo ve en la lista.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("premium_hasta, golden_perpetuo, premium_origen")
-    .eq("id", user.id)
-    .single();
-  if (!permisos(profile).misPdfs) {
-    return new NextResponse("Sin acceso", { status: 403, headers: { "Cache-Control": "no-store" } });
-  }
-
+  // Sin chequeo de premium a propósito: el PDF comprado se lee siempre, aunque
+  // el acceso a la app haya vencido (decisión del coach, ver lib/pdf-acceso.ts).
+  // La barrera es la compra aprobada (productoPdfConAcceso) más las
+  // protecciones de arriba contra la descarga.
   const { producto: slug } = await params;
   const acceso = await productoPdfConAcceso(user.id, slug);
   if (!acceso) {

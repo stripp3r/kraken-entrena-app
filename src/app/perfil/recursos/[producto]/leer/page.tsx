@@ -1,9 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
-import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { VisorPdf } from "@/components/visor-pdf";
-import { permisos } from "@/lib/premium";
 import { productoPdfConAcceso } from "@/lib/pdf-acceso";
 
 // Visor de solo lectura del PDF de un plan autoguiado (reemplaza al botón
@@ -15,22 +13,8 @@ export default async function LeerPdfPage({ params }: { params: Promise<{ produc
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("premium_hasta, golden_perpetuo, premium_origen")
-    .eq("id", user.id)
-    .single();
-
-  if (!permisos(profile).misPdfs) {
-    return (
-      <PantallaBloqueada
-        titulo="MIS PDFS"
-        volverA="/perfil"
-        texto="Mis PDFs no está disponible con tu plan actual. Se habilita al comprar un plan."
-      />
-    );
-  }
-
+  // Sin chequeo de premium a propósito: el PDF comprado se lee siempre (ver
+  // lib/pdf-acceso.ts). El acceso lo da la compra aprobada.
   const { producto: slug } = await params;
   const acceso = await productoPdfConAcceso(user.id, slug);
   if (!acceso) notFound();

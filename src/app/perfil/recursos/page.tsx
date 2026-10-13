@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { BackLink } from "@/components/back-link";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { permisos } from "@/lib/premium";
+import { tienePdfComprado } from "@/lib/pdf-acceso";
 import { URL_PLANES } from "@/lib/legal";
 
 type ProductoConPdf = { id: number; nombre: string; slug: string };
@@ -25,7 +26,9 @@ export default async function RecursosPage() {
     .eq("id", user.id)
     .single();
 
-  if (!permisos(profile).misPdfs) {
+  // Con un PDF comprado se ve esta pantalla aunque el acceso a la app haya
+  // vencido (el PDF no depende de los 3 meses). Sin PDF comprado, vale el plan.
+  if (!permisos(profile).misPdfs && !(await tienePdfComprado(user.id))) {
     return (
       <PantallaBloqueada
         titulo="MIS PDFS"

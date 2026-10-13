@@ -3121,7 +3121,7 @@ antes de publicar. Todo billing sigue en el sitio web: la app no cobra nada.
 | 3 | Página de gracias por tipo de compra | **Hecho** (`?tipo=mentoria\|plan\|golden`) |
 | 4 | Aviso al coach (compra, suscripción, baja, rechazo) | **Hecho**, idempotente; falta configurar el envío (ver "Emails") |
 | 5 | Formulario de ingreso de mentoría | **Hecho** (`/perfil/ingreso`) |
-| 6 | "PDF para siempre" vs 3 meses de acceso | **Documentado + opciones, NO cambiado** (ver abajo) |
+| 6 | "PDF para siempre" vs 3 meses de acceso | **Resuelto**: el PDF se lee siempre; los 3 meses dan acceso a la app (ver abajo) |
 | 7 | Verificar lo que prometen los términos | **Verificado** (tabla abajo) |
 | 8 | Checklist de activación de los 4 planes | **Documentado** (abajo) |
 | 9 | Dominio de la app | **Verificado/documentado** (abajo) |
@@ -3265,18 +3265,19 @@ que el registro empiece limpio en `ARR/BAJ-2026-000001`.
 `procesar`, devolver la plata en el panel del proveedor y correr
 `avisos_precio_vencidos` antes de un aumento.
 
-### Comportamiento real "PDF para siempre" vs 3 meses (punto 6, NO cambiado)
-`MESES_ACCESO_POR_COMPRA = 3` suma 3 meses a `premium_hasta` y marca
-`premium_origen = 'compra'`. Al vencer (mes 4) `esPremium()` da falso y
-`permisos()` devuelve `SIN_ACCESO`: **Mis PDFs deja de verse** (`misPdfs: false`) y el
-proxy manda casi todo a `/golden` (solo quedan `/perfil`, `/golden` y similares). Las
-filas de `compras` y de `profile_routine_access` quedan, pero **la app las bloquea**.
-O sea: hoy la compra NO es "para siempre" en la app. Opciones (decide el coach):
-- **A (recomendada)**: la compra da acceso permanente solo a **ese plan** (sus rutinas
-  y su PDF, leyendo `compras`/`profile_routine_access`, no `premium_hasta`) y las
-  funciones premium (análisis, medidas, cardio, etc.) siguen atadas a los 3 meses.
-- **B**: dejar el código como está y cambiar el texto de venta a "3 meses de acceso".
-- **C**: acceso permanente a todo (cambia el modelo de negocio; no recomendado).
+### PDF comprado vs 3 meses de acceso (punto 6, RESUELTO el 2026-10-13)
+Decisión del coach: el PDF queda cargado **solo en la app y solo en modo lectura**
+(sin descarga, ya resuelto con el visor `/perfil/recursos/[producto]/leer`). Los 3
+meses (`MESES_ACCESO_POR_COMPRA`) le dan acceso a la **app**: mientras estén vigentes
+usa la app con las restricciones de su plan. **El PDF comprado se puede leer siempre**,
+aunque no renueve ni pase a Golden: el acceso al PDF lo da la compra aprobada
+(`productoPdfConAcceso`, `tienePdfComprado` en `src/lib/pdf-acceso.ts`), no
+`premium_hasta`. Cambios hechos: se sacó el chequeo `permisos().misPdfs` del visor y de
+la ruta que entrega los bytes, y Mis PDFs (y su ícono en Perfil) se habilita si hay un
+PDF comprado aunque el acceso a la app haya vencido. Si la compra se revoca
+(arrepentimiento) el PDF deja de verse. Las rutinas del plan y el resto de las funciones
+siguen atadas a los 3 meses (no se tocó). Una cuenta con el acceso vencido igual puede
+entrar a `/perfil` (el proxy lo permite) y de ahí a Mis PDFs.
 
 ### Calendario de conservación propuesto (punto E)
 | Categoría | Plazo | Base | Qué pasa después |
@@ -3352,7 +3353,7 @@ cambiar los 9 links a `appfit.krakenbrand.com`.
    `/api/admin/*` quedan cerradas (503).
 2. Cuando cargue las claves de email: `POST /api/admin/solicitudes
    {"accion":"reintentar_emails"}` para enviar lo que quedó pendiente.
-3. Dar el OK al resumen de decisiones de arriba, en especial el punto 6 (PDF y 3 meses).
+3. Dar el OK al resumen de decisiones de arriba.
 4. Avisar al chat del sitio: URL del endpoint, contrato y CORS (arriba) para el
    formulario y la CSP.
 5. Hacer el `git push` y el deploy (todo está en commits locales).
