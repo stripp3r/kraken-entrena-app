@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { diasRestantesTrial, esGoldenTier } from "@/lib/premium";
 import { SelectorPlanGolden } from "@/components/selector-plan-golden";
+import { NotaLegalSuscripcion } from "@/components/nota-legal-suscripcion";
 
 const INCLUYE = [
   "Todas las rutinas del catálogo (y las que se sumen)",
@@ -92,10 +93,13 @@ export default async function GoldenPage() {
             </ul>
 
             {anualListo || mensualListo ? (
+              <>
               <SelectorPlanGolden
                 mensual={mensualListo ? { ars: mensual!.precio_ars, usd: mensual!.precio_usd } : null}
                 anual={anualListo ? { ars: anual!.precio_ars, usd: anual!.precio_usd } : null}
               />
+              <NotaLegalSuscripcion />
+              </>
             ) : (
               <>
                 <p className="mb-4 text-center text-xs text-gray-500">

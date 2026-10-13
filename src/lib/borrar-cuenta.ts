@@ -20,6 +20,11 @@ import { buscarUsuarioPorEmail, cancelarSuscripcion } from "@/lib/solicitudes";
 //     entrenamiento y cardio, historial y acceso a rutinas, suscripciones,
 //     aceptaciones, guía) cae por `on delete cascade`.
 //
+//  5b. Bandeja de emails (`emails_salientes`): se borran los que se le mandaron
+//     a esa casilla, salvo las constancias de arrepentimiento/baja y de
+//     reembolso, que se anonimizan (el registro de solicitudes se conserva por
+//     obligación legal y esas constancias son su prueba de envío).
+//
 // Lo que NO se borra a propósito: `solicitudes_baja_arrepentimiento` (es el
 // registro que la Disposición 954/2025 obliga a llevar) y las rutinas
 // privadas que el coach armó para esa persona (programación del coach, no
@@ -91,6 +96,18 @@ export async function borrarCuentaCompleta({
 
   const subsPorCancelar = (subs ?? []).filter((s) => s.estado === "activa" || s.estado === "pausada");
 
+  // Un reembolso pendiente no se puede perder de vista: primero se resuelve.
+  const { data: reembolsosPendientes } = await admin
+    .from("tareas_reembolso")
+    .select("id")
+    .eq("estado", "pendiente")
+    .or(`user_id.eq.${userId},email.eq.${emailNorm}`);
+  if (reembolsosPendientes?.length && !soloVerificar) {
+    return {
+      error: `Hay ${reembolsosPendientes.length} reembolso(s) pendiente(s) de esta persona (tareas_reembolso): resolverlos antes de borrar la cuenta.`,
+    };
+  }
+
   const resumen = {
     userId,
     suscripcionesPorCancelar: subsPorCancelar.length,
@@ -136,6 +153,16 @@ export async function borrarCuentaCompleta({
       .in("id", idsCompras);
     if (error) return { error: `No se pudieron anonimizar las compras: ${error.message}`, resumen };
   }
+
+  // 4b) Emails enviados a esa casilla y contadores de límite que la mencionan.
+  //     Constancias de solicitud y de reembolso: se anonimizan, no se borran.
+  await admin.from("emails_salientes").delete().eq("para", emailNorm).not("tipo", "like", "constancia_%").neq("tipo", "reembolso");
+  await admin
+    .from("emails_salientes")
+    .update({ para: "eliminado@eliminado.invalid", html: "[eliminado]", texto: null })
+    .eq("para", emailNorm);
+  await admin.from("limites_publicos").delete().in("clave", [`email:${emailNorm}`, `reclamo:${userId}`]);
+  await admin.from("tareas_reembolso").update({ email: ANONIMO }).eq("email", emailNorm);
 
   // 5) El usuario (cascade al resto).
   const { error: errUsuario } = await admin.auth.admin.deleteUser(userId);
