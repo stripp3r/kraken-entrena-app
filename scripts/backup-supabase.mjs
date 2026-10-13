@@ -23,7 +23,11 @@ import { tmpdir, homedir } from "node:os";
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FORZAR = process.argv.includes("--forzar");
 const HORAS_MINIMAS_ENTRE_BACKUPS = 20;
-const DIAS_A_CONSERVAR = 30; // además se conserva para siempre el backup del día 1 de cada mes
+const DIAS_A_CONSERVAR = 30; // además se conserva el backup del día 1 de cada mes, pero solo MESES_MENSUALES_A_CONSERVAR meses
+// Los backups contienen datos personales y de salud: una cuenta borrada sigue en los backups hasta que
+// vencen. Conservar el mensual "para siempre" contradecía el derecho de supresión; 12 meses es el tope
+// (calendario de conservación en CLAUDE.md).
+const MESES_MENSUALES_A_CONSERVAR = 12;
 const DRIVE = "G:\\Mi unidad";
 
 function leerEnv() {
@@ -165,11 +169,14 @@ function ultimoBackupReciente() {
 
 function podar() {
   const limite = Date.now() - DIAS_A_CONSERVAR * 86400000;
+  const limiteMensual = Date.now() - MESES_MENSUALES_A_CONSERVAR * 31 * 86400000;
   for (const f of readdirSync(DESTINO)) {
     const m = f.match(/^backup-(\d{4})-(\d{2})-(\d{2})_\d{4}\.zip$/);
     if (!m) continue;
     const esDia1 = m[3] === "01";
-    if (!esDia1 && new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00`).getTime() < limite) rmSync(join(DESTINO, f));
+    const fecha = new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00`).getTime();
+    if (!esDia1 && fecha < limite) rmSync(join(DESTINO, f));
+    if (esDia1 && fecha < limiteMensual) rmSync(join(DESTINO, f));
   }
 }
 

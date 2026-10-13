@@ -3101,3 +3101,260 @@ igual, sin bajadas de drop sets. Se le agregó una capa aparte, aditiva, en
 - Limitación conocida: en la semana en curso, "Series hechas" se compara contra
   las series de la semana COMPLETA (ej. 19 / 84 un lunes); se lee bien recién con
   la semana cerrada ("Anterior").
+
+## Cumplimiento y compras: diagnóstico del sitio + adenda legal (tanda del 2026-10-13)
+
+Origen: el chat del sitio web (fit.krakenbrand.com) pasó dos documentos
+(`PROMPT-chat-app-diagnostico-compras.md` y `PROMPT-chat-app-legal-adenda.md`, en
+el escritorio) más un pedido de consentimiento de transferencia internacional.
+El coach (Ezequiel) los confirmó en persona en este chat, con estas condiciones:
+trabajar de forma autónoma, correr las migraciones con las precauciones de
+siempre, **todo en commit local, sin push ni deploy**, y revisar el resumen
+antes de publicar. Todo billing sigue en el sitio web: la app no cobra nada.
+
+### Qué quedó hecho (todo en commits locales de `main`)
+
+| # | Pedido | Estado |
+|---|---|---|
+| 1 | Emails con mayúsculas rompían el desbloqueo | **Hecho** (migración 099). Backfill: 0 casos |
+| 2 | Recuperar una compra con email distinto | **Hecho**: código por email + acción admin |
+| 3 | Página de gracias por tipo de compra | **Hecho** (`?tipo=mentoria\|plan\|golden`) |
+| 4 | Aviso al coach (compra, suscripción, baja, rechazo) | **Hecho**, idempotente; falta configurar el envío (ver "Emails") |
+| 5 | Formulario de ingreso de mentoría | **Hecho** (`/perfil/ingreso`) |
+| 6 | "PDF para siempre" vs 3 meses de acceso | **Documentado + opciones, NO cambiado** (ver abajo) |
+| 7 | Verificar lo que prometen los términos | **Verificado** (tabla abajo) |
+| 8 | Checklist de activación de los 4 planes | **Documentado** (abajo) |
+| 9 | Dominio de la app | **Verificado/documentado** (abajo) |
+| A | Registro de solicitudes completo | **Hecho** (migración 100) |
+| B | Endpoint público de arrepentimiento/baja | **Hecho** (contrato abajo) |
+| C | Consentimiento de datos de salud | **Hecho** (versionado, en `aceptaciones_legales`) |
+| D | Comprobante de compra por email | **Hecho** (+ versión de términos guardada por compra) |
+| E | Calendario de conservación | **Propuesto** (tabla abajo) y borrado de cuenta ampliado |
+| F | Auditoría de proveedores | **Hecha** (tabla abajo) |
+| G | Revisión de copy | **Hecha** (abajo) |
+| + | Casilla "mayor de 18" y consentimiento de transferencia internacional | **Hecho** (registro + pantalla bloqueante para existentes) |
+| + | Cambio de precio: rechazar / silencio | **Hecho** (decisión abajo) |
+
+**Migraciones corridas en producción hoy** (cada una con backup previo vía
+`scripts/migrar.mjs`, probada antes en una transacción que se deshacía):
+- `098` corregir ejercicio 107 (puente de glúteos con una pierna elevada).
+- `099_emails_normalizados`: `lower(trim())` en `buscar_usuario_por_email` y
+  `handle_new_user`, trigger que normaliza `compras.email_comprador`.
+- `100_base_cumplimiento_y_compras`: tablas `emails_salientes`, `tareas_reembolso`,
+  `reclamos_compra`, `formularios_ingreso`, `limites_publicos`; columnas nuevas en
+  `solicitudes_baja_arrepentimiento` (compra/suscripción asociada, verificación,
+  constancia, responsable, datos del reembolso, medio `web`), en `compras`
+  (`terminos_version`, `plazo_legal_vence` +10 d, `plazo_comercial_vence` +14 d,
+  reembolso) y en `avisos_precio*` (`decision`, `sin_aceptar_procesado_at`).
+- `101_coach_lee_formularios_ingreso`: policy para que el coach lea los formularios.
+Ninguna fue destructiva. La tabla `solicitudes_baja_arrepentimiento` estaba vacía:
+se hicieron pruebas reales del endpoint y se borraron, reiniciando el contador para
+que el registro empiece limpio en `ARR/BAJ-2026-000001`.
+
+### Emails (todo pasa por `src/lib/email.ts`)
+- Cada email se guarda en `emails_salientes` (evidencia + cola idempotente por
+  `tipo`+`ref`). Se envía con la API de Resend; si no está configurada queda
+  `pendiente` y se reenvía con `POST /api/admin/solicitudes {"accion":"reintentar_emails"}`.
+- **Variables de entorno que faltan cargar (en Vercel Y en `.env.local`)**:
+  `RESEND_API_KEY`, `MAIL_FROM` (ej. `KRAKEN <no-reply@krakenbrand.com>`; Supabase Auth
+  ya envía desde ese remitente por `smtp.resend.com`, así que el dominio ya está
+  verificado en Resend) y `COACH_EMAIL` (dónde llegan los avisos). Hasta que estén,
+  nada se pierde: los avisos quedan `pendiente`. **No se copió ningún secreto**:
+  la clave la pega el coach.
+- Plantillas en `src/lib/emails-plantillas.ts`; datos del proveedor (CUIT
+  20-37449501-2, Aliau 3458, Rosario) en `src/lib/proveedor.ts`. El WhatsApp sale de
+  la constante única `WHATSAPP_COACH_NUMERO` (`src/lib/contacto.ts`): el número
+  definitivo todavía no está elegido, no se hardcodeó otro.
+- Qué se manda: comprobante de compra/cobro (producto, importe, fecha, medio,
+  operación, renovación si es suscripción, plazos 10/14, links y versión de términos),
+  constancia de arrepentimiento/baja con código, aviso de cobro rechazado con fecha
+  exacta de suspensión, reembolso realizado, código de recuperación de compra, aviso
+  de suscripción cancelada por precio no aceptado. Al coach: compra, suscripción
+  nueva, renovación, baja, pago rechazado, solicitud web, devolución a hacer, compra
+  recuperada, formulario de ingreso completado. Nunca se manda ningún dato de salud
+  por email.
+
+### Endpoint público de arrepentimiento y baja (para el formulario del sitio)
+- `POST https://<dominio-de-la-app>/api/publico/solicitud` (hoy `https://appfit.krakenbrand.com`).
+- Cuerpo JSON: `{ "tipo": "arrepentimiento" | "baja", "email": "<email de la compra>",
+  "producto"?: "<slug o texto>", "numeroOperacion"?: "<n° de operación>", "website": "" }`.
+  `website` es el **honeypot**: el formulario lo tiene que mandar vacío y oculto.
+  `producto` acepta un slug (`anti-flakardo`, `golden-mensual`, `golden-anual`,
+  `mentoria-online-basic`, `mentoria-online-vip`) o texto libre.
+- **CORS solo `https://fit.krakenbrand.com`**: `OPTIONS` responde 204 con
+  `Access-Control-Allow-Origin` solo para ese origen y un `POST` con otro origen (o sin
+  `Origin`) recibe **403**. El sitio tiene que agregar el dominio de la app a
+  `connect-src` en la CSP de `vercel.json`.
+- Respuestas: `200 { ok:true, codigo, recibidaAt, tipo, constanciaEnviadaPorEmail,
+  verificada }` (mostrar `codigo` en pantalla); `400 { ok:false, error }` datos
+  inválidos; `403` origen no permitido; `429` demasiados intentos (máx. 5 por IP por
+  hora y 3 por email por día); `500` error al registrar.
+- Qué hace: valida, aplica límites, busca compra/suscripción por el email (verificación
+  razonable, sin login ni motivo), **registra** con código `ARR-2026-000123` /
+  `BAJ-2026-000123` (sin email ni datos de salud adentro), manda la **constancia por
+  email al instante**, avisa al coach y devuelve el código para mostrarlo. Si el email
+  no coincide con ninguna compra igual se registra (la norma no permite exigir
+  trámites previos) y queda `no_verificada` para revisar a mano. Con un `website`
+  completo (bot) responde 200 con código `SIN-REGISTRO` y no registra nada.
+- **Ejecutar la solicitud** (la app no corta nada sola, ver decisión): `POST
+  /api/admin/solicitudes` con `Authorization: Bearer <ADMIN_API_SECRET>` y
+  `{"accion":"procesar","codigo":"BAJ-2026-000123"}` -> cancela la suscripción
+  (acceso hasta fin del período) o revoca la compra y crea la tarea de reembolso.
+  Después de reembolsar a mano: `{"accion":"reembolso_hecho","codigo":...,"importe":...,
+  "moneda":"ARS","referencia":"..."}` (cierra la tarea y avisa a la persona).
+  `{"accion":"pendientes"}` lista solicitudes sin procesar, reembolsos pendientes y
+  emails sin enviar.
+- Opcional, apagado: `SOLICITUDES_AUTOPROCESAR_BAJA=1` ejecuta solas las bajas
+  verificadas. Queda apagado porque cualquiera que conozca un email podría cortar la
+  renovación de otra persona.
+
+### Decisiones que tomé por mi cuenta (la opción más conservadora y simple)
+1. **Reclamar una compra con otro email**: código de 6 dígitos enviado al email de la
+   compra (vence en 30 min, 5 intentos, solo se guarda el hash, no se manda email si
+   no hay compra y la respuesta es siempre igual para no revelar si existe). Se eligió
+   código y no link porque no lo consume un preview automático del correo. Camino de
+   respaldo: acción admin `vincular_compra`.
+2. **Precio nuevo sin aceptar**: el silencio NO es aceptación. Si la persona toca "No
+   acepto" o llega la vigencia sin responder, **se cancela la renovación** en el
+   proveedor y conserva el acceso hasta fin del período pagado (email + aviso al
+   coach). La acción admin `avisos_precio_vencidos` (con `ejecutar:true`) procesa a los
+   que no respondieron; **hay que correrla ANTES de que rija el precio nuevo** (el
+   precio real lo sigue cambiando el coach en MP/PayPal). Criterio estricto: no cancela
+   suscripciones de mentoría sin `producto_slug` (no se sabe si Basic o VIP).
+3. **Calendario de conservación** (tabla abajo) y backups mensuales limitados a 12
+   meses (antes "para siempre").
+4. **Texto del consentimiento de salud** (versión `2026-10`, en
+   `src/lib/consentimiento-salud.ts`): qué datos, para qué, quién accede, cuánto se
+   conservan, derechos, sin uso publicitario; casilla separada, antes de cargar
+   peso/medidas/fotos/lesiones y del formulario de ingreso. Se exige también del lado
+   servidor al guardar mediciones y fotos.
+5. **Formulario de ingreso** (decisión de campos): obligatorios solo objetivo, días por
+   semana y lugar de entrenamiento; opcionales experiencia, minutos por sesión,
+   equipamiento, disponibilidad, limitaciones relevantes para entrenar ("no hace falta
+   un diagnóstico completo"), hábitos y comentarios. El coach lo ve en la vista de
+   coach del cliente. Fotos: se usa "Mi evolución" ya existente, no se duplica.
+6. **Aceptaciones**: tres casillas separadas y sin tildar (Términos y Privacidad, "soy
+   mayor de 18" y autorización de tratamiento fuera de Argentina), cada una en
+   `aceptaciones_legales` con versión (`aceptacion-legal-version.ts`), fecha, IP y user
+   agent. Las cuentas existentes ven `/aceptar-terminos` en su próximo ingreso con
+   **solo las casillas que les faltan** (es la pantalla bloqueante). Cambiar una
+   versión obliga a todos a volver a aceptar.
+7. **Reembolsos**: siguen siendo manuales (no hay API de reembolso). Se agrega la
+   tabla `tareas_reembolso` y la detección de "se cobró una renovación después de una
+   baja recibida a tiempo" (últimos 35 días, o la suscripción figuraba cancelada) para
+   generar la devolución proactiva y avisar al coach.
+8. **Excepción del art. 3 inc. b (ya usó o consumió)**: NO se invoca. Reembolso total
+   dentro de 14 días para todos los planes, sin excepciones, como pidió el coach.
+9. **Titular en comprobantes**: "KRAKEN · Ezequiel Arce · CUIT 20-37449501-2" (el
+   portfolio de Meta ya figura como "Ezequiel Arce"). Si la razón social es otra,
+   cambiarla en `src/lib/proveedor.ts`.
+
+### Verificación de lo que prometen los términos publicados (punto 7)
+| Promesa | Estado |
+|---|---|
+| Arrepentimiento 14 días corridos (10 legales) -> reembolso 100% + revocar acceso | `revocarCompra` + `procesar`; plazos guardados por compra (`plazo_legal_vence`, `plazo_comercial_vence`). El reembolso es manual. |
+| Baja: frena renovación, acceso hasta fin del período | `cancelarSuscripcion` (acceso hasta `premium_hasta`). |
+| Cobro rechazado: 48 h de gracia + aviso | Gracia ya existía (094). Nuevo: email con la fecha exacta de suspensión y franja en la app. Si regulariza, el webhook limpia la gracia sin doble cobro. |
+| Cambio de precio: pop-up + aceptación expresa | Pop-up existía (095). Nuevo: botón "No acepto", y silencio = no se cobra el precio nuevo (cancelación). |
+| Registro de aceptación con versión y fecha | Existía (092); ahora incluye mayor de 18 y transferencia. |
+| Código de identificación en 24 h | Endpoint público lo devuelve en pantalla y por email en el acto. |
+| Borrado de cuenta: tokens, Storage, datos | `borrarCuentaCompleta` ampliado (emails, límites, reembolsos pendientes bloquean el borrado). Tokens de Google/Facebook: la app no guarda `provider_token`, no hay nada que revocar. |
+
+**Lo que sigue sin automatizar y lo hace el coach**: ejecutar la solicitud con
+`procesar`, devolver la plata en el panel del proveedor y correr
+`avisos_precio_vencidos` antes de un aumento.
+
+### Comportamiento real "PDF para siempre" vs 3 meses (punto 6, NO cambiado)
+`MESES_ACCESO_POR_COMPRA = 3` suma 3 meses a `premium_hasta` y marca
+`premium_origen = 'compra'`. Al vencer (mes 4) `esPremium()` da falso y
+`permisos()` devuelve `SIN_ACCESO`: **Mis PDFs deja de verse** (`misPdfs: false`) y el
+proxy manda casi todo a `/golden` (solo quedan `/perfil`, `/golden` y similares). Las
+filas de `compras` y de `profile_routine_access` quedan, pero **la app las bloquea**.
+O sea: hoy la compra NO es "para siempre" en la app. Opciones (decide el coach):
+- **A (recomendada)**: la compra da acceso permanente solo a **ese plan** (sus rutinas
+  y su PDF, leyendo `compras`/`profile_routine_access`, no `premium_hasta`) y las
+  funciones premium (análisis, medidas, cardio, etc.) siguen atadas a los 3 meses.
+- **B**: dejar el código como está y cambiar el texto de venta a "3 meses de acceso".
+- **C**: acceso permanente a todo (cambia el modelo de negocio; no recomendado).
+
+### Calendario de conservación propuesto (punto E)
+| Categoría | Plazo | Base | Qué pasa después |
+|---|---|---|---|
+| Cuenta y perfil | Mientras la cuenta esté activa | Ejecución del servicio | Se borra al eliminar la cuenta |
+| Datos de salud (medidas, peso, fotos, formulario de ingreso) | Mientras la cuenta esté activa | Consentimiento específico; finalidad | Se borran al eliminar la cuenta o retirar el consentimiento |
+| Registros de entrenamiento y cardio | Mientras la cuenta esté activa | Ejecución del servicio | Se borran con la cuenta |
+| Guías y PDFs entregados | Mientras la cuenta esté activa | Ejecución del servicio | Se borran con la cuenta |
+| Pagos (monto, moneda, fecha, estado) | 10 años | Obligación contable/fiscal | Se anonimiza el email y el usuario al borrar la cuenta; queda el monto |
+| Solicitudes de arrepentimiento/baja | 3 años desde la resolución (prescripción art. 50, Ley 24.240) | Obligación legal (Disp. 954/2025) | Anonimizar; las constancias enviadas se anonimizan al borrar la cuenta |
+| Aceptaciones legales | Mientras la cuenta esté activa; `compras.terminos_version` queda como evidencia | Prueba del consentimiento | Se borran con la cuenta |
+| Emails enviados (`emails_salientes`) | 12 meses | Evidencia de constancias/comprobantes | Borrar; constancias y reembolsos anonimizados al borrar la cuenta |
+| Logs y límites técnicos (`limites_publicos`) | 30 días (limpiar a mano o con una tarea) | Seguridad | Borrar |
+| Backups diarios | 30 días | Continuidad | Se borran solos (`scripts/backup-supabase.mjs`) |
+| Backups mensuales | **12 meses** (antes "para siempre") | Continuidad | Se borran solos; una cuenta borrada puede seguir hasta 12 meses en un backup |
+| Mentoría finalizada | Los datos de salud se borran a los 12 meses de terminada, salvo pedido antes | Finalidad cumplida | Pendiente de automatizar |
+Plazos de 10 y 3 años: criterio conservador, sin asesoramiento de abogado (el coach lo
+aprobó así). Pendientes de automatizar: limpieza periódica de `limites_publicos` y
+`emails_salientes` viejos, y el borrado por mentoría finalizada.
+
+### Auditoría de proveedores y transferencias (punto F)
+| Proveedor | Para qué | Dónde (verificado) | Qué datos recibe |
+|---|---|---|---|
+| Supabase | Base de datos, Auth, Storage, backups propios | Proyecto en **us-east-1 (N. Virginia, EE.UU.)**: base, Storage y backups | Todo: cuenta, perfil, entrenamiento, medidas, fotos y PDFs (buckets privados `progress-photos`, `guias-alimenticias`, `AntiFlakardo`, `productos`) |
+| Vercel | Hosting de la app y funciones | Por defecto región `iad1` (Washington, EE.UU.); **confirmar en Project Settings > Functions**, no hay `vercel.json` | Todo lo que pasa por la app (solicitudes, sesiones) |
+| Resend | Emails (Auth de Supabase por SMTP y, al configurar `RESEND_API_KEY`, comprobantes y constancias) | EE.UU. | Email del destinatario y contenido (comprobantes, constancias, códigos). Sin datos de salud |
+| Cloudflare | La app no lo usa en el código; si el sitio/DNS lo usa, ver el repo del sitio | EE.UU./global | Solo tráfico/DNS del dominio |
+| Google Drive | Copia de seguridad diaria (`G:\Mi unidad\KRAKEN BACKUPS APP`) | EE.UU. | **Todo**, incluido datos de salud, fotos y emails: es una transferencia que hay que declarar |
+| Mercado Pago | Cobros (ARS) | Argentina/Latam | Email y datos de pago que ingresa la persona en su checkout; a la app llega id de pago, monto y email |
+| PayPal | Cobros (USD) | EE.UU. | Email y datos de pago en su checkout; a la app llega id, monto y email |
+| Google / Meta | Login social | EE.UU. | Email y perfil básico (la app no guarda tokens del proveedor) |
+**DPA / cláusulas modelo** (verificados el 2026-10-13, existen y mencionan Standard
+Contractual Clauses): Supabase https://supabase.com/legal/dpa · Vercel
+https://vercel.com/legal/dpa · Resend https://resend.com/legal/dpa · Cloudflare
+https://www.cloudflare.com/cloudflare-customer-dpa/ . Ojo: son las SCC de la UE, no
+las cláusulas modelo de la AAIP (Disp. 60-E/2016, Res. 198/2023); por eso la vía
+principal es el **consentimiento expreso** (casilla separada) y las cláusulas modelo
+AAIP quedan como refuerzo a firmar con cada proveedor si el coach lo decide.
+
+### Revisión de copy (punto G)
+La app no tenía ningún texto sobre reembolsos, "PDF para siempre" ni cancelaciones
+fuera de lo agregado hoy. Se agregó la nota legal de `/golden` (renovación automática,
+baja sin penalidad ni preaviso, arrepentimiento 10/14 días con links) y el texto de
+arrepentimiento en la página de gracias, todo con los mismos plazos del sitio.
+
+### Checklist para activar los 4 planes autoguiados (punto 8, NO activar todavía)
+Planes: `grasa-sub-cero`, `hibrido`, `en-casa`, `minimalista` (hoy `activo=false`, sin
+PDF, checkouts devuelven 404 a propósito). Por plan:
+1. Subir el PDF al bucket privado `productos` y cargar `productos.pdf_storage_path`.
+2. Rutinas del plan con `es_privada = true` y enlazadas en `producto_rutinas`.
+3. Todos los ejercicios con `imagen_url` y `video_url` (regla: nunca null; usar un
+   hermano cercano si falta).
+4. Cargar `precio_ars`/`precio_usd` y, para PayPal, `paypal_plan_id` si corresponde.
+5. Probar compra de punta a punta en Mercado Pago y PayPal con una cuenta de prueba:
+   comprobante por email, aviso al coach, desbloqueo, lectura del PDF sin descarga,
+   arrepentimiento (`procesar`) y restauración.
+6. Recién entonces `activo = true`.
+
+### Dominio de la app (punto 9)
+Verificado el 2026-10-13: `https://appfit.krakenbrand.com` y
+`https://kraken-entrena-app.vercel.app` responden lo mismo (misma app).
+Supabase Auth: `site_url = https://appfit.krakenbrand.com`; `uri_allow_list` incluye
+`/auth/callback` y `/restablecer-password` de los dos dominios y de localhost; Google y
+Facebook habilitados. Webhook de PayPal **sandbox** registrado en
+`https://kraken-entrena-app.vercel.app/api/webhooks/paypal` (1 evento): sigue
+funcionando porque los dos dominios sirven la misma app; no se pudo verificar el de
+producción ni el de Mercado Pago (están en sus paneles). El chat del sitio puede
+cambiar los 9 links a `appfit.krakenbrand.com`.
+
+### Antes de publicar (hace el coach)
+1. **Cargar en Vercel** `ADMIN_API_SECRET` (el valor está en `.env.local`),
+   `RESEND_API_KEY`, `MAIL_FROM`, `COACH_EMAIL`. Sin `ADMIN_API_SECRET` las rutas
+   `/api/admin/*` quedan cerradas (503).
+2. Cuando cargue las claves de email: `POST /api/admin/solicitudes
+   {"accion":"reintentar_emails"}` para enviar lo que quedó pendiente.
+3. Dar el OK al resumen de decisiones de arriba, en especial el punto 6 (PDF y 3 meses).
+4. Avisar al chat del sitio: URL del endpoint, contrato y CORS (arriba) para el
+   formulario y la CSP.
+5. Hacer el `git push` y el deploy (todo está en commits locales).
+6. Antes de un cambio de precio: correr `avisos_precio_vencidos` con `ejecutar:true`.
+7. Al desplegar, todas las cuentas existentes ven `/aceptar-terminos` en su próximo
+   ingreso (mayor de 18 y transferencia; los Términos ya aceptados no se repiten).
