@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { enviarTextoWhatsapp } from "@/lib/whatsapp";
 
 // Webhook de la WhatsApp Cloud API (Meta).
 // GET  = handshake de verificación al registrar la URL en el panel de Meta.
 // POST = mensajes entrantes y estados. Por ahora solo valida la firma y deja
-//        el payload en los logs; el agente vendedor se conecta en la Fase 1.
+//        el payload en los logs y, mientras dure la prueba de conexión,
+//        responde con un eco al que escribe. El agente vendedor reemplaza
+//        ese eco en la Fase 1.
 
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
@@ -35,6 +38,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }
   console.log("[whatsapp] evento recibido:", rawBody);
+
+  // PRUEBA DE CONEXIÓN (temporal): eco de los mensajes entrantes.
+  try {
+    const payload = JSON.parse(rawBody);
+    for (const entry of payload.entry ?? []) {
+      for (const change of entry.changes ?? []) {
+        for (const msg of change.value?.messages ?? []) {
+          const texto =
+            msg.type === "text"
+              ? `Recibí tu mensaje: "${msg.text?.body ?? ""}". Conexión de KRAKEN con WhatsApp funcionando ✅`
+              : `Recibí un mensaje de tipo "${msg.type}". Conexión de KRAKEN con WhatsApp funcionando ✅`;
+          const r = await enviarTextoWhatsapp(msg.from, texto);
+          console.log("[whatsapp] respuesta de prueba:", r.ok, r.detalle);
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[whatsapp] error procesando evento:", e);
+  }
   // Meta reintenta si no recibe 200 rápido.
   return NextResponse.json({ ok: true });
 }
