@@ -3062,45 +3062,20 @@ se da a mano por
 - No sacar ni modificar ningún disclaimer legal (Alimentación, Medidas).
 - No retomar rutinas multi-día nuevas sin que el usuario lo pida él mismo.
 
-## Análisis de lo ejecutado: series, RIR, bajadas, semana real (2026-10-12)
+## Análisis de lo ejecutado (PENDIENTE, fuera del despliegue desde 2026-10-14)
 
-El análisis viejo (`lib/analytics.ts`) usa un solo top set por día por ejercicio
-(herencia del Excel) y NO se tocó: 1RM, RM, IRP, PR y volumen máx/mín siguen
-igual, sin bajadas de drop sets. Se le agregó una capa aparte, aditiva, en
-`lib/analisis-ejecutado.ts` (funciones puras) que mira TODAS las series:
-- **Serie** = fila `tipo_serie != 'drop'`. Las bajadas (`drop`) suman volumen
-  pero nunca series ni 1RM. **Serie efectiva** = RIR cargado ≤ 2
-  (`UMBRAL_SERIE_EFECTIVA`, decidido por el coach); las series sin RIR se cuentan
-  aparte (`sinRir`) y se muestran, no se asumen efectivas.
-- Por ejercicio (`DetalleEjercicio` en `components/progreso-ejecutado.tsx`):
-  última sesión con todas las series y bajadas, caída de reps, RIR promedio por
-  sesión vs objetivo, estado de progresión (subir carga / estancado / progresando
-  / pocos datos) y volumen total real. "Subir carga" solo si la prescripción tiene
-  rango de reps explícito; con "al fallo" sin reps solo evalúa estancamiento.
-- Global: `ResumenSemanal` (semana lunes–domingo, hora Argentina; esta o la
-  anterior): series efectivas por grupo muscular contra MEV/MAV/MRV usando los
-  mismos pesos que el volumen planificado (`pesoPorGrupo`: 1 / 0,5 / 0,25), y
-  cumplimiento (entrenamientos, series hechas vs prescritas, RIR vs objetivo).
-- El objetivo de RIR sale de `routine_exercises.rir_objetivo` o del texto de
-  `series_reps` SOLO si menciona RIR (el parser devuelve 2 por defecto y ese
-  valor inventado no se usa para comparar).
-- `app/progreso/entrenamiento/page.tsx` ahora trae `rir, tipo_serie, drop_de` y
-  filtra las bajadas en JS para `logsByExercise` (1RM); `logsCompletosByExercise`
-  las conserva. Sin migraciones nuevas.
-- **Cómo verlo con datos reales (cuenta de prueba kraken.test.qa2@gmail.com)**:
-  sesión sin contraseña con `admin.generateLink` + `verifyOtp` vía `@supabase/ssr`
-  (cookies servidas por un helper local en otro puerto, así el token no pasa por
-  el chat). La app frena a esa cuenta con DOS muros: (1) `/aceptar-terminos` si
-  no tiene `aceptaciones_legales` de la `VERSION_LEGAL` vigente y (2) `/golden`
-  si `profiles.premium_hasta` venció; juntos dan un bucle de redirecciones.
-  Para mirar: extender `premium_hasta` de forma temporal, aceptar los términos,
-  sembrar `workout_logs` (4 semanas, 4 días, con un drop set, un estancado y uno
-  con RIR faltante) y al terminar restaurar TODO: borrar los logs sembrados por
-  id, borrar la fila de `aceptaciones_legales` creada ese día (columna
-  `aceptado_at`) y volver `premium_hasta` al valor original (2026-10-10).
-- Limitación conocida: en la semana en curso, "Series hechas" se compara contra
-  las series de la semana COMPLETA (ej. 19 / 84 un lunes); se lee bien recién con
-  la semana cerrada ("Anterior").
+Se construyó una capa de análisis de lo ejecutado (todas las series, RIR, bajadas de
+drop sets, volumen real, semana real por grupo muscular, cumplimiento, estado de
+progresión). **El coach decidió NO publicarla**: la vista global no le gustó y el
+análisis completo se va a rediseñar. El código NO está en `main`: quedó guardado en la
+rama local `analisis-ejecutado-pendiente` (commit `5ae7fe4`); para recuperarlo,
+`git revert` del commit de reversión o `git checkout analisis-ejecutado-pendiente --
+<archivos>`. El análisis viejo (top set por día, `lib/analytics.ts`) sigue igual en
+producción. Notas útiles para cuando se retome: serie efectiva = RIR <= 2, las bajadas
+suman volumen pero no series ni 1RM, y para ver la pantalla con datos reales se usó la
+cuenta de prueba kraken.test.qa2 (hay dos muros: aceptar términos y premium vencido;
+restaurar todo al terminar: logs sembrados por id, la fila de `aceptaciones_legales`
+del día y `premium_hasta` original 2026-10-10).
 
 ## Cumplimiento y compras: diagnóstico del sitio + adenda legal (tanda del 2026-10-13)
 

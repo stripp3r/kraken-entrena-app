@@ -5,8 +5,6 @@ import { GlosarioEstadisticas } from "./glosario-estadisticas";
 import { calcularEstadisticasEjercicio, serieDeUnaRM, type SetLog } from "@/lib/analytics";
 import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
 import { GraficoVolumenEjercicios } from "./grafico-volumen-ejercicios";
-import { DetalleEjercicio, ResumenSemanal } from "./progreso-ejecutado";
-import type { EjercicioAnalizado, LogCompleto, Objetivo } from "@/lib/analisis-ejecutado";
 import {
   Line,
   LineChart,
@@ -16,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 
-type Exercise = { id: number; nombre: string; dia: string; grupos: string[]; objetivo: Objetivo };
+type Exercise = { id: number; nombre: string; dia: string };
 
 function num(n: number | null, decimales = 1) {
   if (n === null || Number.isNaN(n)) return "-";
@@ -53,17 +51,7 @@ function GraficoLinea({ datos }: { datos: { fecha: string; valor: number }[] }) 
   );
 }
 
-function TarjetaEjercicio({
-  nombre,
-  logs,
-  logsCompletos,
-  objetivo,
-}: {
-  nombre: string;
-  logs: SetLog[];
-  logsCompletos: LogCompleto[];
-  objetivo: Objetivo;
-}) {
+function TarjetaEjercicio({ nombre, logs }: { nombre: string; logs: SetLog[] }) {
   const stats = calcularEstadisticasEjercicio(logs);
   const serie = serieDeUnaRM(logs);
 
@@ -99,8 +87,6 @@ function TarjetaEjercicio({
         <Stat label="Volumen máx" valor={num(stats.volMax, 0)} />
         <Stat label="Volumen mín" valor={num(stats.volMin, 0)} />
       </div>
-
-      <DetalleEjercicio logs={logsCompletos} objetivo={objetivo} />
     </div>
   );
 }
@@ -130,30 +116,20 @@ export function ProgresoAnalitica({
   dias,
   exercises,
   logsByExercise,
-  logsCompletosByExercise,
-  diasPorSemana,
 }: {
   dias: string[];
   exercises: Exercise[];
   logsByExercise: Record<string, SetLog[]>;
-  logsCompletosByExercise: Record<string, LogCompleto[]>;
-  diasPorSemana: number;
 }) {
   const [vista, setVista] = useState<string>("GLOBAL");
 
   const ejerciciosVista = exercises.filter((e) => e.dia === vista);
-  const ejerciciosAnalizados: EjercicioAnalizado[] = exercises.map((e) => ({
-    dia: e.dia,
-    grupos: e.grupos,
-    objetivo: e.objetivo,
-    logs: logsCompletosByExercise[claveEjercicioDia(e.id, e.dia)] ?? [],
-  }));
 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs text-gray-500">
         Estos gráficos y estadísticas toman el <strong className="text-gray-300">top set</strong>{" "}
-        (la serie más exigente) de cada día — si cargaste varios sets, se usa solo el más pesado. Debajo de cada ejercicio y en la semana real se analiza además todo lo que hiciste: series, RIR y bajadas de drop sets.
+        (la serie más exigente) de cada día — si cargaste varios sets, se usa solo el más pesado.
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -180,7 +156,6 @@ export function ProgresoAnalitica({
 
       {vista === "GLOBAL" ? (
         <div className="flex flex-col gap-4">
-          <ResumenSemanal ejercicios={ejerciciosAnalizados} diasPorSemana={diasPorSemana} />
           {dias.map((d) => {
             const ejerciciosDia = exercises.filter((e) => e.dia === d);
             return (
@@ -209,8 +184,6 @@ export function ProgresoAnalitica({
                   key={ex.id}
                   nombre={ex.nombre}
                   logs={logsByExercise[claveEjercicioDia(ex.id, ex.dia)] ?? []}
-                  logsCompletos={logsCompletosByExercise[claveEjercicioDia(ex.id, ex.dia)] ?? []}
-                  objetivo={ex.objetivo}
                 />
               ))
             )}

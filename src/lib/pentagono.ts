@@ -55,7 +55,7 @@ const PESO_PRINCIPAL = 1;
 const PESO_SECUNDARIO = 0.5;
 const PESO_TERCIARIO = 0.25;
 
-export function pesoPorGrupo(gruposMusculares: string[]): [string, number][] {
+function pesoPorGrupo(gruposMusculares: string[]): [string, number][] {
   return gruposMusculares.map((grupo, i) => {
     const peso = i === 0 ? PESO_PRINCIPAL : i <= 2 ? PESO_SECUNDARIO : PESO_TERCIARIO;
     return [grupo, peso];

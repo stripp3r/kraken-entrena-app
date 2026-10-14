@@ -33,31 +33,6 @@ const DEFINICIONES = [
     texto:
       "Récord personal: la carga máxima y la carga más baja que registraste para ese ejercicio. Te sirve para llevar el registro de tus marcas y ver todo el rango de peso que fuiste manejando.",
   },
-  {
-    label: "Serie efectiva",
-    texto:
-      "Una serie que terminaste a 2 repeticiones o menos del fallo (RIR 2 o menor). Son las que de verdad generan estímulo. Las series sin RIR cargado no se pueden clasificar, por eso se muestran aparte.",
-  },
-  {
-    label: "RIR vs objetivo",
-    texto:
-      "Diferencia entre el RIR que hiciste y el que pedía la rutina. Positivo: terminaste más lejos del fallo que lo prescrito. Cero o negativo: llegaste al esfuerzo pedido o más allá.",
-  },
-  {
-    label: "Volumen total y bajadas",
-    texto:
-      "Suma de peso × reps de todas las series de la sesión, incluidas las bajadas de los drop sets (se muestran aparte). Las bajadas suman volumen pero no cuentan como series ni entran al 1RM estimado.",
-  },
-  {
-    label: "Estado de progresión",
-    texto:
-      "Subí carga aparece cuando llegaste al tope de reps del rango con buen esfuerzo. Estancado, cuando 3 sesiones seguidas no mejoraron ni el 1RM estimado ni el volumen total.",
-  },
-  {
-    label: "Semana real",
-    texto:
-      "Las series efectivas de cada grupo muscular en la semana (lunes a domingo) comparadas con las zonas MEV, MAV y MRV. Cuenta lo que hiciste, no lo que decía la rutina.",
-  },
 ];
 
 export function GlosarioEstadisticas() {
