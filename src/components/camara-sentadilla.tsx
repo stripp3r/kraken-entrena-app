@@ -256,10 +256,17 @@ export function CamaraSentadilla() {
   const veredicto = est?.ultimaRep?.veredicto ?? "neutro";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
+      {ui !== "activo" && (
+        <ol className="list-decimal space-y-1 pl-5 text-sm text-gray-300">
+          <li>Apoyá el teléfono a unos 2 metros, en vertical, a la altura de la cadera.</li>
+          <li>Ponete de costado a la cámara, con el cuerpo entero en cuadro.</li>
+          <li>Tocá &quot;Activar cámara&quot; y hacé sentadillas sin peso o con poco.</li>
+        </ol>
+      )}
       <div
         className="relative mx-auto overflow-hidden rounded-xl border border-border bg-black"
-        style={{ aspectRatio: aspecto, width: `min(100%, ${(72 * aspecto).toFixed(1)}vh)` }}
+        style={{ aspectRatio: aspecto, width: `min(100%, ${(82 * aspecto).toFixed(1)}dvh)` }}
       >
         <div className="absolute inset-0" style={{ transform: lado === "user" ? "scaleX(-1)" : undefined }}>
           <video ref={videoRef} playsInline muted autoPlay className="h-full w-full object-fill" />
@@ -269,6 +276,14 @@ export function CamaraSentadilla() {
         {ui !== "activo" && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 px-6 text-center text-sm text-gray-300">
             {ui === "cargando" ? "Cargando el análisis de movimiento…" : ui === "error" ? error : "La cámara está apagada."}
+          </div>
+        )}
+
+        {ui === "activo" && est && (
+          <div className="absolute inset-x-2 bottom-2 rounded-lg bg-black/65 px-3 py-2 text-center">
+            <p className={`text-base font-medium ${est.visible ? CLASE_TEXTO[veredicto === "neutro" ? "neutro" : veredicto] : "text-yellow-300"}`}>
+              {est.mensaje}
+            </p>
           </div>
         )}
 
@@ -284,11 +299,8 @@ export function CamaraSentadilla() {
       </div>
 
       {ui === "activo" && est && (
-        <div className="rounded-lg border border-border bg-bg-card px-4 py-3">
-          <p className={`text-base font-medium ${est.visible ? CLASE_TEXTO[veredicto === "neutro" ? "neutro" : veredicto] : "text-yellow-300"}`}>
-            {est.mensaje}
-          </p>
-          <p className="mt-2 text-[11px] text-gray-600">
+        <div>
+          <p className="text-[11px] text-gray-600">
             Prototipo · rodilla {est.anguloRodilla !== null ? `${Math.round(est.anguloRodilla)}°` : "-"} · torso{" "}
             {est.inclinacionTorso !== null ? `${Math.round(est.inclinacionTorso)}°` : "-"} · lado {est.lado ?? "-"} ·{" "}
             {Math.round(hud?.fps ?? 0)} fps · {resolucion} · {delegado}

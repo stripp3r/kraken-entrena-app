@@ -3393,3 +3393,11 @@ repeticiones. **Reglas del coach: NO se graba nada, todo en tiempo real.**
   sin control de sesión) y del cache del service worker; el filtro de seguridad no bloquea
   la cámara (`Permissions-Policy` solo bloquea micrófono y ubicación). `OrientationGuard` tapa
   la pantalla en horizontal: la prueba es en vertical.
+- **Pendiente para la versión final de la cámara (pedido del coach 2026-10-16)**: que el permiso
+  de cámara se acepte UNA sola vez y después se active con un solo botón (o directo al abrir
+  la pantalla). Plan: consultar `navigator.permissions.query({ name: "camera" })`; si el
+  estado es `granted`, iniciar solo; si es `prompt`, mostrar un botón "Activar cámara" con una
+  explicación previa; si es `denied`, indicar cómo habilitarla en los permisos. En Android el
+  aviso ofrece "Mientras se usa la app" / "Solo esta vez": hay que elegir la primera para que
+  quede guardado. Otros pendientes: avisos por voz (para poder usar la cámara trasera sin ver
+  la pantalla) y guía en pantalla de distancia/encuadre.
