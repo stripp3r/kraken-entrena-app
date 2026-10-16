@@ -5,6 +5,7 @@ import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES, esGoldenTier } from "@/lib
 import { CompartirAppBoton } from "@/components/compartir-app-boton";
 import { linkWhatsapp } from "@/lib/contacto";
 import { URL_PLANES, URL_SITIO_WEB, URL_MENTORIAS } from "@/lib/legal";
+import { esUsuarioDePrototipos } from "@/lib/prototipos";
 
 const WHATSAPP_SOPORTE = linkWhatsapp("Hola KRAKEN, tengo un problema con la app");
 
@@ -129,6 +130,18 @@ export default async function Home() {
           </a>
           <CompartirAppBoton />
         </div>
+
+        {esUsuarioDePrototipos(user.email) && (
+          <Link
+            href="/entrenamiento/camara-prueba"
+            className="mt-4 flex items-center justify-between rounded-lg border border-dashed border-border-strong bg-bg-card px-4 py-3 text-sm text-white transition-colors hover:border-white/40"
+          >
+            <span>
+              Cámara prueba <span className="ml-1 text-xs text-gray-500">prototipo</span>
+            </span>
+            <span className="text-2xl font-light leading-none text-gray-500">›</span>
+          </Link>
+        )}
       </div>
     </main>
   );

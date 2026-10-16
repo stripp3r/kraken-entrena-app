@@ -3374,7 +3374,9 @@ repeticiones. **Reglas del coach: NO se graba nada, todo en tiempo real.**
   (analizador: ángulo de rodilla, inclinación del torso, contador de repeticiones por
   máquina de estados, calificación de profundidad, filtro de cuadros glitch),
   `src/components/camara-sentadilla.tsx` (cámara, bucle de detección, dibujo) y la página
-  oculta `/entrenamiento/camara-prueba` (no está enlazada en ningún menú).
+  `/entrenamiento/camara-prueba`, visible SOLO para las cuentas de `src/lib/prototipos.ts`
+  (hoy ezequiel.arce@outlook.com): aparece como "Cámara prueba" en Inicio y las demás cuentas
+  que abran la dirección vuelven al inicio. Cuando se publique para todos, sacar esa restricción.
 - **Reglas de la sentadilla (referencias de biomecánica, las ajusta el coach)**: lado del
   cuerpo mejor visto; rodilla <= 100 verde (muslo paralelo o más), <= 120 amarillo, > 120
   rojo; torso <= 50 verde, <= 65 amarillo, > 65 rojo; repetición solo si baja de 140 y dura

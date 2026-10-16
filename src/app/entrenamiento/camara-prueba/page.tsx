@@ -2,15 +2,18 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { CamaraSentadilla } from "@/components/camara-sentadilla";
+import { esUsuarioDePrototipos } from "@/lib/prototipos";
 
-// PROTOTIPO (no está enlazado desde ningún menú): análisis de la sentadilla en
-// tiempo real con la cámara. Se entra a mano por /entrenamiento/camara-prueba.
+// PROTOTIPO: análisis de la sentadilla en tiempo real con la cámara. Solo lo ven
+// las cuentas de lib/prototipos.ts (aparece como "Cámara prueba" en Inicio).
 export default async function CamaraPruebaPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  // Prototipo: solo para las cuentas habilitadas (lib/prototipos.ts).
+  if (!esUsuarioDePrototipos(user.email)) redirect("/");
 
   return (
     <main className="flex flex-1 flex-col items-center px-5 py-10">
