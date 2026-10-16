@@ -109,8 +109,10 @@ export function CamaraSentadilla() {
   const [ui, setUi] = useState<Ui>("inactivo");
   const [error, setError] = useState<string | null>(null);
   const [lado, setLado] = useState<Lado>("user");
-  const [aspecto, setAspecto] = useState("3 / 4");
+  const [aspecto, setAspecto] = useState(3 / 4);
   const [hud, setHud] = useState<Hud | null>(null);
+  const [resolucion, setResolucion] = useState("");
+  const [delegado, setDelegado] = useState("");
 
   const detener = useCallback(() => {
     activoRef.current = false;
@@ -138,15 +140,30 @@ export function CamaraSentadilla() {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error("Este navegador no permite usar la cámara.");
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: queLado }, width: { ideal: 480 }, height: { ideal: 640 }, frameRate: { ideal: 30 } },
-          audio: false,
-        });
-        streamRef.current = stream;
+        // Android entrega a veces el video recortado en horizontal (un cuadro 4:3 que
+        // pierde arriba y abajo) según cómo se pidan ancho y alto. Se prueba pedir
+        // vertical y, si llega horizontal con el teléfono parado, se vuelve a pedir
+        // con las medidas invertidas; se queda con la que dé más alto que ancho.
+        const pantallaVertical = window.innerHeight >= window.innerWidth;
+        const pedidos: [number, number][] = pantallaVertical
+          ? [[720, 1280], [1280, 720], [480, 640]]
+          : [[1280, 720], [720, 1280], [640, 480]];
+        let stream: MediaStream | null = null;
         const video = videoRef.current!;
-        video.srcObject = stream;
-        await video.play();
-        setAspecto(`${video.videoWidth} / ${video.videoHeight}`);
+        for (const [ancho, alto] of pedidos) {
+          stream?.getTracks().forEach((t) => t.stop());
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: queLado }, width: { ideal: ancho }, height: { ideal: alto }, frameRate: { ideal: 30 } },
+            audio: false,
+          });
+          video.srcObject = stream;
+          await video.play();
+          const vertical = video.videoHeight >= video.videoWidth;
+          if (vertical === pantallaVertical) break;
+        }
+        streamRef.current = stream;
+        setAspecto(video.videoWidth / video.videoHeight);
+        setResolucion(`${video.videoWidth}x${video.videoHeight}`);
 
         const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
         const fileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
@@ -158,6 +175,7 @@ export function CamaraSentadilla() {
               runningMode: "VIDEO",
               numPoses: 1,
             });
+            setDelegado(delegate);
             break;
           } catch {
             landmarker = null;
@@ -240,8 +258,8 @@ export function CamaraSentadilla() {
   return (
     <div className="flex flex-col gap-4">
       <div
-        className="relative w-full overflow-hidden rounded-xl border border-border bg-black"
-        style={{ aspectRatio: aspecto }}
+        className="relative mx-auto overflow-hidden rounded-xl border border-border bg-black"
+        style={{ aspectRatio: aspecto, width: `min(100%, ${(72 * aspecto).toFixed(1)}vh)` }}
       >
         <div className="absolute inset-0" style={{ transform: lado === "user" ? "scaleX(-1)" : undefined }}>
           <video ref={videoRef} playsInline muted autoPlay className="h-full w-full object-fill" />
@@ -273,7 +291,7 @@ export function CamaraSentadilla() {
           <p className="mt-2 text-[11px] text-gray-600">
             Prototipo · rodilla {est.anguloRodilla !== null ? `${Math.round(est.anguloRodilla)}°` : "-"} · torso{" "}
             {est.inclinacionTorso !== null ? `${Math.round(est.inclinacionTorso)}°` : "-"} · lado {est.lado ?? "-"} ·{" "}
-            {Math.round(hud?.fps ?? 0)} fps
+            {Math.round(hud?.fps ?? 0)} fps · {resolucion} · {delegado}
           </p>
         </div>
       )}
