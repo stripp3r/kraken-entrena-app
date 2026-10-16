@@ -3358,3 +3358,36 @@ producción). Sin errores de código ni datos huérfanos. Se corrigió:
 - Nota de build: si `next build` falla con tipos de una ruta que ya no existe, borrar la
   carpeta `.next` (tipos generados viejos del servidor de desarrollo).
 - Informativo, sin acción: 214 de 259 ejercicios no tienen `video_url` (todos tienen GIF).
+
+## Cámara: análisis de movimiento en tiempo real (PROTOTIPO, 2026-10-16)
+
+Idea del coach: que al entrenar la persona use la cámara y la app detecte en vivo si el
+movimiento está bien, con el esqueleto dibujado en verde / amarillo / rojo y contador de
+repeticiones. **Reglas del coach: NO se graba nada, todo en tiempo real.**
+- **Cómo**: MediaPipe Pose (`@mediapipe/tasks-vision` 1.1.1, modelo `pose_landmarker_lite`)
+  corre en el navegador del teléfono por WebAssembly con GPU (fallback CPU). Modelo y wasm
+  se sirven desde `public/mediapipe/` (autoalojados, ~32 MB: `pose_landmarker_lite.task` bajado de
+  `storage.googleapis.com/mediapipe-models/...`, y `wasm/` copiado de node_modules). Los
+  fotogramas se procesan y se descartan: no hay MediaRecorder ni se exporta el canvas ni se
+  envía video; no requiere consentimiento de transferencia. Hay un cartel "no se graba".
+- **Piezas**: `src/lib/pose/geometria.ts` (ángulos, suavizado), `src/lib/pose/sentadilla.ts`
+  (analizador: ángulo de rodilla, inclinación del torso, contador de repeticiones por
+  máquina de estados, calificación de profundidad, filtro de cuadros glitch),
+  `src/components/camara-sentadilla.tsx` (cámara, bucle de detección, dibujo) y la página
+  oculta `/entrenamiento/camara-prueba` (no está enlazada en ningún menú).
+- **Reglas de la sentadilla (referencias de biomecánica, las ajusta el coach)**: lado del
+  cuerpo mejor visto; rodilla <= 100 verde (muslo paralelo o más), <= 120 amarillo, > 120
+  rojo; torso <= 50 verde, <= 65 amarillo, > 65 rojo; repetición solo si baja de 140 y dura
+  >= 700 ms. Constantes en `UMBRALES_SENTADILLA`.
+- **Diseño para escalar**: cada ejercicio es un analizador con sus reglas; el plan es
+  convertirlo en "fichas" de datos (articulaciones, rangos verde/amarillo/rojo, cómo contar
+  una repetición) para sumar ejercicios sin programar de cero. Los límites de precisión son
+  conocidos por el coach (ayuda, no reemplaza a un profesional).
+- **Probado**: motor con secuencias sintéticas (conteo, profundidad, torso, ruido, rebotes,
+  visibilidad baja) y el circuito completo (modelo + wasm + GPU + dibujo) en Chrome con un
+  video de sentadilla del catálogo (61 fps en escritorio). Falta probar con la cámara real en
+  el teléfono del coach (Samsung A22).
+- Detalles técnicos: `/mediapipe/` está excluido del matcher del proxy (archivos públicos,
+  sin control de sesión) y del cache del service worker; el filtro de seguridad no bloquea
+  la cámara (`Permissions-Policy` solo bloquea micrófono y ubicación). `OrientationGuard` tapa
+  la pantalla en horizontal: la prueba es en vertical.

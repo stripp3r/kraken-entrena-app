@@ -23,6 +23,9 @@ self.addEventListener("fetch", (event) => {
   // en cache ni se sirven offline: la ruta responde no-store y el acceso se
   // puede revocar (arrepentimiento), asi que siempre va a la red.
   if (/^\/perfil\/recursos\/[^/]+\/pdf$/.test(new URL(event.request.url).pathname)) return;
+  // El modelo de análisis de movimiento y sus archivos wasm (~30 MB) los cachea
+  // el navegador por su cuenta (HTTP); no se duplican en el cache del service worker.
+  if (new URL(event.request.url).pathname.startsWith("/mediapipe/")) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
