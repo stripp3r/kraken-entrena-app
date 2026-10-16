@@ -3377,10 +3377,27 @@ repeticiones. **Reglas del coach: NO se graba nada, todo en tiempo real.**
   `/entrenamiento/camara-prueba`, visible SOLO para las cuentas de `src/lib/prototipos.ts`
   (hoy ezequiel.arce@outlook.com): aparece como "Cámara prueba" en Inicio y las demás cuentas
   que abran la dirección vuelven al inicio. Cuando se publique para todos, sacar esa restricción.
-- **Reglas de la sentadilla (referencias de biomecánica, las ajusta el coach)**: lado del
-  cuerpo mejor visto; rodilla <= 100 verde (muslo paralelo o más), <= 120 amarillo, > 120
-  rojo; torso <= 50 verde, <= 65 amarillo, > 65 rojo; repetición solo si baja de 140 y dura
-  >= 700 ms. Constantes en `UMBRALES_SENTADILLA`.
+- **Motor v2 (2026-10-16, tras la primera prueba del coach en el A22)**: primera versión solo
+  medía de costado en 2D y se quedaba corta. Feedback del coach: líneas verdes intermitentes,
+  cabeza sin marcar, rodillas hacia adentro sin reacción, repeticiones rápidas o malas sin
+  contar, alerta poco notoria y falta de una corrección al final. Cambios: (1) ángulos en 3D con
+  `worldLandmarks` de MediaPipe (en metros, y positivo hacia abajo, ejes de la cámara), así
+  funciona de frente, de costado o en diagonal; (2) mide torso, cabeza (oreja-hombro-cadera),
+  rodillas hacia adentro y ancho de pies (estas dos solo de frente, con histéresis de
+  vista) y profundidad; (3) cuenta TODAS las repeticiones por giros del movimiento (también
+  cortas, rápidas o con rebote), marcando las malas en rojo; (4) todos los segmentos
+  evaluados siempre con color, borde parpadeante, mensaje grande y vibración ante rojo;
+  (5) botón "Terminar serie" con resumen y consejos por problema. Parado, todo va en verde
+  (solo se evalúa en movimiento). La profundidad se mide con el ángulo SIN suavizar (el
+  suavizado la subestimaba en repeticiones rápidas).
+- **Umbrales (provisorios; el coach los ajusta)** en `UMBRALES_SENTADILLA`: rodilla <= 100 verde
+  (muslo paralelo o más), <= 120 amarillo, > 120 rojo; torso <= 50 / <= 65; cabeza (ángulo
+  oreja-hombro-cadera) >= 125 verde, >= 105 amarillo; rodillas hacia adentro (fracción del
+  muslo) <= 0.08 / <= 0.16; pies (tobillos / hombros) 0.75-1.8 verde, 0.55-2.2 amarillo.
+  Calibrados con el modelo sobre un video real de sentadilla del catálogo: la cabeza
+  "neutra" mide 135-150 grados (la profundidad 3D de la oreja es ruidosa) y el ancho de pies
+  parado no es confiable. La línea de diagnóstico de la pantalla muestra torso, cabeza,
+  rodillas y pies en vivo para ajustar con datos de personas reales.
 - **Diseño para escalar**: cada ejercicio es un analizador con sus reglas; el plan es
   convertirlo en "fichas" de datos (articulaciones, rangos verde/amarillo/rojo, cómo contar
   una repetición) para sumar ejercicios sin programar de cero. Los límites de precisión son
