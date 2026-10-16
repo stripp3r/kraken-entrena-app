@@ -3335,3 +3335,26 @@ cambiar los 9 links a `appfit.krakenbrand.com`.
 6. Antes de un cambio de precio: correr `avisos_precio_vencidos` con `ejecutar:true`.
 7. Al desplegar, todas las cuentas existentes ven `/aceptar-terminos` en su próximo
    ingreso (mayor de 18 y transferencia; los Términos ya aceptados no se repiten).
+
+## Diagnóstico de seguridad y correcciones (2026-10-15)
+
+Diagnóstico completo de la app (tipos, lint, build, dependencias, RLS, Storage, datos,
+producción). Sin errores de código ni datos huérfanos. Se corrigió:
+- **`routine_exercises` leíble por cualquier cuenta** (migración 102): había dos policies
+  SELECT, la abierta `using (true)` anulaba a la estricta (las policies se SUMAN con OR),
+  así que cualquier usuario logueado leía series/repeticiones de los planes de pago y de
+  las mentorías privadas. Se borró la abierta tras simular con las 23 cuentas reales (cada
+  una ve exactamente las filas de las rutinas que ya le corresponden). **Regla para el
+  futuro: nunca dejar una policy `using (true)` al lado de una estricta en la misma tabla
+  y comando.** `routine_dias` sigue con `using (true)` (solo grupos musculares por día).
+- **Subida al bucket público `ejercicios`** (migración 102): cualquier cuenta podía
+  subir archivos; ahora solo el coach (`es_coach()`). Los scripts usan la service role.
+- **Next.js 16.3.4 -> 16.4.1** (vulnerabilidad crítica en `next/og`, que la app no usa) y
+  `npm audit fix` para dos avisos transitivos: `npm audit --omit=dev` da 0.
+- **Encabezados de seguridad** en `next.config.ts`: `X-Frame-Options: DENY`,
+  `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy` y `Permissions-Policy` (sin
+  micrófono ni ubicación). No hay CSP completa a propósito (rompería Next/checkouts sin
+  poder probarla en todos los dispositivos).
+- Nota de build: si `next build` falla con tipos de una ruta que ya no existe, borrar la
+  carpeta `.next` (tipos generados viejos del servidor de desarrollo).
+- Informativo, sin acción: 214 de 259 ejercicios no tienen `video_url` (todos tienen GIF).
