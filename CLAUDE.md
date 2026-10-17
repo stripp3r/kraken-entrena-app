@@ -3418,3 +3418,47 @@ repeticiones. **Reglas del coach: NO se graba nada, todo en tiempo real.**
   aviso ofrece "Mientras se usa la app" / "Solo esta vez": hay que elegir la primera para que
   quede guardado. Otros pendientes: avisos por voz (para poder usar la cámara trasera sin ver
   la pantalla) y guía en pantalla de distancia/encuadre.
+
+## Pagos fuera de la app (decisión del coach, 2026-10-17)
+
+Decisión: **la app no cobra ni muestra precios**; todo el cobro pasa por el sitio web
+(fit.krakenbrand.com). Motivo: las reglas de Apple y Google para publicar en tiendas.
+- **Verificado 2026-10-17 (revisar de nuevo antes de publicar; las reglas cambian)**:
+  - Apple 3.1.1: funciones o suscripciones digitales desbloqueadas dentro de la app deben usar
+    la compra de Apple (15%-30%). 3.1.3(f): una app GRATIS que acompaña a un servicio web de pago
+    queda exenta solo si no vende nada adentro y NO hay llamados a comprar afuera; sus ejemplos
+    son VoIP, almacenamiento, email y hosting (una app de entrenamiento es criterio del revisor).
+    "Reader apps" = revistas, diarios, libros, audio, música, video. Fuera de EE.UU., botones,
+    links o textos que lleven a comprar por otro medio exigen el permiso "StoreKit External
+    Purchase Link" (no se encontró ninguno que incluya Argentina) => tratarlo como prohibido.
+    EE.UU.: hoy se permiten esos links sin comisión (Epic v. Apple) pero la Corte Suprema lo
+    revisa y Apple propuso en agosto 2026 cobrar 5%-15%. 3.1.3(d): entrenamiento personal en vivo
+    1 a 1 puede usar otro medio de pago, pero igual no se puede invitar a comprar desde la app.
+  - Google Play: suscripciones de fitness vendidas adentro exigen su facturación. Apps de solo
+    consumo (iniciar sesión y acceder a lo comprado afuera) están permitidas y pueden MENCIONAR
+    otras formas de comprar sin links directos; el entrenamiento personal 1 a 1 no repetible
+    está exento; links a páginas de administración de la cuenta se permiten.
+  - La app instalada desde el sitio (PWA) NO está sujeta a las reglas de las tiendas.
+- **Qué se hizo**: la pantalla `/golden` pasó a ser **"Tu acceso"**, informativa (sin precios ni
+  botones de pago; se conserva la ruta porque el proxy manda ahí al acceso vencido y el cobro la
+  usa de retorno). El banner de prueba gratis solo informa. Inicio ya no tiene la tarjeta de
+  Golden. "Conocer Golden" se reemplazó por "Ver mi acceso". Se borraron
+  `selector-plan-golden.tsx` y `nota-legal-suscripcion.tsx`. Las rutas
+  `/api/checkout/*` (incluidas las de Golden) SE CONSERVAN: el sitio las usa como destino de
+  sus botones de compra.
+- **Interruptor `MODO_TIENDA`** (`src/lib/modo-tienda.ts`, variable `NEXT_PUBLIC_MODO_TIENDA=1`):
+  para la versión de tienda esconde TODO enlace que lleve a comprar (Inicio: planes, mentorías y
+  "Sitio web"; Tu acceso; Mis PDFs; aviso de cobro rechazado queda solo texto). Apagado (web/PWA)
+  mantiene un enlace al sitio para quien necesite conseguir o renovar su acceso. En la versión
+  de tienda además: sin login con Google/Facebook en iPhone (o agregar Sign in with Apple), con
+  borrado de cuenta dentro de la app, y revisar la regla 4.2 (web envuelta). El aviso de cambio de
+  precio a suscriptores existentes y los botones legales de arrepentimiento/baja (Disp. 954/2025)
+  se mantienen: son consultas para Apple (ver borrador abajo).
+- **Golden pasa a venderse SOLO en el sitio**: se le pidió al chat del sitio una página con
+  los botones a `/api/checkout/golden/{mercadopago|paypal}?frecuencia=mensual|anual`, los precios
+  (mensual ARS 19.500 / USD 12,99; anual ARS 150.000 / USD 99) y la nota legal de renovación, baja y
+  arrepentimiento. **No subir este cambio de la app hasta que esa página esté publicada** (si no,
+  Golden queda sin forma de comprarse).
+- **Consulta a App Review**: borrador listo en el escritorio (`CONSULTA-APP-REVIEW-borrador.md`).
+  Se envía desde App Store Connect con cuenta del Apple Developer Program (de pago anual); no se
+  envió porque no hay cuenta y hay que gastar lo mínimo hasta decidir publicar en iPhone.

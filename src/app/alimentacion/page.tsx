@@ -32,13 +32,13 @@ export default async function AlimentacionPage() {
         {!perm.calculadora ? (
           <div className="mt-8 flex flex-col items-center gap-4 text-center">
             <p className="text-sm text-gray-400">
-              Esta sección es un beneficio exclusivo de KRAKEN Golden o la Mentoría personalizada.
+              Esta sección no está disponible con tu acceso actual.
             </p>
             <Link
               href="/golden"
-              className="rounded-full bg-amber-400 px-6 py-3 text-sm font-medium text-black"
+              className="rounded-full border border-border-strong px-6 py-3 text-sm font-medium text-white"
             >
-              Conocer Golden
+              Ver mi acceso
             </Link>
           </div>
         ) : (

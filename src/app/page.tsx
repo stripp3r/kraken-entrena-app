@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES, esGoldenTier } from "@/lib/premium";
+import { obtenerSuscripcion, TONO_SUSCRIPCION_CLASES } from "@/lib/premium";
 import { CompartirAppBoton } from "@/components/compartir-app-boton";
 import { linkWhatsapp } from "@/lib/contacto";
 import { URL_PLANES, URL_SITIO_WEB, URL_MENTORIAS } from "@/lib/legal";
+import { MODO_TIENDA } from "@/lib/modo-tienda";
 import { esUsuarioDePrototipos } from "@/lib/prototipos";
 
 const WHATSAPP_SOPORTE = linkWhatsapp("Hola KRAKEN, tengo un problema con la app");
@@ -40,7 +41,6 @@ export default async function Home() {
   }
 
   const suscripcion = obtenerSuscripcion(profile, sub ?? null);
-  const esGolden = esGoldenTier(profile);
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
@@ -67,21 +67,11 @@ export default async function Home() {
           <span className="shrink-0 text-2xl font-light leading-none text-gray-500">›</span>
         </Link>
 
+        {/* Enlaces a los planes del sitio web: solo en la versión web/PWA. La app no cobra. */}
+        {!MODO_TIENDA && (
         <div className="mt-10">
           <p className="mb-3 text-sm text-gray-500">¿Buscás más?</p>
           <div className="flex flex-col gap-3">
-            {!esGolden && (
-              <Link
-                href="/golden"
-                className="flex items-center justify-between gap-3 rounded-lg border border-amber-400/50 bg-amber-400/10 px-4 py-3 transition-colors hover:border-amber-400 active:bg-amber-400/20"
-              >
-                <div>
-                  <p className="text-sm font-medium text-white">KRAKEN Golden</p>
-                  <p className="mt-0.5 text-xs text-gray-500">Acceso completo a todas las rutinas</p>
-                </div>
-                <span className="shrink-0 text-2xl font-light leading-none text-amber-300">›</span>
-              </Link>
-            )}
             <a
               href={URL_MENTORIAS}
               target="_blank"
@@ -108,8 +98,10 @@ export default async function Home() {
             </a>
           </div>
         </div>
+        )}
 
-        <div className="mt-6 grid grid-cols-3 gap-3">
+        <div className={`mt-6 grid gap-3 ${MODO_TIENDA ? "grid-cols-2" : "grid-cols-3"}`}>
+          {!MODO_TIENDA && (
           <a
             href={URL_SITIO_WEB}
             target="_blank"
@@ -119,6 +111,7 @@ export default async function Home() {
             <img src="/section-icons/sitio-web.png" alt="" className="h-14 w-14 rounded-xl" />
             Sitio web
           </a>
+          )}
           <a
             href={WHATSAPP_SOPORTE}
             target="_blank"

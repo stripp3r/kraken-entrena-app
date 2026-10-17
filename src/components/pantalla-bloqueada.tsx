@@ -28,9 +28,9 @@ export function PantallaBloqueada({
           <p className="text-sm text-gray-400">{texto}</p>
           <Link
             href="/golden"
-            className="rounded-full bg-amber-400 px-6 py-3 text-sm font-medium text-black"
+            className="rounded-full border border-border-strong px-6 py-3 text-sm font-medium text-white"
           >
-            Conocer Golden
+            Ver mi acceso
           </Link>
         </div>
       </div>

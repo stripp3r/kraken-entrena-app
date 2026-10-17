@@ -1,121 +1,74 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { diasRestantesTrial, esGoldenTier } from "@/lib/premium";
-import { SelectorPlanGolden } from "@/components/selector-plan-golden";
-import { NotaLegalSuscripcion } from "@/components/nota-legal-suscripcion";
+import { linkWhatsapp } from "@/lib/contacto";
+import { URL_PLANES } from "@/lib/legal";
+import { MODO_TIENDA } from "@/lib/modo-tienda";
 
-const INCLUYE = [
-  "Todas las rutinas del catálogo (y las que se sumen)",
-  "Registro de series y todo el Análisis de entrenamiento",
-  "Medidas corporales, Salud y Evolución con fotos",
-  "Cardio",
-  "Los PDF de los planes y los videos de cursos",
-];
-
-type PrecioPlan = { precio_ars: number | null; precio_usd: number | null; activo: boolean | null };
-
-export default async function GoldenPage() {
+// Pantalla INFORMATIVA del acceso de la cuenta. La app no cobra ni muestra precios
+// (decisión del coach, 2026-10-17): los planes y la suscripción se compran en el
+// sitio web. Esta ruta se conserva porque el proxy manda acá a quien tiene el acceso
+// vencido y porque el cobro la usa de retorno. En la versión de tienda
+// (NEXT_PUBLIC_MODO_TIENDA=1) no hay ningún enlace a comprar.
+export default async function AccesoPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
 
-  const admin = createAdminClient();
-  const [{ data: perfil }, { data: productos }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("premium_hasta, golden_perpetuo, premium_origen")
-      .eq("id", user.id)
-      .single(),
-    // productos tiene RLS sin policy para authenticated -> se lee con admin.
-    admin
-      .from("productos")
-      .select("slug, precio_ars, precio_usd, activo")
-      .in("slug", ["golden-anual", "golden-mensual"]),
-  ]);
-
-  const anual = productos?.find((p) => p.slug === "golden-anual") as PrecioPlan | undefined;
-  const mensual = productos?.find((p) => p.slug === "golden-mensual") as PrecioPlan | undefined;
-
-  const anualListo = Boolean(anual?.activo && (anual.precio_ars || anual.precio_usd));
-  const mensualListo = Boolean(mensual?.activo && (mensual.precio_ars || mensual.precio_usd));
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("premium_hasta, golden_perpetuo, premium_origen")
+    .eq("id", user.id)
+    .single();
 
   const dias = diasRestantesTrial(perfil);
-  // "Ya sos Golden" (nada que comprar) es distinto de "tenés acceso" --
-  // durante la prueba gratis también tenés acceso, pero igual tiene que
-  // poder pasarse a Golden si quiere, sin esperar a que se corte.
   const esGolden = esGoldenTier(perfil);
+
+  const estado = esGolden
+    ? perfil?.golden_perpetuo
+      ? "Tenés acceso total, sin vencimiento."
+      : "Tenés tu suscripción activa. Se renueva sola."
+    : dias != null
+      ? `Estás en la prueba gratis: te ${dias === 1 ? "queda 1 día" : `quedan ${dias} días`}.`
+      : perfil?.premium_origen === "compra"
+        ? "Tu acceso incluye lo de tu plan."
+        : "Tu acceso terminó.";
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-12">
       <div className="w-full max-w-sm">
         <h1 className="mb-2 text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">
-          KRAKEN GOLDEN
+          TU ACCESO
         </h1>
+        <p className="mb-6 text-center text-sm text-gray-400">{estado}</p>
 
-        {esGolden ? (
-          <>
-            <p className="mb-6 text-center text-sm text-gray-400">
-              {perfil?.golden_perpetuo
-                ? "Tenés acceso total, sin vencimiento."
-                : "Ya sos Golden. Tu suscripción se renueva sola."}
-            </p>
-            <Link
-              href="/"
-              className="block rounded-full bg-white px-5 py-3 text-center text-sm font-medium text-black"
+        <div className="flex flex-col gap-3">
+          <Link href="/" className="block rounded-full bg-white px-5 py-3 text-center text-sm font-medium text-black">
+            Entrar a la app
+          </Link>
+          {!MODO_TIENDA && !esGolden && (
+            <a
+              href={URL_PLANES}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-full border border-border-strong px-5 py-3 text-center text-sm text-white"
             >
-              Entrar a la app
-            </Link>
-          </>
-        ) : (
-          <>
-            <p className="mb-6 text-center text-sm text-gray-400">
-              {dias != null
-                ? `Estás en la prueba gratis (te quedan ${dias} ${dias === 1 ? "día" : "días"}). Pasate a Golden cuando quieras, sin esperar a que se corte.`
-                : perfil?.premium_origen === "compra"
-                  ? "Con Golden desbloqueás el catálogo completo de rutinas, Cardio y Crea tu rutina -- no solo la rutina de tu plan actual."
-                  : "Tu prueba gratis terminó. Con Golden desbloqueás todo de nuevo."}
-            </p>
-
-            <ul className="mb-6 flex flex-col gap-2">
-              {INCLUYE.map((item) => (
-                <li key={item} className="flex gap-2 text-sm text-gray-300">
-                  <span className="text-emerald-400">✓</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-
-            {anualListo || mensualListo ? (
-              <>
-              <SelectorPlanGolden
-                mensual={mensualListo ? { ars: mensual!.precio_ars, usd: mensual!.precio_usd } : null}
-                anual={anualListo ? { ars: anual!.precio_ars, usd: anual!.precio_usd } : null}
-              />
-              <NotaLegalSuscripcion />
-              </>
-            ) : (
-              <>
-                <p className="mb-4 text-center text-xs text-gray-500">
-                  La suscripción va a estar disponible muy pronto.
-                </p>
-                <button
-                  type="button"
-                  disabled
-                  className="w-full rounded-full bg-white px-5 py-3 text-sm font-medium text-black opacity-50"
-                >
-                  Suscribirme (próximamente)
-                </button>
-              </>
-            )}
-          </>
-        )}
+              Gestionar mi plan en el sitio web
+            </a>
+          )}
+          <a
+            href={linkWhatsapp("Hola KRAKEN, necesito ayuda con mi acceso a la app")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-center text-xs text-gray-500 underline underline-offset-2"
+          >
+            Ayuda con mi acceso
+          </a>
+        </div>
       </div>
     </main>
   );

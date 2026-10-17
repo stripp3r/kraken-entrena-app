@@ -7,6 +7,7 @@ import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { permisos } from "@/lib/premium";
 import { tienePdfComprado } from "@/lib/pdf-acceso";
 import { URL_PLANES } from "@/lib/legal";
+import { MODO_TIENDA } from "@/lib/modo-tienda";
 
 type ProductoConPdf = { id: number; nombre: string; slug: string };
 
@@ -33,7 +34,7 @@ export default async function RecursosPage() {
       <PantallaBloqueada
         titulo="MIS PDFS"
         volverA="/perfil"
-        texto="Mis PDFs no está disponible con tu plan actual. Se habilita al comprar un plan."
+        texto="Mis PDFs no está disponible con tu acceso actual."
       />
     );
   }
@@ -87,17 +88,20 @@ export default async function RecursosPage() {
         {productos.length === 0 ? (
           <div className="flex flex-col items-center gap-4 rounded-lg border border-border bg-bg-card px-5 py-6 text-center">
             <p className="text-sm text-gray-400">
-              Todavía no tenés ningún PDF disponible. Se habilitan solos al comprar un plan
-              autoguiado -- rutina + guía en PDF, orientado a tu objetivo, para leer dentro de la app.
+              {MODO_TIENDA
+                ? "Todavía no tenés ningún PDF disponible."
+                : "Todavía no tenés ningún PDF disponible. Se habilitan solos con tu plan autoguiado, para leer dentro de la app."}
             </p>
-            <a
-              href={URL_PLANES}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full bg-amber-400 px-6 py-3 text-sm font-medium text-black"
-            >
-              Ver planes autoguiados
-            </a>
+            {!MODO_TIENDA && (
+              <a
+                href={URL_PLANES}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-border-strong px-6 py-3 text-sm font-medium text-white"
+              >
+                Ver planes en el sitio web
+              </a>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
