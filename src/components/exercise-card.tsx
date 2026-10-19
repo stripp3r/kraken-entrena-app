@@ -13,6 +13,7 @@ import {
   tieneDropset,
   type TipoSerie,
 } from "@/lib/dropset";
+import { aNumero, limpiarDecimal } from "@/lib/numero";
 
 type WorkoutLog = {
   id: number;
@@ -161,7 +162,7 @@ export function ExerciseCard({
       exercise.id,
       [
         {
-          peso: setActivo.peso ? Number(setActivo.peso) : null,
+          peso: setActivo.peso ? aNumero(setActivo.peso) : null,
           reps: setActivo.reps ? Number(setActivo.reps) : null,
           // Una bajada es siempre al fallo: no se pregunta el RIR.
           rir: tipo === "drop" ? 0 : setActivo.rir ? Number(setActivo.rir) : null,
@@ -204,7 +205,7 @@ export function ExerciseCard({
     setError(null);
 
     const result = await editarSet(logId, {
-      peso: editRow.peso ? Number(editRow.peso) : null,
+      peso: editRow.peso ? aNumero(editRow.peso) : null,
       reps: editRow.reps ? Number(editRow.reps) : null,
       rir: editRow.rir ? Number(editRow.rir) : null,
     });
@@ -381,7 +382,7 @@ export function ExerciseCard({
                   <div key={log.id} className="flex items-center gap-1.5">
                     <input
                       value={editRow.peso}
-                      onChange={(e) => setEditRow((r) => ({ ...r, peso: e.target.value }))}
+                      onChange={(e) => setEditRow((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
                       placeholder="Peso"
                       inputMode="decimal"
                       className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
@@ -517,9 +518,8 @@ export function ExerciseCard({
                     <label className="text-[11px] text-gray-500">Peso</label>
                     <input
                       value={setActivo.peso}
-                      onChange={(e) => setSetActivo((r) => ({ ...r, peso: e.target.value }))}
-                      type="number"
-                      step="0.5"
+                      onChange={(e) => setSetActivo((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
+                      type="text"
                       inputMode="decimal"
                       className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
                     />

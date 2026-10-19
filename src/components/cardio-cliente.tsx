@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ACTIVIDADES_CARDIO, labelActividad } from "@/lib/cardio";
 import { registrarCardio, borrarCardio } from "@/app/entrenamiento/cardio/actions";
 import { SelectNativo } from "@/components/select-nativo";
+import { aNumero, limpiarDecimal } from "@/lib/numero";
 
 type Sesion = {
   id: number;
@@ -42,7 +43,7 @@ export function CardioCliente({
       fecha,
       actividad,
       duracionMin: minutosNum,
-      distanciaKm: km.trim() === "" ? null : Number(km),
+      distanciaKm: km.trim() === "" ? null : aNumero(km),
     });
     setGuardando(false);
     if (resultado.error) {
@@ -96,12 +97,10 @@ export function CardioCliente({
             </label>
             <input
               id="cardio-km"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
-              step="0.1"
               value={km}
-              onChange={(e) => setKm(e.target.value)}
+              onChange={(e) => setKm(limpiarDecimal(e.target.value))}
               className="w-full min-w-0 rounded-lg border border-border bg-bg px-3 py-2.5 text-white outline-none focus:border-border-strong"
             />
           </div>

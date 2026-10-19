@@ -9,6 +9,7 @@ import {
   type MedicionInput,
 } from "@/app/medidas/actions";
 import { hoyISO } from "@/lib/fecha";
+import { aNumero, limpiarDecimal } from "@/lib/numero";
 
 type Medicion = MedicionInput & { id: number };
 
@@ -43,7 +44,7 @@ function aMedicionInput(form: Record<string, string>): MedicionInput {
   const out: Partial<MedicionInput> = { fecha: form.fecha };
   CAMPOS.forEach((c) => {
     const v = form[c.key];
-    (out as Record<string, number | null | string>)[c.key] = v ? Number(v) : null;
+    (out as Record<string, number | null | string>)[c.key] = v ? aNumero(v) : null;
   });
   return out as MedicionInput;
 }
@@ -121,9 +122,8 @@ export function MedicionForm({ historial }: { historial: Medicion[] }) {
               <label className="text-[11px] text-gray-500">{c.label}</label>
               <input
                 value={form[c.key]}
-                onChange={(e) => setForm((f) => ({ ...f, [c.key]: e.target.value }))}
-                type="number"
-                step="0.1"
+                onChange={(e) => setForm((f) => ({ ...f, [c.key]: limpiarDecimal(e.target.value) }))}
+                type="text"
                 inputMode="decimal"
                 className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-border-strong"
               />
@@ -165,10 +165,9 @@ export function MedicionForm({ historial }: { historial: Medicion[] }) {
                         <input
                           value={editForm[c.key]}
                           onChange={(e) =>
-                            setEditForm((f) => ({ ...f, [c.key]: e.target.value }))
+                            setEditForm((f) => ({ ...f, [c.key]: limpiarDecimal(e.target.value) }))
                           }
-                          type="number"
-                          step="0.1"
+                          type="text"
                           inputMode="decimal"
                           className="w-full rounded-md border border-border bg-bg-card px-2 py-1.5 text-sm text-white outline-none"
                         />
