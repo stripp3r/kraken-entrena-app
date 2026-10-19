@@ -84,12 +84,14 @@ export function EntrenamientoDiaCliente({
   finalizadoHoy,
   exercises,
   logsPorEjercicio,
+  camara = false,
 }: {
   dia: string;
   routineId: number | null;
   finalizadoHoy: boolean;
   exercises: ExerciseFull[];
   logsPorEjercicio: Record<number, WorkoutLog[]>;
+  camara?: boolean;
 }) {
   const router = useRouter();
   const [sesionActiva, setSesionActiva] = useState(false);
@@ -270,6 +272,7 @@ export function EntrenamientoDiaCliente({
               dia={dia}
               logsDeHoy={logsPorEjercicio[ex.id] ?? []}
               activo={esActivo}
+              camara={camara}
               compacto={!sesionActiva}
               onSeleccionar={sesionActiva && !esActivo ? () => seleccionar(ex.id) : undefined}
               sesion={

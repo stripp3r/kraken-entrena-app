@@ -15,6 +15,7 @@ import {
 } from "@/lib/dropset";
 import { aNumero, limpiarDecimal } from "@/lib/numero";
 import { textoSerie, type ModalidadCarga } from "@/lib/carga";
+import { ContadorCamara } from "./contador-camara";
 
 type WorkoutLog = {
   id: number;
@@ -95,6 +96,7 @@ export function ExerciseCard({
   compacto = false,
   onSeleccionar,
   sesion,
+  camara = false,
 }: {
   exercise: Exercise;
   dia: string;
@@ -103,6 +105,8 @@ export function ExerciseCard({
   compacto?: boolean;
   onSeleccionar?: () => void;
   sesion?: SesionActiva;
+  // Prototipo: botón para contar repeticiones con la cámara (solo cuentas de prototipos).
+  camara?: boolean;
 }) {
   const router = useRouter();
   const [setActivo, setSetActivo] = useState(emptyRow);
@@ -116,6 +120,7 @@ export function ExerciseCard({
   const [modoElegido, setModoElegido] = useState<"normal" | "dropset" | null>(null);
   const [cerradoId, setCerradoId] = useState<number | null>(null);
   const [ahora, setAhora] = useState(0);
+  const [camaraAbierta, setCamaraAbierta] = useState(false);
 
   const modalidad: ModalidadCarga = exercise.modalidad ?? "con_peso";
   const plan = planDeSeries(exercise.series_reps);
@@ -273,7 +278,8 @@ export function ExerciseCard({
             }
           />
         )}
-        <div>
+        <div className="flex items-start justify-between gap-2">
+         <div className="min-w-0">
           <h2 className="text-sm font-medium leading-tight text-white">{exercise.nombre}</h2>
           {exercise.series_reps && (
             <p className="mt-0.5 text-[11px] text-gray-500">{exercise.series_reps}</p>
@@ -300,8 +306,33 @@ export function ExerciseCard({
               )}
             </div>
           )}
+         </div>
+         {camara && sesion && modalidad !== "tiempo" && (
+           <button
+             type="button"
+             onClick={() => setCamaraAbierta(true)}
+             aria-label="Contar repeticiones con la cámara"
+             className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500/10 text-emerald-300"
+           >
+             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+               <path d="M4 8h3l1.5-2h7L17 8h3v11H4z" />
+               <circle cx="12" cy="13" r="3.2" />
+             </svg>
+           </button>
+         )}
         </div>
       </div>
+
+      {camaraAbierta && (
+        <ContadorCamara
+          nombre={exercise.nombre}
+          onCerrar={() => setCamaraAbierta(false)}
+          onUsar={(n) => {
+            setCamaraAbierta(false);
+            if (n > 0) setSetActivo((r) => ({ ...r, reps: String(n) }));
+          }}
+        />
+      )}
 
       {onSeleccionar && (
         logsDeHoy.length > 0 ? (

@@ -6,6 +6,7 @@ import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import { ultimoTopSet, pesoSugerido } from "@/lib/analytics";
 import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
 import { modalidadValida } from "@/lib/carga";
+import { esUsuarioDePrototipos } from "@/lib/prototipos";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -200,6 +201,7 @@ export default async function DiaEntrenamientoPage({
             dia={dia}
             routineId={profile.routine_id}
             finalizadoHoy={Boolean(finalizacion)}
+            camara={esUsuarioDePrototipos(user.email)}
             exercises={exercises.map((ex) => ({
               id: ex.id,
               nombre: ex.nombre,
