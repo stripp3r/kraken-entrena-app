@@ -25,6 +25,8 @@ const ESQUELETO: [number, number][] = [
 ];
 
 type Ui = "cargando" | "activo" | "error";
+type Fase = "preparar" | "cuenta" | "contando";
+const SEGUNDOS_CUENTA = 5;
 type Lado = "user" | "environment";
 type Landmarker = { detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks?: Punto[][]; worldLandmarks?: Punto[][] }; close: () => void };
 
@@ -58,6 +60,10 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
   const [lado, setLado] = useState<Lado>("environment");
   const [aspecto, setAspecto] = useState(3 / 4);
   const [estado, setEstado] = useState<EstadoContador | null>(null);
+  const [fase, setFase] = useState<Fase>("preparar");
+  const [cuenta, setCuenta] = useState(SEGUNDOS_CUENTA);
+  const [ajuste, setAjuste] = useState(0); // correcciones manuales (+1 / -1) sobre lo que contó la cámara
+  const temporizadorRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const detener = useCallback(() => {
     activoRef.current = false;
@@ -70,6 +76,8 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
     if (videoRef.current) videoRef.current.srcObject = null;
     wakeLockRef.current?.release().catch(() => {});
     wakeLockRef.current = null;
+    if (temporizadorRef.current) clearInterval(temporizadorRef.current);
+    temporizadorRef.current = null;
   }, []);
 
   const iniciar = useCallback(
@@ -78,6 +86,9 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
       setError(null);
       setUi("cargando");
       contadorRef.current.reset();
+      setFase("preparar");
+      setAjuste(0);
+      setEstado(null);
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error("Este navegador no permite usar la cámara.");
         const pantallaVertical = window.innerHeight >= window.innerWidth;
@@ -169,13 +180,43 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
     void iniciar(nuevo);
   }
 
-  function reiniciar() {
+  // "Empezar": cuenta regresiva para poder acomodarse con las mancuernas; recién después cuenta.
+  function empezar() {
+    if (temporizadorRef.current) clearInterval(temporizadorRef.current);
     contadorRef.current.reset();
+    setAjuste(0);
     setEstado(null);
+    setFase("cuenta");
+    let restante = SEGUNDOS_CUENTA;
+    setCuenta(restante);
+    temporizadorRef.current = setInterval(() => {
+      restante -= 1;
+      setCuenta(restante);
+      if (restante <= 0) {
+        if (temporizadorRef.current) clearInterval(temporizadorRef.current);
+        temporizadorRef.current = null;
+        contadorRef.current.empezar();
+        setFase("contando");
+        try {
+          navigator.vibrate?.(200);
+        } catch {
+          /* sin vibración */
+        }
+      }
+    }, 1000);
+  }
+
+  function reiniciar() {
+    if (temporizadorRef.current) clearInterval(temporizadorRef.current);
+    temporizadorRef.current = null;
+    contadorRef.current.reset();
+    setAjuste(0);
+    setEstado(null);
+    setFase("preparar");
   }
 
   function usar() {
-    const n = estado?.repeticiones ?? 0;
+    const n = Math.max(0, (estado?.repeticiones ?? 0) + ajuste);
     detener();
     onUsar(n);
   }
@@ -185,7 +226,7 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
     onCerrar();
   }
 
-  const reps = estado?.repeticiones ?? 0;
+  const reps = Math.max(0, (estado?.repeticiones ?? 0) + ajuste);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
@@ -210,13 +251,25 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
 
         {ui === "activo" && (
           <>
-            <div className="absolute left-3 top-3 rounded-xl bg-black/60 px-4 py-2 text-white">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400">Repeticiones</p>
-              <p className="text-6xl font-semibold leading-none">{reps}</p>
-            </div>
+            {fase === "contando" && (
+              <div className="absolute left-3 top-3 rounded-xl bg-black/60 px-4 py-2 text-white">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400">Repeticiones</p>
+                <p className="text-6xl font-semibold leading-none">{reps}</p>
+              </div>
+            )}
+            {fase === "cuenta" && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 text-white">
+                <p className="text-9xl font-bold leading-none">{Math.max(cuenta, 0)}</p>
+                <p className="mt-2 text-sm">Acomodate: la serie empieza cuando llegue a 0</p>
+              </div>
+            )}
             <div className="absolute inset-x-2 bottom-2 rounded-lg bg-black/70 px-3 py-2 text-center">
               <p className={`text-base font-semibold leading-snug ${estado && !estado.visible ? "text-yellow-300" : "text-gray-100"}`}>
-                {estado?.mensaje ?? "Ponete con el cuerpo entero en cuadro y empezá."}
+                {fase === "cuenta"
+                  ? "Preparate…"
+                  : fase === "preparar" && estado?.visible !== false
+                    ? "Ponete en posición con el cuerpo entero en cuadro. Cuando estés listo, tocá Empezar."
+                    : (estado?.mensaje ?? "Ponete con el cuerpo entero en cuadro.")}
               </p>
             </div>
           </>
@@ -224,18 +277,38 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
       </div>
 
       <div className="flex flex-col gap-2 px-4 pb-4 pt-3">
-        <button
-          type="button"
-          onClick={usar}
-          disabled={ui !== "activo"}
-          className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-black disabled:opacity-50"
-        >
-          {reps > 0 ? `Usar ${reps} ${reps === 1 ? "repetición" : "repeticiones"}` : "Terminar sin contar"}
-        </button>
-        <div className="flex gap-2">
-          <button type="button" onClick={reiniciar} disabled={ui !== "activo"} className="flex-1 rounded-full border border-border-strong px-4 py-2.5 text-sm text-gray-200 disabled:opacity-50">
-            Reiniciar conteo
+        {fase === "preparar" && (
+          <button type="button" onClick={empezar} disabled={ui !== "activo"} className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-black disabled:opacity-50">
+            Empezar serie
           </button>
+        )}
+        {fase === "cuenta" && (
+          <button type="button" onClick={reiniciar} className="rounded-full border border-border-strong px-5 py-3 text-sm text-gray-200">
+            Cancelar
+          </button>
+        )}
+        {fase === "contando" && (
+          <>
+            <div className="flex items-center justify-center gap-3">
+              <button type="button" onClick={() => setAjuste((a) => a - 1)} aria-label="Restar una repetición" className="h-11 w-14 rounded-full border border-border-strong text-lg text-gray-200">
+                −1
+              </button>
+              <span className="min-w-24 text-center text-xs text-gray-400">Corregir el conteo</span>
+              <button type="button" onClick={() => setAjuste((a) => a + 1)} aria-label="Sumar una repetición" className="h-11 w-14 rounded-full border border-border-strong text-lg text-gray-200">
+                +1
+              </button>
+            </div>
+            <button type="button" onClick={usar} className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-black">
+              {reps > 0 ? `Usar ${reps} ${reps === 1 ? "repetición" : "repeticiones"}` : "Terminar sin contar"}
+            </button>
+          </>
+        )}
+        <div className="flex gap-2">
+          {fase === "contando" && (
+            <button type="button" onClick={reiniciar} className="flex-1 rounded-full border border-border-strong px-4 py-2.5 text-sm text-gray-200">
+              Reiniciar
+            </button>
+          )}
           <button type="button" onClick={cambiarCamara} disabled={ui === "cargando"} className="flex-1 rounded-full border border-border-strong px-4 py-2.5 text-sm text-gray-200 disabled:opacity-50">
             Cambiar cámara
           </button>

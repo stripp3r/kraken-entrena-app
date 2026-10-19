@@ -3480,3 +3480,9 @@ Decisión: **la app no cobra ni muestra precios**; todo el cobro pasa por el sit
 - Análisis ("Tu progreso", `lib/progreso-simple.ts` → `adaptarPesoCorporal`): sin lastre se compara por repeticiones; con lastre, base fija de cuerpo (peso corporal más reciente) + lastre, así variar de peso no cuenta como progresar. Las frases hablan solo del lastre.
 - Orden de despliegue: aplicar la migración 103 ANTES del push (las páginas seleccionan las columnas nuevas). La limpieza de registros viejos (108 filas de ejercicios de peso corporal con el peso del cuerpo cargado como `peso`) es aparte y requiere OK del dueño caso por caso.
 - Pendiente: ejercicios por tiempo sin asignar (plancha/isométricas siguen en repeticiones hasta decidir); analizador viejo (`lib/analytics.ts`) aún ignora estas modalidades.
+
+## Contador universal de repeticiones con cámara (prototipo, 2026-10-19)
+
+- `lib/pose/contador.ts` + `components/contador-camara.tsx`: botón de cámara en cada ficha (solo `esUsuarioDePrototipos`), llena el campo Reps. Sin calibrar por ejercicio: sigue 5 señales (codos, rodillas, cadera, brazos, altura del cuerpo) y cuenta idas y vueltas de la que más se mueve.
+- Lección del primer intento (falló en vivo: contaba antes de agarrar las mancuernas): probar SIEMPRE con movimientos no-ejercicio (acomodar el celular, agacharse una vez, caminar, gesticular), no solo con series limpias. Hoy: solo cuenta tras tocar "Empezar" + cuenta regresiva de 5 s; una repetición no cuenta sola, hacen falta 4 seguidas parecidas (amplitud y ritmo) y se cuentan retroactivamente; botones −1/+1 para corregir. Prueba en simulación: ~6 % de falsos conteos en 40 s de movimiento aleatorio brusco después de empezar; 0 antes de empezar.
+- Limitaciones conocidas: ejercicios a un brazo o alternados pueden contar de menos; hace falta el cuerpo entero en cuadro; series de menos de 4 repeticiones no se validan solas (usar +1).

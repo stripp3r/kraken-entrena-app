@@ -22,7 +22,19 @@ const AMPLITUD_MINIMA: Record<NombreSenal, number> = {
 
 const VISIBILIDAD_MINIMA = 0.5;
 const DURACION_MINIMA_MS = 250; // una ida y vuelta no puede durar menos
-const REPS_PARA_FIJAR = 2;
+const REPS_PARA_FIJAR = 4;
+// Una repetición candidata no se cuenta sola: hacen falta CUATRO seguidas parecidas (misma
+// amplitud y mismo ritmo, con margen humano). Un movimiento suelto -agacharse a agarrar las
+// mancuernas, acomodar el celular, caminar, gesticular- casi nunca se repite igual cuatro veces.
+// Una vez validada la serie, cada repetición nueva cuenta si se parece a las anteriores.
+const RATIO_AMP = [0.7, 1.43] as const;
+const RATIO_DUR = [0.65, 1.55] as const;
+const RATIO_AMP_SERIE = [0.5, 2] as const;
+const RATIO_DUR_SERIE = [0.4, 2.5] as const;
+const REPS_PARA_VALIDAR = 4;
+const RECHAZOS_PARA_PERDER_SERIE = 3;
+
+const dentro = (r: number, [min, max]: readonly [number, number]) => r >= min && r <= max;
 
 const aPunto3 = (p: Punto): Punto3 => ({ x: p.x, y: p.y, z: p.z ?? 0 });
 
@@ -50,6 +62,10 @@ class DetectorVaiven {
     this.dir = 0;
     this.pivotes = [];
     this.contada = this.saltar = this.iniciado = false;
+    this.cadena = [];
+    this.validada = false;
+    this.rechazos = 0;
+    this.tUltimoCierre = null;
     this.repeticiones = 0;
     this.suma = 0;
     this.rangoReciente = 0;
@@ -117,11 +133,51 @@ class DetectorVaiven {
       const swing = Math.abs(p1.v - p0.v);
       const haciaInicio = (p0.v - p1.v) * this.dir > 0;
       if (swing >= this.amplitudMinima && haciaInicio && Math.abs(x - p0.v) <= swing * 0.25 && t - p0.t >= DURACION_MINIMA_MS) {
-        this.repeticiones += 1;
-        this.suma += swing;
+        this.registrarCandidata(swing, t);
         this.contada = true;
         this.saltar = true;
       }
+    }
+  }
+
+  private cadena: { amp: number; dur: number | null }[] = [];
+  private tUltimoCierre: number | null = null;
+  private validada = false;
+  private ampRef = 0;
+  private durRef = 0;
+  private rechazos = 0;
+
+  private registrarCandidata(amp: number, t: number) {
+    const dur = this.tUltimoCierre === null ? null : t - this.tUltimoCierre;
+    this.tUltimoCierre = t;
+    if (this.validada && dur !== null) {
+      if (dentro(amp / this.ampRef, RATIO_AMP_SERIE) && dentro(dur / this.durRef, RATIO_DUR_SERIE)) {
+        this.repeticiones += 1;
+        this.suma += amp;
+        this.ampRef = this.ampRef * 0.7 + amp * 0.3;
+        this.durRef = this.durRef * 0.7 + dur * 0.3;
+        this.rechazos = 0;
+      } else if (++this.rechazos >= RECHAZOS_PARA_PERDER_SERIE) {
+        this.validada = false;
+        this.cadena = [];
+        this.rechazos = 0;
+      }
+      return;
+    }
+    const prev = this.cadena[this.cadena.length - 1];
+    const parecida =
+      prev !== undefined &&
+      dentro(amp / prev.amp, RATIO_AMP) &&
+      (prev.dur === null || dur === null || dentro(dur / prev.dur, RATIO_DUR));
+    this.cadena = parecida ? [...this.cadena, { amp, dur }] : [{ amp, dur }];
+    if (this.cadena.length >= REPS_PARA_VALIDAR) {
+      this.validada = true;
+      this.repeticiones += this.cadena.length;
+      this.suma += this.cadena.reduce((acc, c) => acc + c.amp, 0);
+      this.ampRef = this.cadena.reduce((acc, c) => acc + c.amp, 0) / this.cadena.length;
+      const durs = this.cadena.map((c) => c.dur).filter((d): d is number => d !== null);
+      this.durRef = durs.reduce((a, b) => a + b, 0) / (durs.length || 1);
+      this.cadena = [];
     }
   }
 }
@@ -199,10 +255,25 @@ export class ContadorUniversal {
     return Object.fromEntries(NOMBRES.map((n) => [n, new DetectorVaiven(AMPLITUD_MINIMA[n])])) as Record<NombreSenal, DetectorVaiven>;
   }
 
+  private activo = false;
+
   reset() {
     this.detectores = this.crear();
     this.suave = {};
     this.fijada = null;
+    this.activo = false;
+  }
+
+  /** Empieza a contar. Antes de esto solo se mira si el cuerpo está en cuadro. */
+  empezar() {
+    this.detectores = this.crear();
+    this.suave = {};
+    this.fijada = null;
+    this.activo = true;
+  }
+
+  get contando() {
+    return this.activo;
   }
 
   private mejor(): NombreSenal | null {
@@ -225,6 +296,7 @@ export class ContadorUniversal {
     const hay = Object.keys(senales).length > 0;
     if (hay) this.ultimaVista = tMs;
     for (const n of NOMBRES) {
+      if (!this.activo) break;
       const x = senales[n];
       if (x === undefined) continue;
       const previo = this.suave[n];
@@ -244,7 +316,13 @@ export class ContadorUniversal {
       repeticiones,
       senal,
       visible,
-      mensaje: !visible ? "No te veo: ponete con el cuerpo entero en cuadro." : repeticiones === 0 ? "Listo. Empezá la serie." : `${repeticiones} ${repeticiones === 1 ? "repetición" : "repeticiones"}`,
+      mensaje: !visible
+        ? "No te veo: ponete con el cuerpo entero en cuadro."
+        : !this.activo
+          ? "Te veo. Cuando estés listo, tocá Empezar."
+          : repeticiones === 0
+            ? "Hacé la serie."
+            : `${repeticiones} ${repeticiones === 1 ? "repetición" : "repeticiones"}`,
     };
   }
 }
