@@ -3462,3 +3462,12 @@ Decisión: **la app no cobra ni muestra precios**; todo el cobro pasa por el sit
 - **Consulta a App Review**: borrador listo en el escritorio (`CONSULTA-APP-REVIEW-borrador.md`).
   Se envía desde App Store Connect con cuenta del Apple Developer Program (de pago anual); no se
   envió porque no hay cuenta y hay que gastar lo mínimo hasta decidir publicar en iPhone.
+- **"Tu acceso" (2026-10-19, maqueta aprobada por el coach)**: con acceso vencido (ej. terminó la
+  prueba gratis) la pantalla `/golden` muestra el texto ("Tu prueba gratis terminó." o "Tu acceso
+  terminó."), un botón principal grande "Elegir mi plan en el sitio web" (a `URL_PLANES`), tres
+  accesos directos (Golden -> `URL_GOLDEN`, Mentoría -> `URL_MENTORIAS`, Planes autoguiados ->
+  `URL_PLANES`) y debajo "¿Ya compraste y no ves tu plan?", "Ir a mi perfil" y "Ayuda con mi
+  acceso". SIN "Entrar a la app" (el proxy lo devolvía a la misma pantalla en círculo). Con acceso
+  vigente sí hay "Entrar a la app". En `MODO_TIENDA` no hay botón ni accesos a comprar.
+  **Pendiente**: página particular del sitio web para quien llega desde la app, con un botón
+  propio (el coach la va a describir).

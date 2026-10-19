@@ -16,3 +16,4 @@ export const URL_BAJA = `${SITIO_URL}/baja`;
 export const URL_PLANES = `${SITIO_URL}/#planes`;
 export const URL_SITIO_WEB = `${SITIO_URL}/#inicio`;
 export const URL_MENTORIAS = `${SITIO_URL}/#mentorias`;
+export const URL_GOLDEN = `${SITIO_URL}/planes/golden.html`;
