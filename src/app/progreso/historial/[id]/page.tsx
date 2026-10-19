@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { fechaLegible, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import type { Lado } from "@/lib/descanso";
+import { modalidadValida, textoSerie, type ModalidadCarga } from "@/lib/carga";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -88,11 +89,12 @@ export default async function HistorialDetallePage({
 
   const { data: routineExercises } = await supabase
     .from("routine_exercises")
-    .select("dia, orden, exercise_definition_id, series_reps, exercise_definitions(nombre)")
+    .select("dia, orden, exercise_definition_id, series_reps, exercise_definitions(nombre, modalidad_carga)")
     .eq("routine_id", historial.routine_id)
     .order("dia", { ascending: true })
     .order("orden", { ascending: true });
 
+  const modalidadDe = new Map<number, ModalidadCarga>();
   const ejerciciosPorDia = new Map<
     string,
     { id: number; nombre: string; series_reps: string | null }[]
@@ -102,6 +104,7 @@ export default async function HistorialDetallePage({
     const def = Array.isArray(re.exercise_definitions)
       ? re.exercise_definitions[0]
       : re.exercise_definitions;
+    modalidadDe.set(re.exercise_definition_id, modalidadValida(def?.modalidad_carga));
     const lista = ejerciciosPorDia.get(re.dia) ?? [];
     lista.push({
       id: re.exercise_definition_id,
@@ -122,7 +125,7 @@ export default async function HistorialDetallePage({
 
   let logsQuery = supabase
     .from("workout_logs")
-    .select("exercise_definition_id, peso, reps, rir, lado, tipo_serie, created_at")
+    .select("exercise_definition_id, peso, reps, rir, lastre, segundos, lado, tipo_serie, created_at")
     .eq("user_id", user.id)
     .in("exercise_definition_id", exerciseIds)
     .gte("created_at", desde.toISOString())
@@ -134,7 +137,7 @@ export default async function HistorialDetallePage({
 
   const { data: logs } = exerciseIds.length
     ? await logsQuery
-    : { data: [] as { exercise_definition_id: number | null; peso: number | null; reps: number | null; rir: number | null; lado: Lado | null; tipo_serie: "normal" | "dropset" | "drop"; created_at: string }[] };
+    : { data: [] as { exercise_definition_id: number | null; peso: number | null; reps: number | null; rir: number | null; lastre: number | null; segundos: number | null; lado: Lado | null; tipo_serie: "normal" | "dropset" | "drop"; created_at: string }[] };
 
   const logsPorEjercicio = new Map<number, typeof logs>();
   for (const log of logs ?? []) {
@@ -192,8 +195,7 @@ export default async function HistorialDetallePage({
                                 {log.tipo_serie === "dropset" && (
                                   <span className="text-orange-300">Drop set · </span>
                                 )}
-                                {fechaHoraLegible(log.created_at)} — {log.peso ?? "-"}kg ×{" "}
-                                {log.reps ?? "-"}
+                                {fechaHoraLegible(log.created_at)} — {textoSerie(modalidadDe.get(ej.id) ?? "con_peso", log)}
                                 {log.tipo_serie !== "drop" && <> (RIR {log.rir ?? "-"})</>}
                                 {log.lado && (
                                   <span className="text-gray-500"> · {labelLado(log.lado)}</span>

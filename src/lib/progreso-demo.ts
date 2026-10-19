@@ -1,4 +1,4 @@
-import type { FilaMedida, LogSerie } from "./progreso-simple";
+import { adaptarPesoCorporal, type FilaMedida, type LogSerie } from "./progreso-simple";
 
 // Datos de DEMOSTRACIÓN para la pantalla de prueba "Tu progreso" (/progreso/prueba?demo=1).
 // No se guardan en ninguna base: se generan en el momento, con un caso de cada tipo:
@@ -50,11 +50,11 @@ const PLANES: Plan[] = [
   },
 ];
 
-export type EjercicioDemo = { nombre: string; grupos: string[]; logs: LogSerie[] };
+export type EjercicioDemo = { nombre: string; grupos: string[]; logs: LogSerie[]; base?: number };
 
 export function ejerciciosDemo(): EjercicioDemo[] {
   let id = 1;
-  return PLANES.map((p) => ({
+  const normales = PLANES.map((p) => ({
     nombre: p.nombre,
     grupos: p.grupos,
     logs: p.sesiones.flatMap((s, i) => {
@@ -80,6 +80,27 @@ export function ejerciciosDemo(): EjercicioDemo[] {
       return filas;
     }),
   }));
+  return [...normales, dominadasDemo()];
+}
+
+// Dominadas (peso corporal): empezó sin lastre y pasó a 2,5 y 5 kg de lastre con las mismas repeticiones.
+function dominadasDemo(): EjercicioDemo {
+  const lastres = [0, 0, 0, 2.5, 2.5, 2.5, 5, 5];
+  const crudos = lastres.flatMap((lastre, i) =>
+    [0, 1, 2].map((k) => ({
+      id: 9000 + i * 10 + k,
+      peso: null,
+      reps: 8,
+      rir: 1,
+      lastre,
+      peso_corporal_ref: 80,
+      tipo_serie: "normal" as const,
+      drop_de: null,
+      created_at: new Date(dias((lastres.length - 1 - i) * 3).getTime() + k * 120_000).toISOString(),
+    }))
+  );
+  const { logs, base } = adaptarPesoCorporal(crudos, 1);
+  return { nombre: "Dominadas (con lastre)", grupos: ["Espalda", "Bíceps"], logs, base };
 }
 
 export function medidasDemo(): FilaMedida[] {

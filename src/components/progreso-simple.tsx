@@ -13,7 +13,7 @@ import {
   type NivelMusculo,
 } from "@/lib/progreso-simple";
 
-export type EjercicioProgreso = { nombre: string; grupos: string[]; logs: LogSerie[] };
+export type EjercicioProgreso = { nombre: string; grupos: string[]; logs: LogSerie[]; base?: number };
 
 const SECCIONES: { estado: EstadoEjercicio; titulo: string; color: string; icono: string; fondo: string }[] = [
   { estado: "mejoro", titulo: "Mejoraron", color: "text-emerald-400", icono: "↑", fondo: "bg-emerald-950 text-emerald-400" },
@@ -38,7 +38,7 @@ const num = (n: number) => String(n).replace(".", ",");
 export function ProgresoSimple({ ejercicios, medidas, hoy }: { ejercicios: EjercicioProgreso[]; medidas: FilaMedida[]; hoy: string }) {
   const [ancla, setAncla] = useState<Ancla>("ultimos");
 
-  const evaluados = useMemo(() => ejercicios.map((e) => ({ ...e, r: evaluarEjercicio(e.logs, ancla) })), [ejercicios, ancla]);
+  const evaluados = useMemo(() => ejercicios.map((e) => ({ ...e, r: evaluarEjercicio(e.logs, ancla, e.base ?? 0) })), [ejercicios, ancla]);
   const conDatos = evaluados.filter((e) => e.r.estado !== "sin-datos");
   const sinDatos = evaluados.length - conDatos.length;
   const general = resumirGeneral(conDatos.map((e) => e.r.estado));

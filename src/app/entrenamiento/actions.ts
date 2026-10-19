@@ -5,11 +5,16 @@ import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import { rutinaIncluidaEnPlan } from "@/lib/premium";
 import { ladoOpuesto, ladoPendiente } from "@/lib/lado-pendiente";
 import type { TipoSerie } from "@/lib/dropset";
+import { modalidadValida, type ModalidadCarga } from "@/lib/carga";
 
 export type SetInput = {
   peso: number | null;
   reps: number | null;
   rir: number | null;
+  // Modalidades de carga (lib/carga.ts): kg extra en ejercicios de peso corporal
+  // y duración en los de tiempo.
+  lastre?: number | null;
+  segundos?: number | null;
   lado?: "derecho" | "izquierdo" | null;
   // Drop sets (ver lib/dropset.ts): 'dropset' = serie principal de un drop
   // set, 'drop' = una bajada (requiere dropDe, el id de la principal).
@@ -80,8 +85,12 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
     }
   }
 
+  // La modalidad de carga sale de la base, no del cliente: decide qué columnas se
+  // guardan. Si la columna todavía no existe (migración 103), todo es "con_peso".
+  const { modalidad, pesoCorporal } = await modalidadYPesoCorporal(supabase, user.id, exerciseDefinitionId);
+
   const filas = sets
-    .filter((s) => s.peso !== null || s.reps !== null || s.rir !== null)
+    .filter((s) => s.peso !== null || s.reps !== null || s.rir !== null || s.lastre != null || s.segundos != null)
     .map((s) => {
       let lado: "derecho" | "izquierdo" | null = null;
       if (s.lado && proximoLado) {
@@ -92,11 +101,16 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
       return {
         user_id: user.id,
         exercise_definition_id: exerciseDefinitionId,
-        peso: s.peso,
-        reps: s.reps,
+        peso: modalidad === "con_peso" ? s.peso : null,
+        reps: modalidad === "tiempo" ? null : s.reps,
         rir: s.rir,
         lado,
         dia: dia ?? null,
+        ...(modalidad === "peso_corporal"
+          ? { lastre: s.lastre ?? null, peso_corporal_ref: pesoCorporal }
+          : modalidad === "tiempo"
+            ? { segundos: s.segundos ?? null }
+            : {}),
         // Las filas comunes no mandan estas columnas: así registrar una serie
         // normal sigue funcionando aunque la migración 096 no esté corrida.
         ...(tipo !== "normal" ? { tipo_serie: tipo, drop_de: tipo === "drop" ? s.dropDe : null } : {}),
@@ -116,6 +130,30 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
   return { ok: true };
 }
 
+async function modalidadYPesoCorporal(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  exerciseDefinitionId: number
+): Promise<{ modalidad: ModalidadCarga; pesoCorporal: number | null }> {
+  const { data: def, error } = await supabase
+    .from("exercise_definitions")
+    .select("modalidad_carga")
+    .eq("id", exerciseDefinitionId)
+    .maybeSingle();
+  const modalidad = error ? "con_peso" : modalidadValida(def?.modalidad_carga);
+  if (modalidad !== "peso_corporal") return { modalidad, pesoCorporal: null };
+  // Peso del usuario al registrar: la última medición que tenga cargada en Medidas.
+  const { data: med } = await supabase
+    .from("body_measurements")
+    .select("peso")
+    .eq("user_id", userId)
+    .not("peso", "is", null)
+    .order("fecha", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { modalidad, pesoCorporal: med?.peso ?? null };
+}
+
 export async function editarSet(logId: number, set: SetInput) {
   const supabase = await createClient();
 
@@ -129,7 +167,14 @@ export async function editarSet(logId: number, set: SetInput) {
 
   const { error } = await supabase
     .from("workout_logs")
-    .update({ peso: set.peso, reps: set.reps, rir: set.rir })
+    .update({
+      peso: set.peso,
+      reps: set.reps,
+      rir: set.rir,
+      // Solo si vienen (ejercicios de peso corporal / tiempo): no tocan filas comunes.
+      ...(set.lastre !== undefined ? { lastre: set.lastre } : {}),
+      ...(set.segundos !== undefined ? { segundos: set.segundos } : {}),
+    })
     .eq("id", logId)
     .eq("user_id", user.id);
 

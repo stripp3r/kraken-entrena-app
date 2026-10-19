@@ -75,10 +75,10 @@ const mediana = (xs: number[]) => {
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
-const kg = (n: number) => `${(Math.round(n * 2) / 2).toString().replace(".", ",")} kg`;
+const kgPlano = (n: number) => `${(Math.round(n * 2) / 2).toString().replace(".", ",")} kg`;
 const pct = (nuevo: number, viejo: number) => (viejo > 0 ? (nuevo - viejo) / viejo : 0);
 
-export function compararSesiones(previas: SesionResumen[], recientes: SesionResumen[], racha: number): ResultadoEjercicio {
+export function compararSesiones(previas: SesionResumen[], recientes: SesionResumen[], racha: number, base = 0): ResultadoEjercicio {
   const entrenos = previas.length + recientes.length;
   if (!previas.length || !recientes.length) return { estado: "sin-datos", frase: "Todavía hay pocos entrenos para comparar.", entrenos };
 
@@ -104,10 +104,18 @@ export function compararSesiones(previas: SesionResumen[], recientes: SesionResu
   const mismaCarga = Math.abs(pesoAhora - pesoAntes) / (pesoAntes || 1) < 0.01;
   const mismasReps = Math.abs(repsAhora - repsAntes) <= 1;
   const rep = (n: number) => (n === 1 ? "1 repetición" : `${n} repeticiones`);
+  // Ejercicios de peso corporal: la carga incluye una parte fija del cuerpo (base); al
+  // hablar con el usuario se muestra solo el lastre.
+  const kg = (n: number) => (base > 0 ? (n - base < 0.25 ? "sin lastre" : `${kgPlano(n - base)} de lastre`) : kgPlano(n));
 
   let frase: string;
   if (estado === "mejoro") {
-    if (conPeso && pesoAhora > pesoAntes && !mismaCarga && mismasReps) frase = `Subiste de ${kg(pesoAntes)} a ${kg(pesoAhora)} con las mismas repeticiones.`;
+    if (conPeso && pesoAhora > pesoAntes && !mismaCarga && mismasReps) frase =
+        base > 0
+          ? pesoAntes - base < 0.25
+            ? `Empezaste a usar ${kgPlano(pesoAhora - base)} de lastre con las mismas repeticiones.`
+            : `Subiste el lastre de ${kgPlano(pesoAntes - base)} a ${kgPlano(pesoAhora - base)} con las mismas repeticiones.`
+          : `Subiste de ${kg(pesoAntes)} a ${kg(pesoAhora)} con las mismas repeticiones.`;
     else if (repsAhora - repsAntes >= 1 && (mismaCarga || !conPeso)) frase = `Hiciste ${rep(Math.round(repsAhora - repsAntes))} más${conPeso ? " con el mismo peso" : " por serie"}.`;
     else if (seriesAhora > seriesAntes) frase = `Hiciste una serie más: ${seriesAhora} en vez de ${seriesAntes}${conPeso ? ", con el mismo peso" : ""}.`;
     else if (conPeso && pFuerza > 0) frase = `Tu mejor serie mejoró: de ${kg(pesoAntes)} × ${Math.round(repsAntes)} a ${kg(pesoAhora)} × ${Math.round(repsAhora)}.`;
@@ -141,14 +149,14 @@ function rachaIgual(sesiones: SesionResumen[]): number {
 
 export type Ancla = "ultimos" | "inicio";
 
-export function evaluarEjercicio(logs: LogSerie[], ancla: Ancla): ResultadoEjercicio {
+export function evaluarEjercicio(logs: LogSerie[], ancla: Ancla, base = 0): ResultadoEjercicio {
   const sesiones = resumirSesiones(logs);
   const S = sesiones.length;
   if (S < 2) return { estado: "sin-datos", frase: "Todavía hay pocos entrenos para comparar.", entrenos: S };
   const n = Math.min(3, Math.floor(S / 2));
   const recientes = sesiones.slice(-n);
   const previas = ancla === "ultimos" ? sesiones.slice(-2 * n, -n) : sesiones.slice(0, n);
-  return compararSesiones(previas, recientes, rachaIgual(sesiones));
+  return compararSesiones(previas, recientes, rachaIgual(sesiones), base);
 }
 
 // ---------- Resumen general ----------
@@ -220,4 +228,24 @@ export function musculosDeLaSemana(ejercicios: { grupos: string[]; logs: LogSeri
       return { grupo, series, nivel, porcentaje: Math.max(4, Math.min(100, Math.round((series / lm.mrv) * 100))) };
     })
     .sort((a, b) => b.series - a.series);
+}
+
+// ---------- Ejercicios de peso corporal ----------
+
+type LogCrudo = Omit<LogSerie, "peso"> & { peso: number | null; lastre?: number | null; peso_corporal_ref?: number | null };
+
+/**
+ * Prepara los registros de un ejercicio de peso corporal para el motor:
+ *  - Sin ningún lastre registrado: se compara solo por repeticiones (peso = null).
+ *  - Con lastre: peso = parte fija del cuerpo + lastre. La parte fija usa SIEMPRE el
+ *    mismo peso corporal (el más reciente), así bajar o subir de peso no se confunde
+ *    con progresar o retroceder en el ejercicio.
+ * Devuelve también la base, para que las frases hablen del lastre y no de la suma.
+ */
+export function adaptarPesoCorporal(logs: LogCrudo[], factor: number | null): { logs: LogSerie[]; base: number } {
+  const hayLastre = logs.some((l) => (l.lastre ?? 0) > 0);
+  if (!hayLastre) return { logs: logs.map((l) => ({ ...l, peso: null })), base: 0 };
+  const refs = [...logs].reverse().find((l) => (l.peso_corporal_ref ?? 0) > 0)?.peso_corporal_ref ?? 0;
+  const base = factor != null ? Math.round(factor * refs * 10) / 10 : 0;
+  return { logs: logs.map((l) => ({ ...l, peso: base + (l.lastre ?? 0) > 0 ? base + (l.lastre ?? 0) : null })), base };
 }

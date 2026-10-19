@@ -5,6 +5,7 @@ import { BackLink } from "@/components/back-link";
 import { hoyISO, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import { ultimoTopSet, pesoSugerido } from "@/lib/analytics";
 import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
+import { modalidadValida } from "@/lib/carga";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -46,7 +47,7 @@ export default async function DiaEntrenamientoPage({
     supabase
       .from("routine_exercises")
       .select(
-        "orden, exercise_definition_id, series_reps, exercise_definitions(nombre, video_url, video_url_fem, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo)"
+        "orden, exercise_definition_id, series_reps, exercise_definitions(nombre, video_url, video_url_fem, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo, modalidad_carga)"
       )
       .eq("dia", dia)
       .eq("routine_id", profile.routine_id)
@@ -80,6 +81,7 @@ export default async function DiaEntrenamientoPage({
         alternativa_id: def?.alternativa_id ?? null,
         unilateral: def?.unilateral ?? false,
         tipo_esfuerzo: def?.tipo_esfuerzo ?? "compuesto",
+        modalidad: modalidadValida(def?.modalidad_carga),
       };
     });
 
@@ -106,7 +108,7 @@ export default async function DiaEntrenamientoPage({
     exerciseIds.length
       ? supabase
           .from("workout_logs")
-          .select("id, exercise_definition_id, peso, reps, rir, lado, tipo_serie, drop_de, created_at")
+          .select("id, exercise_definition_id, peso, reps, rir, lastre, segundos, lado, tipo_serie, drop_de, created_at")
           .eq("user_id", user.id)
           .in("exercise_definition_id", exerciseIds)
           .gte("created_at", hoyInicio.toISOString())
@@ -118,6 +120,8 @@ export default async function DiaEntrenamientoPage({
             peso: number | null;
             reps: number | null;
             rir: number | null;
+            lastre: number | null;
+            segundos: number | null;
             lado: "derecho" | "izquierdo" | null;
             tipo_serie: "normal" | "dropset" | "drop";
             drop_de: number | null;
@@ -206,6 +210,7 @@ export default async function DiaEntrenamientoPage({
               alternativa: ex.alternativa_id ? alternativaPorId.get(ex.alternativa_id) ?? null : null,
               unilateral: ex.unilateral,
               tipoEsfuerzo: ex.tipo_esfuerzo as "compuesto" | "aislado",
+              modalidad: ex.modalidad,
               sugerencia: sugerenciaPorEjercicio.get(ex.id) ?? null,
             }))}
             logsPorEjercicio={Object.fromEntries(

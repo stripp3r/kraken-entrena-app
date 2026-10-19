@@ -10,6 +10,7 @@ import { hoyISO } from "@/lib/fecha";
 import { ladoPendiente } from "@/lib/lado-pendiente";
 import { contarSeriesPrincipales, planDeSeries, seriesObjetivoDelPlan, type TipoSerie } from "@/lib/dropset";
 import { leerSesionActiva, guardarSesionActiva, borrarSesionActiva } from "@/lib/sesion-entrenamiento";
+import type { ModalidadCarga } from "@/lib/carga";
 
 const OBJETIVO_SERIES_DEFAULT = 3;
 
@@ -36,6 +37,8 @@ type WorkoutLog = {
   peso: number | null;
   reps: number | null;
   rir: number | null;
+  lastre?: number | null;
+  segundos?: number | null;
   lado: Lado | null;
   tipo_serie: TipoSerie;
   drop_de: number | null;
@@ -58,6 +61,7 @@ export type ExerciseFull = {
   alternativa: ExerciseAlternativa | null;
   unilateral: boolean;
   tipoEsfuerzo: TipoEsfuerzo;
+  modalidad?: ModalidadCarga;
   sugerencia: Sugerencia | null;
 };
 

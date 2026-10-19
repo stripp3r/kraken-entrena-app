@@ -14,12 +14,15 @@ import {
   type TipoSerie,
 } from "@/lib/dropset";
 import { aNumero, limpiarDecimal } from "@/lib/numero";
+import { textoSerie, type ModalidadCarga } from "@/lib/carga";
 
 type WorkoutLog = {
   id: number;
   peso: number | null;
   reps: number | null;
   rir: number | null;
+  lastre?: number | null;
+  segundos?: number | null;
   lado: Lado | null;
   tipo_serie: TipoSerie;
   drop_de: number | null;
@@ -48,6 +51,7 @@ type Exercise = {
   series_reps: string | null;
   alternativa: ExerciseAlternativa | null;
   sugerencia?: Sugerencia | null;
+  modalidad?: ModalidadCarga;
 };
 
 export type SesionActiva = {
@@ -64,7 +68,11 @@ export type SesionActiva = {
   onFinalizarEjercicio: () => void;
 };
 
-const emptyRow = { peso: "", reps: "", rir: "" };
+const emptyRow = { peso: "", reps: "", rir: "", lastre: "", segundos: "" };
+
+function vacio(r: { peso: string; reps: string; rir: string; lastre: string; segundos: string }) {
+  return !r.peso && !r.reps && !r.rir && !r.lastre && !r.segundos;
+}
 
 function horaDe(fechaIso: string) {
   return new Date(fechaIso).toLocaleTimeString("es-AR", {
@@ -109,6 +117,7 @@ export function ExerciseCard({
   const [cerradoId, setCerradoId] = useState<number | null>(null);
   const [ahora, setAhora] = useState(0);
 
+  const modalidad: ModalidadCarga = exercise.modalidad ?? "con_peso";
   const plan = planDeSeries(exercise.series_reps);
   const conDropset = tieneDropset(plan);
   const { pendiente, modoSugerido } = estadoDropset(logsDeHoy, plan, ahora, cerradoId);
@@ -142,7 +151,7 @@ export function ExerciseCard({
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
     if (pendiente) {
-      setSetActivo({ peso: pesoSugeridoDrop?.toString() ?? "", reps: "", rir: "" });
+      setSetActivo({ ...emptyRow, peso: pesoSugeridoDrop?.toString() ?? "" });
     }
     /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,7 +159,7 @@ export function ExerciseCard({
 
   async function registrarSetDeSesion() {
     if (!sesion) return;
-    if (!setActivo.peso && !setActivo.reps && !setActivo.rir) return;
+    if (vacio(setActivo)) return;
 
     prepararAlertas();
     setSaving(true);
@@ -162,8 +171,10 @@ export function ExerciseCard({
       exercise.id,
       [
         {
-          peso: setActivo.peso ? aNumero(setActivo.peso) : null,
+          peso: modalidad === "con_peso" && setActivo.peso ? aNumero(setActivo.peso) : null,
           reps: setActivo.reps ? Number(setActivo.reps) : null,
+          lastre: modalidad === "peso_corporal" && setActivo.lastre ? aNumero(setActivo.lastre) : null,
+          segundos: modalidad === "tiempo" && setActivo.segundos ? Number(setActivo.segundos) : null,
           // Una bajada es siempre al fallo: no se pregunta el RIR.
           rir: tipo === "drop" ? 0 : setActivo.rir ? Number(setActivo.rir) : null,
           lado: sesion.lado,
@@ -197,6 +208,8 @@ export function ExerciseCard({
       peso: log.peso?.toString() ?? "",
       reps: log.reps?.toString() ?? "",
       rir: log.rir?.toString() ?? "",
+      lastre: log.lastre?.toString() ?? "",
+      segundos: log.segundos?.toString() ?? "",
     });
   }
 
@@ -205,9 +218,11 @@ export function ExerciseCard({
     setError(null);
 
     const result = await editarSet(logId, {
-      peso: editRow.peso ? aNumero(editRow.peso) : null,
+      peso: modalidad === "con_peso" && editRow.peso ? aNumero(editRow.peso) : null,
       reps: editRow.reps ? Number(editRow.reps) : null,
       rir: editRow.rir ? Number(editRow.rir) : null,
+      ...(modalidad === "peso_corporal" ? { lastre: editRow.lastre ? aNumero(editRow.lastre) : null } : {}),
+      ...(modalidad === "tiempo" ? { segundos: editRow.segundos ? Number(editRow.segundos) : null } : {}),
     });
 
     setSaving(false);
@@ -380,20 +395,41 @@ export function ExerciseCard({
                         : null;
                 return editingId === log.id ? (
                   <div key={log.id} className="flex items-center gap-1.5">
-                    <input
-                      value={editRow.peso}
-                      onChange={(e) => setEditRow((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
-                      placeholder="Peso"
-                      inputMode="decimal"
-                      className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
-                    />
-                    <input
-                      value={editRow.reps}
-                      onChange={(e) => setEditRow((r) => ({ ...r, reps: e.target.value }))}
-                      placeholder="Reps"
-                      inputMode="numeric"
-                      className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
-                    />
+                    {modalidad === "con_peso" && (
+                      <input
+                        value={editRow.peso}
+                        onChange={(e) => setEditRow((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
+                        placeholder="Peso"
+                        inputMode="decimal"
+                        className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
+                      />
+                    )}
+                    {modalidad === "peso_corporal" && (
+                      <input
+                        value={editRow.lastre}
+                        onChange={(e) => setEditRow((r) => ({ ...r, lastre: limpiarDecimal(e.target.value) }))}
+                        placeholder="Lastre"
+                        inputMode="decimal"
+                        className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
+                      />
+                    )}
+                    {modalidad === "tiempo" ? (
+                      <input
+                        value={editRow.segundos}
+                        onChange={(e) => setEditRow((r) => ({ ...r, segundos: e.target.value }))}
+                        placeholder="Seg"
+                        inputMode="numeric"
+                        className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
+                      />
+                    ) : (
+                      <input
+                        value={editRow.reps}
+                        onChange={(e) => setEditRow((r) => ({ ...r, reps: e.target.value }))}
+                        placeholder="Reps"
+                        inputMode="numeric"
+                        className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
+                      />
+                    )}
                     <input
                       value={editRow.rir}
                       onChange={(e) => setEditRow((r) => ({ ...r, rir: e.target.value }))}
@@ -422,7 +458,7 @@ export function ExerciseCard({
                   >
                     <span>
                       {etiquetaSerie && <span className="text-orange-300">{etiquetaSerie} · </span>}
-                      {horaDe(log.created_at)} — {log.peso ?? "-"}kg × {log.reps ?? "-"}
+                      {horaDe(log.created_at)} — {textoSerie(modalidad, log)}
                       {log.tipo_serie !== "drop" && <> (RIR {log.rir ?? "-"})</>}
                       {log.lado && (
                         <span className="text-gray-500"> · {labelLado(log.lado)}</span>
@@ -514,26 +550,54 @@ export function ExerciseCard({
                   </div>
                 )}
                 <div className="flex items-end gap-2">
-                  <div className="flex flex-1 flex-col gap-1">
-                    <label className="text-[11px] text-gray-500">Peso</label>
-                    <input
-                      value={setActivo.peso}
-                      onChange={(e) => setSetActivo((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
-                      type="text"
-                      inputMode="decimal"
-                      className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
-                    />
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1">
-                    <label className="text-[11px] text-gray-500">Reps</label>
-                    <input
-                      value={setActivo.reps}
-                      onChange={(e) => setSetActivo((r) => ({ ...r, reps: e.target.value }))}
-                      type="number"
-                      inputMode="numeric"
-                      className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
-                    />
-                  </div>
+                  {modalidad === "con_peso" && (
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className="text-[11px] text-gray-500">Peso</label>
+                      <input
+                        value={setActivo.peso}
+                        onChange={(e) => setSetActivo((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
+                        type="text"
+                        inputMode="decimal"
+                        className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                      />
+                    </div>
+                  )}
+                  {modalidad === "tiempo" ? (
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className="text-[11px] text-gray-500">Segundos</label>
+                      <input
+                        value={setActivo.segundos}
+                        onChange={(e) => setSetActivo((r) => ({ ...r, segundos: e.target.value }))}
+                        type="number"
+                        inputMode="numeric"
+                        className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className="text-[11px] text-gray-500">Reps</label>
+                      <input
+                        value={setActivo.reps}
+                        onChange={(e) => setSetActivo((r) => ({ ...r, reps: e.target.value }))}
+                        type="number"
+                        inputMode="numeric"
+                        className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                      />
+                    </div>
+                  )}
+                  {modalidad === "peso_corporal" && (
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className="text-[11px] text-gray-500">Lastre (kg extra)</label>
+                      <input
+                        value={setActivo.lastre}
+                        onChange={(e) => setSetActivo((r) => ({ ...r, lastre: limpiarDecimal(e.target.value) }))}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="opcional"
+                        className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none placeholder:text-gray-600 focus:border-border-strong"
+                      />
+                    </div>
+                  )}
                   <div className={`flex flex-1 flex-col gap-1 ${pendiente ? "hidden" : ""}`}>
                     <label className="text-[11px] text-gray-500">RIR</label>
                     <input
@@ -548,7 +612,7 @@ export function ExerciseCard({
                 {error && <p className="text-xs text-red-400">{error}</p>}
                 {justSaved && <p className="text-xs text-emerald-400">✓ Serie registrada</p>}
                 <button
-                  disabled={saving || (!setActivo.peso && !setActivo.reps && !setActivo.rir)}
+                  disabled={saving || vacio(setActivo)}
                   onClick={registrarSetDeSesion}
                   className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
                 >

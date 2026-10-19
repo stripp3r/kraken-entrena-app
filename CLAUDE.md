@@ -3471,3 +3471,12 @@ Decisión: **la app no cobra ni muestra precios**; todo el cobro pasa por el sit
   vigente sí hay "Entrar a la app". En `MODO_TIENDA` no hay botón ni accesos a comprar.
   **Pendiente**: página particular del sitio web para quien llega desde la app, con un botón
   propio (el coach la va a describir).
+
+## Modalidad de carga por ejercicio (migración 103, en construcción 2026-10-19)
+
+- `exercise_definitions.modalidad_carga`: `con_peso` | `peso_corporal` | `banda` | `tiempo`. Define qué campos pide la tarjeta de registro (`components/exercise-card.tsx`) y qué columnas guarda `registrarSets` (la modalidad se lee de la base en el servidor, nunca del cliente).
+- `workout_logs`: `lastre` (kg extra, solo peso corporal; el campo siempre se muestra vacío y es opcional), `segundos` (tiempo), `peso_corporal_ref` (peso de Medidas al registrar). En peso corporal, banda y tiempo `peso` queda null.
+- `lib/carga.ts`: modalidades, `FACTOR_PESO_CORPORAL` (flexiones por Ebben 2011: 0,64 común / 0,49 rodillas / 0,70 pies elevados; dominadas, fondos y ejercicios a una pierna 1,0 = estimación; abdominales, hiperextensiones, etc. sin factor a propósito), `cargaEfectiva`, `textoSerie`.
+- Análisis ("Tu progreso", `lib/progreso-simple.ts` → `adaptarPesoCorporal`): sin lastre se compara por repeticiones; con lastre, base fija de cuerpo (peso corporal más reciente) + lastre, así variar de peso no cuenta como progresar. Las frases hablan solo del lastre.
+- Orden de despliegue: aplicar la migración 103 ANTES del push (las páginas seleccionan las columnas nuevas). La limpieza de registros viejos (108 filas de ejercicios de peso corporal con el peso del cuerpo cargado como `peso`) es aparte y requiere OK del dueño caso por caso.
+- Pendiente: ejercicios por tiempo sin asignar (plancha/isométricas siguen en repeticiones hasta decidir); analizador viejo (`lib/analytics.ts`) aún ignora estas modalidades.
