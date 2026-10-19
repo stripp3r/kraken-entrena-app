@@ -20,7 +20,9 @@ const AMPLITUD_MINIMA: Record<NombreSenal, number> = {
   altura: 12,
 };
 
-const VISIBILIDAD_MINIMA = 0.5;
+// Más baja que antes (0,5): el modelo estima bien las articulaciones medio tapadas o cortadas
+// por el borde, y con exigir mucho había que alejarse demasiado del teléfono.
+const VISIBILIDAD_MINIMA = 0.3;
 const DURACION_MINIMA_MS = 250; // una ida y vuelta no puede durar menos
 const REPS_PARA_FIJAR = 4;
 // Una repetición candidata no se cuenta sola: hacen falta CUATRO seguidas parecidas (misma
@@ -195,6 +197,17 @@ function angulo(mundo: Punto[], vis: Punto[] | undefined, a: number, b: number, 
   return angulo3D(aPunto3(mundo[a]), aPunto3(mundo[b]), aPunto3(mundo[c]));
 }
 
+function anguloVertical(mundo: Punto[], vis: Punto[] | undefined, a: number, b: number): number | null {
+  const visible = (i: number) => (vis?.[i]?.visibility ?? mundo[i]?.visibility ?? 1) >= VISIBILIDAD_MINIMA;
+  if (!mundo[a] || !mundo[b] || !visible(a) || !visible(b)) return null;
+  const A = aPunto3(mundo[a]);
+  const B = aPunto3(mundo[b]);
+  const v = { x: B.x - A.x, y: B.y - A.y, z: B.z - A.z };
+  const n = Math.hypot(v.x, v.y, v.z);
+  if (n === 0) return null;
+  return (Math.acos(Math.min(1, Math.max(-1, v.y / n))) * 180) / Math.PI; // 0 = brazo colgando
+}
+
 export function calcularSenales(mundo: Punto[] | undefined, vis: Punto[] | undefined): Partial<Record<NombreSenal, number>> {
   if (!mundo) return {};
   const P = PUNTO;
@@ -211,9 +224,11 @@ export function calcularSenales(mundo: Punto[] | undefined, vis: Punto[] | undef
     angulo(mundo, vis, P.hombroIzq, P.caderaIzq, P.rodillaIzq),
     angulo(mundo, vis, P.hombroDer, P.caderaDer, P.rodillaDer),
   ]);
+  // Brazos: ángulo del brazo (hombro->codo) respecto de la vertical. Sirve para elevaciones,
+  // vuelos y presses; solo necesita hombros y codos en cuadro (no la cadera).
   const brazos = promedioValidos([
-    angulo(mundo, vis, P.caderaIzq, P.hombroIzq, P.codoIzq),
-    angulo(mundo, vis, P.caderaDer, P.hombroDer, P.codoDer),
+    anguloVertical(mundo, vis, P.hombroIzq, P.codoIzq),
+    anguloVertical(mundo, vis, P.hombroDer, P.codoDer),
   ]);
   if (codos !== null) s.codos = codos;
   if (rodillas !== null) s.rodillas = rodillas;
@@ -256,8 +271,13 @@ export class ContadorUniversal {
   }
 
   private activo = false;
+  private traza: Partial<Record<NombreSenal, number[]>> = {};
+  private tUltimaTraza = -1;
+  private t0 = 0;
 
   reset() {
+    this.traza = {};
+    this.tUltimaTraza = -1;
     this.detectores = this.crear();
     this.suave = {};
     this.fijada = null;
@@ -266,10 +286,18 @@ export class ContadorUniversal {
 
   /** Empieza a contar. Antes de esto solo se mira si el cuerpo está en cuadro. */
   empezar() {
+    this.traza = {};
+    this.tUltimaTraza = -1;
+    this.t0 = 0;
     this.detectores = this.crear();
     this.suave = {};
     this.fijada = null;
     this.activo = true;
+  }
+
+  /** Señales muestreadas (10 Hz) de la serie en curso; -1 = no visible en ese instante. */
+  exportarTraza(): Partial<Record<NombreSenal, number[]>> {
+    return this.traza;
   }
 
   get contando() {
@@ -295,6 +323,12 @@ export class ContadorUniversal {
     const senales = calcularSenales(mundo, vis);
     const hay = Object.keys(senales).length > 0;
     if (hay) this.ultimaVista = tMs;
+    // Traza para análisis offline: señales a ~10 Hz (solo números, sin video).
+    if (this.activo && hay && tMs - this.tUltimaTraza >= 100) {
+      if (this.tUltimaTraza < 0) this.t0 = tMs;
+      this.tUltimaTraza = tMs;
+      for (const n of NOMBRES) (this.traza[n] ??= []).push(senales[n] === undefined ? -1 : Math.round(senales[n]! * 10) / 10);
+    }
     for (const n of NOMBRES) {
       if (!this.activo) break;
       const x = senales[n];

@@ -326,6 +326,7 @@ export function ExerciseCard({
       {camaraAbierta && (
         <ContadorCamara
           nombre={exercise.nombre}
+          exerciseId={exercise.id}
           onCerrar={() => setCamaraAbierta(false)}
           onUsar={(n) => {
             setCamaraAbierta(false);

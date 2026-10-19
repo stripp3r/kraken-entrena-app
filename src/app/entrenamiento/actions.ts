@@ -6,6 +6,7 @@ import { rutinaIncluidaEnPlan } from "@/lib/premium";
 import { ladoOpuesto, ladoPendiente } from "@/lib/lado-pendiente";
 import type { TipoSerie } from "@/lib/dropset";
 import { modalidadValida, type ModalidadCarga } from "@/lib/carga";
+import { esUsuarioDePrototipos } from "@/lib/prototipos";
 
 export type SetInput = {
   peso: number | null;
@@ -152,6 +153,40 @@ async function modalidadYPesoCorporal(
     .limit(1)
     .maybeSingle();
   return { modalidad, pesoCorporal: med?.peso ?? null };
+}
+
+// PROTOTIPO (cámara): guarda los NÚMEROS de una serie contada con la cámara (señales a ~10 Hz,
+// lo que contó el algoritmo y lo que quedó tras corregir) para ajustar el conteo con datos
+// reales. No hay video. Solo para cuentas de prototipos (lib/prototipos.ts).
+export async function guardarSesionPose(datos: {
+  exerciseId: number | null;
+  camara: string;
+  fps: number | null;
+  contado: number;
+  final: number;
+  senal: string | null;
+  senales: Record<string, number[]>;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !esUsuarioDePrototipos(user.email)) return { error: "No autorizado." };
+  // Tope de tamaño: ~15 minutos de serie a 10 Hz, 5 señales.
+  const total = Object.values(datos.senales).reduce((a, v) => a + v.length, 0);
+  if (total > 50000) return { error: "Serie demasiado larga." };
+  const { error } = await supabase.from("pose_sesiones_prueba").insert({
+    user_id: user.id,
+    exercise_definition_id: datos.exerciseId,
+    camara: datos.camara.slice(0, 20),
+    fps: datos.fps,
+    contado: datos.contado,
+    final: datos.final,
+    senal: datos.senal,
+    senales: datos.senales,
+  });
+  if (error) return { error: error.message };
+  return { ok: true };
 }
 
 export async function editarSet(logId: number, set: SetInput) {

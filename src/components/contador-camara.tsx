@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ContadorUniversal, type EstadoContador } from "@/lib/pose/contador";
 import { PUNTO, type Punto } from "@/lib/pose/geometria";
+import { guardarSesionPose } from "@/app/entrenamiento/actions";
 
 // PROTOTIPO: cuenta las repeticiones de CUALQUIER ejercicio con la cámara, sin calibrar
 // (lib/pose/contador.ts). Se abre desde la ficha del ejercicio, cuenta en pantalla
@@ -45,7 +46,7 @@ function dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number, pun
   }
 }
 
-export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; onUsar: (reps: number) => void; onCerrar: () => void }) {
+export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombre: string; exerciseId: number; onUsar: (reps: number) => void; onCerrar: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -64,6 +65,7 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
   const [cuenta, setCuenta] = useState(SEGUNDOS_CUENTA);
   const [ajuste, setAjuste] = useState(0); // correcciones manuales (+1 / -1) sobre lo que contó la cámara
   const temporizadorRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fpsRef = useRef<number | null>(null);
 
   const detener = useCallback(() => {
     activoRef.current = false;
@@ -142,6 +144,8 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
 
         let ultimoVideoTime = -1;
         let ultimoHud = 0;
+        let ultimoFrame = performance.now();
+        let dtPrevio = 0;
         const tick = () => {
           if (!activoRef.current) return;
           rafRef.current = requestAnimationFrame(tick);
@@ -151,6 +155,9 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
           const r = landmarkerRef.current!.detectForVideo(video, ahora);
           const puntos = r.landmarks?.[0];
           const est = contadorRef.current.procesar(r.worldLandmarks?.[0], puntos, ahora);
+          if (dtPrevio > 0) fpsRef.current = fpsRef.current === null ? 1000 / dtPrevio : fpsRef.current * 0.95 + (1000 / dtPrevio) * 0.05;
+          dtPrevio = ahora - ultimoFrame;
+          ultimoFrame = ahora;
           dibujar(ctx, canvas.width, canvas.height, puntos);
           if (ahora - ultimoHud > 100) {
             ultimoHud = ahora;
@@ -215,18 +222,36 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
     setFase("preparar");
   }
 
+  // Guarda los números de la serie (sin video) para ajustar el conteo con datos reales.
+  function guardarTraza(contado: number, final: number) {
+    const senales = contadorRef.current.exportarTraza();
+    if (Object.keys(senales).length === 0) return;
+    void guardarSesionPose({
+      exerciseId,
+      camara: lado,
+      fps: fpsRef.current === null ? null : Math.round(fpsRef.current * 10) / 10,
+      contado,
+      final,
+      senal: estado?.senal ?? null,
+      senales: senales as Record<string, number[]>,
+    });
+  }
+
   function usar() {
+    guardarTraza(estado?.repeticiones ?? 0, Math.max(0, (estado?.repeticiones ?? 0) + ajuste));
     const n = Math.max(0, (estado?.repeticiones ?? 0) + ajuste);
     detener();
     onUsar(n);
   }
 
   function cerrar() {
+    if (faseVigente()) guardarTraza(estado?.repeticiones ?? 0, Math.max(0, (estado?.repeticiones ?? 0) + ajuste));
     detener();
     onCerrar();
   }
 
   const reps = Math.max(0, (estado?.repeticiones ?? 0) + ajuste);
+  const faseVigente = () => fase === "contando" && (estado?.repeticiones ?? 0) + ajuste !== 0;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
@@ -255,6 +280,7 @@ export function ContadorCamara({ nombre, onUsar, onCerrar }: { nombre: string; o
               <div className="absolute left-3 top-3 rounded-xl bg-black/60 px-4 py-2 text-white">
                 <p className="text-[10px] uppercase tracking-wide text-gray-400">Repeticiones</p>
                 <p className="text-6xl font-semibold leading-none">{reps}</p>
+                <p className="mt-1 text-[10px] text-gray-400">siguiendo: {estado?.senal ?? "buscando"}</p>
               </div>
             )}
             {fase === "cuenta" && (
