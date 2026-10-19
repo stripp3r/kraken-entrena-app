@@ -135,6 +135,17 @@ export default async function Home() {
             <span className="text-2xl font-light leading-none text-gray-500">›</span>
           </Link>
         )}
+        {esUsuarioDePrototipos(user.email) && (
+          <Link
+            href="/progreso/prueba"
+            className="mt-2 flex items-center justify-between rounded-lg border border-dashed border-border-strong bg-bg-card px-4 py-3 text-sm text-white transition-colors hover:border-white/40"
+          >
+            <span>
+              Progreso prueba <span className="ml-1 text-xs text-gray-500">prototipo</span>
+            </span>
+            <span className="text-2xl font-light leading-none text-gray-500">›</span>
+          </Link>
+        )}
       </div>
     </main>
   );

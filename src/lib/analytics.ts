@@ -33,7 +33,7 @@ export type EstadisticasEjercicio = {
   cantidadDias: number;
 };
 
-function epley(peso: number, reps: number) {
+export function epley(peso: number, reps: number) {
   return peso * (1 + reps / 30);
 }
 
