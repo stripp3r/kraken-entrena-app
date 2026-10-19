@@ -395,6 +395,23 @@ export function ExerciseCard({
                         : null;
                 return editingId === log.id ? (
                   <div key={log.id} className="flex items-center gap-1.5">
+                    {modalidad === "tiempo" ? (
+                      <input
+                        value={editRow.segundos}
+                        onChange={(e) => setEditRow((r) => ({ ...r, segundos: e.target.value }))}
+                        placeholder="Seg"
+                        inputMode="numeric"
+                        className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
+                      />
+                    ) : (
+                      <input
+                        value={editRow.reps}
+                        onChange={(e) => setEditRow((r) => ({ ...r, reps: e.target.value }))}
+                        placeholder="Reps"
+                        inputMode="numeric"
+                        className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
+                      />
+                    )}
                     {modalidad === "con_peso" && (
                       <input
                         value={editRow.peso}
@@ -410,23 +427,6 @@ export function ExerciseCard({
                         onChange={(e) => setEditRow((r) => ({ ...r, lastre: limpiarDecimal(e.target.value) }))}
                         placeholder="Lastre"
                         inputMode="decimal"
-                        className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
-                      />
-                    )}
-                    {modalidad === "tiempo" ? (
-                      <input
-                        value={editRow.segundos}
-                        onChange={(e) => setEditRow((r) => ({ ...r, segundos: e.target.value }))}
-                        placeholder="Seg"
-                        inputMode="numeric"
-                        className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
-                      />
-                    ) : (
-                      <input
-                        value={editRow.reps}
-                        onChange={(e) => setEditRow((r) => ({ ...r, reps: e.target.value }))}
-                        placeholder="Reps"
-                        inputMode="numeric"
                         className="w-16 rounded-md border border-border bg-bg px-2 py-1 text-sm text-white outline-none"
                       />
                     )}
@@ -550,18 +550,6 @@ export function ExerciseCard({
                   </div>
                 )}
                 <div className="flex items-end gap-2">
-                  {modalidad === "con_peso" && (
-                    <div className="flex flex-1 flex-col gap-1">
-                      <label className="text-[11px] text-gray-500">Peso</label>
-                      <input
-                        value={setActivo.peso}
-                        onChange={(e) => setSetActivo((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
-                        type="text"
-                        inputMode="decimal"
-                        className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
-                      />
-                    </div>
-                  )}
                   {modalidad === "tiempo" ? (
                     <div className="flex flex-1 flex-col gap-1">
                       <label className="text-[11px] text-gray-500">Segundos</label>
@@ -581,6 +569,18 @@ export function ExerciseCard({
                         onChange={(e) => setSetActivo((r) => ({ ...r, reps: e.target.value }))}
                         type="number"
                         inputMode="numeric"
+                        className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
+                      />
+                    </div>
+                  )}
+                  {modalidad === "con_peso" && (
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className="text-[11px] text-gray-500">Peso</label>
+                      <input
+                        value={setActivo.peso}
+                        onChange={(e) => setSetActivo((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
+                        type="text"
+                        inputMode="decimal"
                         className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"
                       />
                     </div>
