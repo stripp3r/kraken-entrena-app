@@ -13,10 +13,12 @@ const MULTIPLICADOR_ACTIVIDAD: Record<ActividadNutricional, number> = {
   extremo: 1.9,
 };
 
-const FACTOR_OBJETIVO: Record<ObjetivoNutricional, { factor: number; etiqueta: string }> = {
-  superavit: { factor: 1.1, etiqueta: "para ganar masa muscular limpia" },
-  mantenimiento: { factor: 1, etiqueta: "para mantener tu peso" },
-  definicion: { factor: 0.8, etiqueta: "para bajar grasa de forma sostenida" },
+// "definicion" resta un déficit fijo de 300 kcal sobre el mantenimiento (no un porcentaje),
+// criterio del plan Grasa Sub-Cero: déficit moderado para proteger el músculo.
+const FACTOR_OBJETIVO: Record<ObjetivoNutricional, { factor: number; ajusteKcal: number; etiqueta: string }> = {
+  superavit: { factor: 1.1, ajusteKcal: 0, etiqueta: "para ganar masa muscular limpia" },
+  mantenimiento: { factor: 1, ajusteKcal: 0, etiqueta: "para mantener tu peso" },
+  definicion: { factor: 1, ajusteKcal: -300, etiqueta: "para bajar grasa de forma sostenida" },
 };
 
 export type EstimacionNutricional = {
@@ -43,8 +45,8 @@ export function calcularEstimacionNutricional(params: {
       : 10 * pesoKg + 6.25 * alturaCm - 5 * edad - 161;
 
   const tdee = tmb * MULTIPLICADOR_ACTIVIDAD[actividad];
-  const { factor, etiqueta } = FACTOR_OBJETIVO[objetivo];
-  const metaCalorias = tdee * factor;
+  const { factor, ajusteKcal, etiqueta } = FACTOR_OBJETIVO[objetivo];
+  const metaCalorias = tdee * factor + ajusteKcal;
 
   const proteinaG = Math.round(pesoKg * 2);
   const proteinaKcal = proteinaG * 4;
