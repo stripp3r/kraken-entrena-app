@@ -111,3 +111,50 @@ export function medidasDemo(): FilaMedida[] {
     { fecha: f(2), peso: 78.5, cintura: 84, caderas: 97.5, pecho: 101, brazo: 36, muslos: 58.5 },
   ];
 }
+
+// ---------- Demostración del panel global (16 semanas de historia, hombre de 80 kg) ----------
+
+import type { EjercicioGlobal, LogCrudo } from "./progreso-global";
+
+export function demoGlobal(): { ejercicios: EjercicioGlobal[]; perfil: { sexo: "masculino"; pesoCorporal: number } } {
+  let id = 50000;
+  const hoyMs = new Date().setUTCHours(13, 0, 0, 0);
+  const lunes = (() => {
+    const d = new Date(hoyMs);
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    return d.getTime();
+  })();
+  const DIA = 86_400_000;
+  // Semana 0 = hace 15 semanas; 3 entrenos por semana (lunes, miércoles, viernes), con 2 semanas casi vacías.
+  const sesiones: { t: number; grupo: "A" | "B"; n: number }[] = [];
+  let n = 0;
+  for (let w = 0; w < 16; w++) {
+    const lun = lunes - (15 - w) * 7 * DIA;
+    const dias = w === 6 || w === 7 ? [0] : [0, 2, 4];
+    for (const d of dias) {
+      sesiones.push({ t: lun + d * DIA, grupo: n % 2 === 0 ? "A" : "B", n });
+      n++;
+    }
+  }
+  const crear = (idEj: number, nombre: string, grupos: string[], modalidad: EjercicioGlobal["modalidad"], g: "A" | "B", f: (k: number, total: number) => { peso: number | null; reps: number; lastre?: number; series: number }): EjercicioGlobal => {
+    const mias = sesiones.filter((s) => s.grupo === g);
+    const logs: LogCrudo[] = [];
+    mias.forEach((s, k) => {
+      const v = f(k, mias.length);
+      for (let i = 0; i < v.series; i++) {
+        logs.push({ id: id++, peso: v.peso, reps: v.reps, rir: 1, tipo_serie: "normal", drop_de: null, created_at: new Date(s.t + i * 150_000).toISOString(), lastre: v.lastre ?? null, peso_corporal_ref: modalidad === "peso_corporal" ? 80 : null });
+      }
+    });
+    return { id: idEj, nombre, grupos, modalidad, logs };
+  };
+  const r = (x: number) => Math.round(x * 2) / 2;
+  const ejercicios: EjercicioGlobal[] = [
+    crear(32, "Press banco plano con barra", ["Pecho", "Tríceps", "Hombros"], "con_peso", "A", (k, t) => ({ peso: r(62.5 + (k / (t - 1)) * 17.5), reps: 8, series: 3 })),
+    crear(169, "Press de hombro sentado con barra", ["Hombros", "Tríceps"], "con_peso", "A", (k, t) => ({ peso: r(30 + (k / (t - 1)) * 7.5), reps: 8, series: 3 })),
+    crear(69, "Curl con barra EZ", ["Bíceps", "Antebrazos"], "con_peso", "A", (k, t) => ({ peso: r(25 + (k / (t - 1)) * 7.5), reps: 10, series: 3 })),
+    crear(123, "Sentadilla con barra", ["Cuádriceps", "Glúteos", "Isquiotibiales"], "con_peso", "B", (k, t) => ({ peso: r(80 + Math.min(1, (k / (t - 1)) * 1.6) * 15), reps: 6, series: 4 })),
+    crear(38, "Remo con barra parado", ["Espalda", "Bíceps", "Trapecio"], "con_peso", "B", (k, t) => ({ peso: r(k > t - 5 ? 62.5 : 55 + (k / (t - 1)) * 20), reps: 8, series: 3 })),
+    crear(141, "Dominadas (Pull ups)", ["Espalda", "Bíceps"], "peso_corporal", "B", (k, t) => (k > t * 0.6 ? { peso: null, reps: 8, lastre: 5, series: 3 } : { peso: null, reps: 6 + Math.floor((k / t) * 5), series: 3 })),
+  ];
+  return { ejercicios, perfil: { sexo: "masculino", pesoCorporal: 80 } };
+}
