@@ -83,12 +83,15 @@ export function ContadorCamara({
   nombre,
   exerciseId,
   modalidad,
+  avanzado,
   onUsar,
   onCerrar,
 }: {
   nombre: string;
   exerciseId: number;
   modalidad: ModalidadCarga;
+  // Dictado por voz y guardado de series: solo cuentas de prototipos (el audio del dictado lo procesa el navegador).
+  avanzado: boolean;
   onUsar: (reps: number, extra: ResultadoCamara) => void;
   onCerrar: () => void;
 }) {
@@ -382,7 +385,7 @@ export function ContadorCamara({
   // Guarda los números de la serie (sin video) para ajustar el conteo con datos reales.
   function guardarTraza() {
     const senales = contadorRef.current.exportarTraza();
-    if (Object.keys(senales).length === 0 || (hud?.estado.repeticiones ?? 0) + ajuste === 0) return;
+    if (!avanzado || Object.keys(senales).length === 0 || (hud?.estado.repeticiones ?? 0) + ajuste === 0) return;
     void guardarSesionPose({
       exerciseId,
       camara: lado,
@@ -508,7 +511,7 @@ export function ContadorCamara({
           </button>
         </div>
 
-        {modalidad !== "tiempo" && (
+        {avanzado && modalidad !== "tiempo" && (
           <div className="flex items-center gap-2">
             <button type="button" onClick={dictar} disabled={!hud?.armado} className={`flex-none rounded-full border px-4 py-2 text-sm disabled:opacity-40 ${escuchando ? "border-red-400 text-red-300" : "border-border-strong text-gray-200"}`}>
               {escuchando ? "🎤 Escuchando…" : "🎤 Decir peso y RIR"}

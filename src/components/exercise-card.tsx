@@ -103,6 +103,7 @@ export function ExerciseCard({
   onSeleccionar,
   sesion,
   camara = false,
+  avanzado = false,
 }: {
   exercise: Exercise;
   dia: string;
@@ -113,6 +114,7 @@ export function ExerciseCard({
   sesion?: SesionActiva;
   // Prototipo: botón para contar repeticiones con la cámara (solo cuentas de prototipos).
   camara?: boolean;
+  avanzado?: boolean;
 }) {
   const router = useRouter();
   const [setActivo, setSetActivo] = useState(emptyRow);
@@ -349,6 +351,7 @@ export function ExerciseCard({
           nombre={exercise.nombre}
           exerciseId={exercise.id}
           modalidad={modalidad}
+          avanzado={avanzado}
           onCerrar={() => setCamaraAbierta(false)}
           onUsar={(n, extra: ResultadoCamara) => {
             setCamaraAbierta(false);

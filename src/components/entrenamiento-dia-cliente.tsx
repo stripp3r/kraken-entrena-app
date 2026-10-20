@@ -86,6 +86,7 @@ export function EntrenamientoDiaCliente({
   exercises,
   logsPorEjercicio,
   camara = false,
+  avanzado = false,
 }: {
   dia: string;
   routineId: number | null;
@@ -93,17 +94,20 @@ export function EntrenamientoDiaCliente({
   exercises: ExerciseFull[];
   logsPorEjercicio: Record<number, WorkoutLog[]>;
   camara?: boolean;
+  // Funciones en prueba (dictado por voz, guardado de series para ajustar el conteo, precarga del modelo):
+  // solo cuentas de prototipos.
+  avanzado?: boolean;
 }) {
   const router = useRouter();
   // Prototipo (cámara): el modelo de postura se carga en segundo plano al entrar al día, así la cámara
   // abre al instante, y se libera al salir.
   useEffect(() => {
-    if (!camara) return;
+    if (!camara || !avanzado) return;
     const w = window as Window & { requestIdleCallback?: (f: () => void) => number };
     if (w.requestIdleCallback) w.requestIdleCallback(() => precargarLandmarker());
     else window.setTimeout(() => precargarLandmarker(), 1500);
     return () => liberarLandmarker();
-  }, [camara]);
+  }, [camara, avanzado]);
   const [sesionActiva, setSesionActiva] = useState(false);
   const [activoId, setActivoId] = useState<number | null>(null);
   const [descansoHasta, setDescansoHasta] = useState<number | null>(null);
@@ -283,6 +287,7 @@ export function EntrenamientoDiaCliente({
               logsDeHoy={logsPorEjercicio[ex.id] ?? []}
               activo={esActivo}
               camara={camara}
+              avanzado={avanzado}
               compacto={!sesionActiva}
               onSeleccionar={sesionActiva && !esActivo ? () => seleccionar(ex.id) : undefined}
               sesion={

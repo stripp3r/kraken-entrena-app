@@ -201,7 +201,8 @@ export default async function DiaEntrenamientoPage({
             dia={dia}
             routineId={profile.routine_id}
             finalizadoHoy={Boolean(finalizacion)}
-            camara={esUsuarioDePrototipos(user.email)}
+            camara
+            avanzado={esUsuarioDePrototipos(user.email)}
             exercises={exercises.map((ex) => ({
               id: ex.id,
               nombre: ex.nombre,
