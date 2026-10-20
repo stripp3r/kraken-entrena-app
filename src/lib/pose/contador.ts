@@ -60,6 +60,16 @@ class DetectorVaiven {
 
   constructor(private readonly amplitudMinima: number) {}
 
+  get serieValidada() {
+    return this.validada;
+  }
+  get ultimoCierreMs() {
+    return this.tUltimoCierre;
+  }
+  get duracionTipicaMs() {
+    return this.durRef;
+  }
+
   reset() {
     this.dir = 0;
     this.pivotes = [];
@@ -255,6 +265,8 @@ export type EstadoContador = {
   repeticiones: number;
   senal: NombreSenal | null; // la señal que se está contando (se fija tras 2 repeticiones)
   visible: boolean; // hay cuerpo detectado
+  caminando: boolean; // el cuerpo se está desplazando (caminar): no se cuenta
+  terminada: boolean; // la serie ya se validó y pasó un rato sin repeticiones nuevas
   mensaje: string;
 };
 
@@ -265,6 +277,8 @@ export class ContadorUniversal {
   private suave: Partial<Record<NombreSenal, number>> = {};
   private fijada: NombreSenal | null = null;
   private ultimaVista = 0;
+  private centros: { t: number; x: number; y: number; torso: number }[] = [];
+  private tCaminando = -1e9;
 
   private crear(): Record<NombreSenal, DetectorVaiven> {
     return Object.fromEntries(NOMBRES.map((n) => [n, new DetectorVaiven(AMPLITUD_MINIMA[n])])) as Record<NombreSenal, DetectorVaiven>;
@@ -319,10 +333,39 @@ export class ContadorUniversal {
     return mejor;
   }
 
+  // Caminar o acercarse al teléfono mueve todo el cuerpo por la imagen: si el centro del torso
+  // se desplaza más de medio torso en 1,5 s, se descarta lo acumulado (los pasos no son repeticiones).
+  private revisarTraslacion(vis: Punto[] | undefined, tMs: number): boolean {
+    const P = PUNTO;
+    const pts = [P.hombroIzq, P.hombroDer, P.caderaIzq, P.caderaDer].map((i) => vis?.[i]);
+    const ok = pts.every((q) => q && (q.visibility ?? 0) >= VISIBILIDAD_MINIMA);
+    if (!ok) return false;
+    const [hI, hD, cI, cD] = pts as Punto[];
+    const x = (hI.x + hD.x + cI.x + cD.x) / 4;
+    const y = (hI.y + hD.y + cI.y + cD.y) / 4;
+    const torso = Math.hypot((hI.x + hD.x) / 2 - (cI.x + cD.x) / 2, (hI.y + hD.y) / 2 - (cI.y + cD.y) / 2);
+    if (torso < 0.05) return false;
+    this.centros.push({ t: tMs, x, y, torso });
+    while (this.centros.length && tMs - this.centros[0].t > 1500) this.centros.shift();
+    const a = this.centros[0];
+    const desplazamiento = Math.hypot(x - a.x, y - a.y) / torso;
+    // Horizontal: caminar o girar; en vertical se tolera más (sentadillas, saltos).
+    const horizontal = Math.abs(x - a.x) / torso;
+    return horizontal > 0.5 || desplazamiento > 1.1;
+  }
+
   procesar(mundo: Punto[] | undefined, vis: Punto[] | undefined, tMs: number): EstadoContador {
     const senales = calcularSenales(mundo, vis);
     const hay = Object.keys(senales).length > 0;
     if (hay) this.ultimaVista = tMs;
+    let caminando = false;
+    if (this.activo && this.revisarTraslacion(vis, tMs)) {
+      caminando = true;
+      this.tCaminando = tMs;
+      // Se descartan las repeticiones candidatas (no las ya validadas en una serie en curso).
+      for (const n of NOMBRES) if (!this.detectores[n].serieValidada) this.detectores[n].reset();
+    }
+    if (tMs - this.tCaminando < 800) caminando = true;
     // Traza para análisis offline: señales a ~10 Hz (solo números, sin video).
     if (this.activo && hay && tMs - this.tUltimaTraza >= 100) {
       if (this.tUltimaTraza < 0) this.t0 = tMs;
@@ -330,7 +373,7 @@ export class ContadorUniversal {
       for (const n of NOMBRES) (this.traza[n] ??= []).push(senales[n] === undefined ? -1 : Math.round(senales[n]! * 10) / 10);
     }
     for (const n of NOMBRES) {
-      if (!this.activo) break;
+      if (!this.activo || caminando) break;
       const x = senales[n];
       if (x === undefined) continue;
       const previo = this.suave[n];
@@ -346,10 +389,18 @@ export class ContadorUniversal {
     const senal = this.fijada ?? this.mejor();
     const repeticiones = senal ? this.detectores[senal].repeticiones : 0;
     const visible = tMs - this.ultimaVista < 1500;
+    const det = senal ? this.detectores[senal] : null;
+    const terminada =
+      det !== null &&
+      det.serieValidada &&
+      det.ultimoCierreMs !== null &&
+      tMs - det.ultimoCierreMs > Math.max(4000, det.duracionTipicaMs * 2.5);
     return {
       repeticiones,
       senal,
       visible,
+      caminando,
+      terminada,
       mensaje: !visible
         ? "No te veo: ponete con el cuerpo entero en cuadro."
         : !this.activo
