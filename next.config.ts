@@ -6,7 +6,8 @@ import type { NextConfig } from "next";
 // producción sin poder probarla en todos los dispositivos. Lo que sí se fija:
 // - frame-ancestors / X-Frame-Options: la app no puede mostrarse dentro de otra
 //   web (clickjacking). La app no se embebe en ningún lado.
-// - nosniff, Referrer-Policy y Permissions-Policy (sin micrófono ni ubicación;
+// - nosniff, Referrer-Policy y Permissions-Policy (micrófono solo de esta misma página -lo usa el
+//   dictado de peso y RIR del prototipo de cámara, con permiso del usuario- y sin ubicación;
 //   la cámara no se bloquea porque las fotos de evolución se cargan con el
 //   selector de archivos del teléfono).
 const encabezadosDeSeguridad = [
@@ -14,7 +15,7 @@ const encabezadosDeSeguridad = [
   { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "microphone=(), geolocation=()" },
+  { key: "Permissions-Policy", value: "microphone=(self), geolocation=()" },
 ];
 
 const nextConfig: NextConfig = {

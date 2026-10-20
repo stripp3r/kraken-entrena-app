@@ -11,6 +11,7 @@ import { ladoPendiente } from "@/lib/lado-pendiente";
 import { contarSeriesPrincipales, planDeSeries, seriesObjetivoDelPlan, type TipoSerie } from "@/lib/dropset";
 import { leerSesionActiva, guardarSesionActiva, borrarSesionActiva } from "@/lib/sesion-entrenamiento";
 import type { ModalidadCarga } from "@/lib/carga";
+import { liberarLandmarker, precargarLandmarker } from "@/lib/pose/landmarker-cache";
 
 const OBJETIVO_SERIES_DEFAULT = 3;
 
@@ -94,6 +95,15 @@ export function EntrenamientoDiaCliente({
   camara?: boolean;
 }) {
   const router = useRouter();
+  // Prototipo (cámara): el modelo de postura se carga en segundo plano al entrar al día, así la cámara
+  // abre al instante, y se libera al salir.
+  useEffect(() => {
+    if (!camara) return;
+    const w = window as Window & { requestIdleCallback?: (f: () => void) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(() => precargarLandmarker());
+    else window.setTimeout(() => precargarLandmarker(), 1500);
+    return () => liberarLandmarker();
+  }, [camara]);
   const [sesionActiva, setSesionActiva] = useState(false);
   const [activoId, setActivoId] = useState<number | null>(null);
   const [descansoHasta, setDescansoHasta] = useState<number | null>(null);

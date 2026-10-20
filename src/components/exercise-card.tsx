@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { borrarSet, editarSet, registrarSets } from "@/app/entrenamiento/actions";
 import { DescansoTimer } from "./descanso-timer";
 import type { Lado } from "@/lib/descanso";
@@ -15,7 +15,8 @@ import {
 } from "@/lib/dropset";
 import { aNumero, limpiarDecimal } from "@/lib/numero";
 import { textoSerie, type ModalidadCarga } from "@/lib/carga";
-import { ContadorCamara } from "./contador-camara";
+import { ContadorCamara, type ResultadoCamara } from "./contador-camara";
+import { leerPreferencia } from "@/lib/voz";
 
 type WorkoutLog = {
   id: number;
@@ -71,6 +72,11 @@ export type SesionActiva = {
 
 const emptyRow = { peso: "", reps: "", rir: "", lastre: "", segundos: "" };
 
+function leerPreferenciaSegura(id: number): string {
+  if (typeof window === "undefined") return "0";
+  return leerPreferencia(`kraken_cam_auto_${id}`, ["1", "0"], "0");
+}
+
 function vacio(r: { peso: string; reps: string; rir: string; lastre: string; segundos: string }) {
   return !r.peso && !r.reps && !r.rir && !r.lastre && !r.segundos;
 }
@@ -121,8 +127,15 @@ export function ExerciseCard({
   const [cerradoId, setCerradoId] = useState<number | null>(null);
   const [ahora, setAhora] = useState(0);
   const [camaraAbierta, setCamaraAbierta] = useState(false);
+  const [rirEstimado, setRirEstimado] = useState(false);
+  const pesoRef = useRef<HTMLInputElement>(null);
+  const lastreRef = useRef<HTMLInputElement>(null);
+  const rirRef = useRef<HTMLInputElement>(null);
 
   const modalidad: ModalidadCarga = exercise.modalidad ?? "con_peso";
+  // Prototipo: si en este ejercicio ya se usó la cámara, se abre sola al seleccionarlo (se puede apagar
+  // desde la propia cámara).
+  const abrirSola = camara && Boolean(sesion) && activo && leerPreferenciaSegura(exercise.id) === "1";
   const plan = planDeSeries(exercise.series_reps);
   const conDropset = tieneDropset(plan);
   const { pendiente, modoSugerido } = estadoDropset(logsDeHoy, plan, ahora, cerradoId);
@@ -162,6 +175,13 @@ export function ExerciseCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendiente?.padreId, pendiente?.numero]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (abrirSola) setCamaraAbierta(true);
+    // Solo al pasar a ser el ejercicio activo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activo]);
+
   async function registrarSetDeSesion() {
     if (!sesion) return;
     if (vacio(setActivo)) return;
@@ -197,6 +217,7 @@ export function ExerciseCard({
     }
 
     setSetActivo(emptyRow);
+    setRirEstimado(false);
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 1800);
     router.refresh();
@@ -327,10 +348,28 @@ export function ExerciseCard({
         <ContadorCamara
           nombre={exercise.nombre}
           exerciseId={exercise.id}
+          modalidad={modalidad}
           onCerrar={() => setCamaraAbierta(false)}
-          onUsar={(n) => {
+          onUsar={(n, extra: ResultadoCamara) => {
             setCamaraAbierta(false);
-            if (n > 0) setSetActivo((r) => ({ ...r, reps: String(n) }));
+            if (n <= 0) return;
+            setSetActivo((r) => ({
+              ...r,
+              reps: String(n),
+              ...(extra.peso !== undefined ? { peso: String(extra.peso).replace(".", ",") } : {}),
+              ...(extra.lastre !== undefined ? { lastre: String(extra.lastre).replace(".", ",") } : {}),
+              ...(extra.rir !== undefined ? { rir: String(extra.rir) } : {}),
+            }));
+            setRirEstimado(Boolean(extra.rirEstimado));
+            // Directo al próximo campo que falta: peso (o lastre) y, si ya está, RIR.
+            window.setTimeout(() => {
+              const siguiente =
+                modalidad === "con_peso" && extra.peso === undefined ? pesoRef.current
+                : modalidad === "peso_corporal" && extra.lastre === undefined ? lastreRef.current
+                : extra.rir === undefined ? rirRef.current
+                : null;
+              siguiente?.focus();
+            }, 150);
           }}
         />
       )}
@@ -609,6 +648,7 @@ export function ExerciseCard({
                     <div className="flex flex-1 flex-col gap-1">
                       <label className="text-[11px] text-gray-500">Peso</label>
                       <input
+                        ref={pesoRef}
                         value={setActivo.peso}
                         onChange={(e) => setSetActivo((r) => ({ ...r, peso: limpiarDecimal(e.target.value) }))}
                         type="text"
@@ -621,6 +661,7 @@ export function ExerciseCard({
                     <div className="flex flex-1 flex-col gap-1">
                       <label className="text-[11px] text-gray-500">Lastre (kg extra)</label>
                       <input
+                        ref={lastreRef}
                         value={setActivo.lastre}
                         onChange={(e) => setSetActivo((r) => ({ ...r, lastre: limpiarDecimal(e.target.value) }))}
                         type="text"
@@ -631,10 +672,14 @@ export function ExerciseCard({
                     </div>
                   )}
                   <div className={`flex flex-1 flex-col gap-1 ${pendiente ? "hidden" : ""}`}>
-                    <label className="text-[11px] text-gray-500">RIR</label>
+                    <label className="text-[11px] text-gray-500">RIR{rirEstimado ? " (estimado)" : ""}</label>
                     <input
+                      ref={rirRef}
                       value={setActivo.rir}
-                      onChange={(e) => setSetActivo((r) => ({ ...r, rir: e.target.value }))}
+                      onChange={(e) => {
+                        setRirEstimado(false);
+                        setSetActivo((r) => ({ ...r, rir: e.target.value }));
+                      }}
                       type="number"
                       inputMode="numeric"
                       className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none focus:border-border-strong"

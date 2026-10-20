@@ -4,17 +4,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ContadorUniversal, type EstadoContador } from "@/lib/pose/contador";
 import { evaluarEncuadre, type Encuadre } from "@/lib/pose/encuadre";
 import { PUNTO, type Punto } from "@/lib/pose/geometria";
+import { obtenerLandmarker, type Landmarker } from "@/lib/pose/landmarker-cache";
 import { guardarSesionPose } from "@/app/entrenamiento/actions";
 import { callar, guardarPreferencia, hablar, leerPreferencia, PREF, vozDisponible } from "@/lib/voz";
+import { interpretarDictado, type DatosDictados } from "@/lib/voz-comandos";
+import type { ModalidadCarga } from "@/lib/carga";
 
 // PROTOTIPO: cuenta las repeticiones de CUALQUIER ejercicio con la cámara, sin calibrar
-// (lib/pose/contador.ts). Se abre desde la ficha del ejercicio y devuelve el número para
-// llenar el campo "Reps".
-// - Sin botón de empezar: se arma solo cuando la persona está bien encuadrada, y cuenta
-//   desde ese momento (las primeras repeticiones se suman al validarse la serie).
-// - Guía de encuadre en pantalla y por voz (acercate / alejate / se corta el cuerpo).
-// - Canta las repeticiones en voz alta y avisa cuando termina la serie.
-// - Se acuerda de la cámara (frontal / trasera) y de si la voz está activa.
+// (lib/pose/contador.ts). Se abre desde la ficha del ejercicio y devuelve datos para llenarla.
+// - Sin botón de empezar: se arma solo cuando la persona está bien encuadrada.
+// - Guía de encuadre en pantalla y por voz; canta las repeticiones y avisa el fin de serie.
+// - Al terminar sugiere el RIR (estimado por cuánto se enlentecen las últimas repeticiones) y
+//   permite dictar peso y RIR en voz alta.
+// - Se acuerda de la cámara, de la voz y de en qué ejercicios la usaste.
 // NADA se graba ni se envía como video: los fotogramas se procesan en el teléfono y se descartan.
 
 const ESQUELETO: [number, number][] = [
@@ -34,11 +36,31 @@ const ESQUELETO: [number, number][] = [
 
 type Ui = "cargando" | "activo" | "error";
 type Lado = "user" | "environment";
-type Landmarker = { detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks?: Punto[][]; worldLandmarks?: Punto[][] }; close: () => void };
 type Hud = { estado: EstadoContador; encuadre: Encuadre; armado: boolean };
 
+export type ResultadoCamara = { rir?: number; rirEstimado?: boolean; peso?: number; lastre?: number };
+
 const MS_ENCUADRE_PARA_ARMAR = 1000;
-const MS_AVISO_ENCUADRE = 4000; // no repetir el mismo aviso de voz antes de esto
+const MS_AVISO_ENCUADRE = 4000;
+const MS_INACTIVIDAD = 3 * 60 * 1000; // la cámara se apaga sola si no pasa nada (cuida la batería)
+
+// Reconocimiento de voz del navegador (Chrome/Android). Se usa solo si la persona toca el micrófono.
+type Reconocedor = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((e: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+function crearReconocedor(): Reconocedor | null {
+  const w = window as unknown as { SpeechRecognition?: new () => Reconocedor; webkitSpeechRecognition?: new () => Reconocedor };
+  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  return Ctor ? new Ctor() : null;
+}
 
 function dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number, puntos: Punto[] | undefined, color: string) {
   ctx.clearRect(0, 0, ancho, alto);
@@ -55,7 +77,21 @@ function dibujar(ctx: CanvasRenderingContext2D, ancho: number, alto: number, pun
   }
 }
 
-export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombre: string; exerciseId: number; onUsar: (reps: number) => void; onCerrar: () => void }) {
+const claveAuto = (id: number) => `kraken_cam_auto_${id}`;
+
+export function ContadorCamara({
+  nombre,
+  exerciseId,
+  modalidad,
+  onUsar,
+  onCerrar,
+}: {
+  nombre: string;
+  exerciseId: number;
+  modalidad: ModalidadCarga;
+  onUsar: (reps: number, extra: ResultadoCamara) => void;
+  onCerrar: () => void;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -66,20 +102,26 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
   const activoRef = useRef(false);
   const fpsRef = useRef<number | null>(null);
   const vozRef = useRef(true);
+  const reconocedorRef = useRef<Reconocedor | null>(null);
   // Estado de la guía y del conteo que se maneja dentro del bucle de video (sin re-render).
   const armadoRef = useRef(false);
   const okDesdeRef = useRef<number | null>(null);
   const repsDichasRef = useRef(0);
   const terminadaAvisadaRef = useRef(false);
   const ultimaVozEncuadreRef = useRef(0);
+  const ultimaActividadRef = useRef(0);
 
   const [ui, setUi] = useState<Ui>("cargando");
   const [error, setError] = useState<string | null>(null);
   const [lado, setLado] = useState<Lado>(() => (typeof window === "undefined" ? "environment" : leerPreferencia<Lado>(PREF.lado, ["user", "environment"], "environment")));
   const [voz, setVoz] = useState<boolean>(() => (typeof window === "undefined" ? true : leerPreferencia(PREF.voz, ["si", "no"], "si") === "si"));
+  const [autoAbrir, setAutoAbrir] = useState<boolean>(() => (typeof window === "undefined" ? true : leerPreferencia(claveAuto(exerciseId), ["1", "0"], "1") === "1"));
   const [aspecto, setAspecto] = useState(3 / 4);
   const [hud, setHud] = useState<Hud | null>(null);
   const [ajuste, setAjuste] = useState(0); // correcciones manuales (+1 / -1)
+  const [escuchando, setEscuchando] = useState(false);
+  const [dictado, setDictado] = useState<{ texto: string; datos: DatosDictados } | null>(null);
+  const [avisoVoz, setAvisoVoz] = useState<string | null>(null);
 
   useEffect(() => {
     vozRef.current = voz;
@@ -90,13 +132,18 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
     activoRef.current = false;
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
-    landmarkerRef.current?.close();
+    // El modelo NO se cierra: queda cargado para que la próxima serie abra al instante.
     landmarkerRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     wakeLockRef.current?.release().catch(() => {});
     wakeLockRef.current = null;
+    try {
+      reconocedorRef.current?.stop();
+    } catch {
+      /* ya estaba parado */
+    }
     callar();
   }, []);
 
@@ -110,8 +157,10 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
     okDesdeRef.current = null;
     repsDichasRef.current = 0;
     terminadaAvisadaRef.current = false;
+    ultimaActividadRef.current = performance.now();
     setAjuste(0);
     setHud(null);
+    setDictado(null);
   }, []);
 
   const iniciar = useCallback(
@@ -126,6 +175,8 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
         const pedidos: [number, number][] = pantallaVertical ? [[720, 1280], [1280, 720], [480, 640]] : [[1280, 720], [720, 1280], [640, 480]];
         let stream: MediaStream | null = null;
         const video = videoRef.current!;
+        // Cámara y modelo se preparan en paralelo (el modelo suele estar ya precargado).
+        const modeloPromesa = obtenerLandmarker();
         for (const [ancho, alto] of pedidos) {
           stream?.getTracks().forEach((t) => t.stop());
           stream = await navigator.mediaDevices.getUserMedia({
@@ -138,24 +189,7 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
         }
         streamRef.current = stream;
         setAspecto(video.videoWidth / video.videoHeight);
-
-        const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
-        const fileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
-        let landmarker: Awaited<ReturnType<typeof PoseLandmarker.createFromOptions>> | null = null;
-        for (const delegate of ["GPU", "CPU"] as const) {
-          try {
-            landmarker = await PoseLandmarker.createFromOptions(fileset, {
-              baseOptions: { modelAssetPath: "/mediapipe/pose_landmarker_lite.task", delegate },
-              runningMode: "VIDEO",
-              numPoses: 1,
-            });
-            break;
-          } catch {
-            landmarker = null;
-          }
-        }
-        if (!landmarker) throw new Error("No se pudo iniciar el análisis de movimiento en este teléfono.");
-        landmarkerRef.current = landmarker as unknown as Landmarker;
+        landmarkerRef.current = await modeloPromesa;
 
         try {
           const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } };
@@ -169,12 +203,14 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext("2d")!;
         activoRef.current = true;
+        ultimaActividadRef.current = performance.now();
         setUi("activo");
 
         let ultimoVideoTime = -1;
         let ultimoHud = 0;
         let ultimoFrame = performance.now();
         let dtPrevio = 0;
+        let saltar = false;
         const vibrar = (patron: number | number[]) => {
           try {
             navigator.vibrate?.(patron);
@@ -188,11 +224,28 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
           if (video.readyState < 2 || video.currentTime === ultimoVideoTime) return;
           ultimoVideoTime = video.currentTime;
           const ahora = performance.now();
+          // Ahorro de batería: mientras todavía no empezó la serie se analiza un cuadro de cada dos.
+          if (!armadoRef.current) {
+            saltar = !saltar;
+            if (saltar) return;
+          }
           if (dtPrevio > 0) fpsRef.current = fpsRef.current === null ? 1000 / dtPrevio : fpsRef.current * 0.95 + (1000 / dtPrevio) * 0.05;
           dtPrevio = ahora - ultimoFrame;
           ultimoFrame = ahora;
 
-          const r = landmarkerRef.current!.detectForVideo(video, ahora);
+          // Se apaga sola si pasan 3 minutos sin actividad (ni armarse ni repeticiones).
+          if (ahora - ultimaActividadRef.current > MS_INACTIVIDAD) {
+            activoRef.current = false;
+            decir("Cámara apagada por inactividad");
+            detener();
+            setUi("error");
+            setError("La cámara se apagó sola después de 3 minutos sin actividad. Cerrá y volvé a abrirla.");
+            return;
+          }
+
+          const landmarker = landmarkerRef.current;
+          if (!landmarker) return;
+          const r = landmarker.detectForVideo(video, ahora);
           const puntos = r.landmarks?.[0];
           const encuadre = evaluarEncuadre(puntos);
 
@@ -202,6 +255,7 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
               okDesdeRef.current ??= ahora;
               if (ahora - okDesdeRef.current >= MS_ENCUADRE_PARA_ARMAR) {
                 armadoRef.current = true;
+                ultimaActividadRef.current = ahora;
                 contadorRef.current.empezar();
                 decir("Listo, empezá");
                 vibrar(120);
@@ -223,6 +277,7 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
           // Cantar las repeticiones: dice el número nuevo (si hubo un salto por validación, solo el último).
           if (armadoRef.current && estado.repeticiones > repsDichasRef.current) {
             repsDichasRef.current = estado.repeticiones;
+            ultimaActividadRef.current = ahora;
             decir(String(estado.repeticiones));
             vibrar(25);
             terminadaAvisadaRef.current = false;
@@ -230,7 +285,9 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
           // Fin de serie: ya contó y pasó un rato sin repeticiones nuevas.
           if (armadoRef.current && estado.terminada && !terminadaAvisadaRef.current) {
             terminadaAvisadaRef.current = true;
-            decir(`Serie terminada, ${estado.repeticiones} repeticiones`);
+            ultimaActividadRef.current = ahora;
+            const rir = estado.calidad?.rirEstimado;
+            decir(`Serie terminada, ${estado.repeticiones} repeticiones${rir !== null && rir !== undefined ? `. RIR estimado ${rir}` : ""}`);
             vibrar([80, 60, 80]);
           }
 
@@ -273,6 +330,53 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
     if (nueva && vozDisponible()) hablar("Voz activada");
   }
 
+  function alternarAuto() {
+    const nuevo = !autoAbrir;
+    setAutoAbrir(nuevo);
+    guardarPreferencia(claveAuto(exerciseId), nuevo ? "1" : "0");
+  }
+
+  // Dictado de peso / lastre / RIR en voz alta (reconocimiento de voz del navegador).
+  function dictar() {
+    if (escuchando) {
+      try {
+        reconocedorRef.current?.stop();
+      } catch {
+        /* ya estaba parado */
+      }
+      return;
+    }
+    const rec = crearReconocedor();
+    if (!rec) {
+      setAvisoVoz("Este teléfono no permite dictar. Cargalos a mano.");
+      return;
+    }
+    callar();
+    rec.lang = "es-AR";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = (e) => {
+      const texto = e.results[0]?.[0]?.transcript ?? "";
+      const datos = interpretarDictado(texto, modalidad);
+      setDictado({ texto, datos });
+      setAvisoVoz(Object.keys(datos).length === 0 ? "No entendí. Probá: «setenta kilos, RIR dos»." : null);
+    };
+    rec.onerror = (e) => {
+      setAvisoVoz(e.error === "not-allowed" ? "No diste permiso para el micrófono." : "No pude escucharte. Probá de nuevo.");
+      setEscuchando(false);
+    };
+    rec.onend = () => setEscuchando(false);
+    reconocedorRef.current = rec;
+    setAvisoVoz(null);
+    setDictado(null);
+    setEscuchando(true);
+    try {
+      rec.start();
+    } catch {
+      setEscuchando(false);
+    }
+  }
+
   const reps = Math.max(0, (hud?.estado.repeticiones ?? 0) + ajuste);
 
   // Guarda los números de la serie (sin video) para ajustar el conteo con datos reales.
@@ -293,8 +397,16 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
   function usar() {
     guardarTraza();
     const n = reps;
+    const rirCam = hud?.estado.calidad?.rirEstimado ?? null;
+    const extra: ResultadoCamara = { ...dictado?.datos };
+    // RIR: lo que dictó manda; si no, la estimación de la cámara (se marca como estimada).
+    if (extra.rir === undefined && rirCam !== null) {
+      extra.rir = rirCam;
+      extra.rirEstimado = true;
+    }
+    if (n > 0) guardarPreferencia(claveAuto(exerciseId), autoAbrir ? "1" : "0");
     detener();
-    onUsar(n);
+    onUsar(n, extra);
   }
 
   function cerrar() {
@@ -305,11 +417,12 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
 
   const estado = hud?.estado;
   const enc = hud?.encuadre;
+  const cal = estado?.calidad;
   const borde = ui === "activo" && enc ? (enc.ok ? "border-emerald-500/70" : "border-yellow-400") : "border-transparent";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
-      <div className="flex items-center justify-between gap-2 px-4 py-3 text-white">
+      <div className="flex items-center justify-between gap-2 px-4 py-2 text-white">
         <p className="truncate text-sm font-medium">{nombre}</p>
         <div className="flex flex-none items-center gap-2">
           {vozDisponible() && (
@@ -341,55 +454,92 @@ export function ContadorCamara({ nombre, exerciseId, onUsar, onCerrar }: { nombr
               <div className="absolute left-3 top-3 rounded-xl bg-black/60 px-4 py-2 text-white">
                 <p className="text-[10px] uppercase tracking-wide text-gray-400">Repeticiones</p>
                 <p className="text-6xl font-semibold leading-none">{reps}</p>
-                <p className="mt-1 text-[10px] text-gray-400">siguiendo: {estado?.senal ?? "buscando"}</p>
+                {estado?.confianza === "baja" && reps > 0 && <p className="mt-1 text-[11px] font-medium text-yellow-300">Revisá el conteo</p>}
               </div>
             )}
             {estado?.terminada && (
               <div className="absolute right-3 top-3 rounded-xl bg-emerald-600 px-3 py-2 text-center text-xs font-semibold text-black">Serie terminada</div>
             )}
             <div className="absolute inset-x-2 bottom-2 rounded-lg bg-black/70 px-3 py-2 text-center">
-              <p className={`text-base font-semibold leading-snug ${enc && !enc.ok ? "text-yellow-300" : "text-gray-100"}`}>
-                {!hud
-                  ? "Ponete frente a la cámara."
-                  : !hud.armado
-                    ? enc?.ok
-                      ? "Te veo bien. Quedate un segundo así…"
-                      : enc?.mensaje
-                    : estado?.caminando
-                      ? "Quedate en el lugar para que cuente."
-                      : enc && !enc.ok
-                        ? enc.mensaje
-                        : estado?.repeticiones
-                          ? "Contando…"
-                          : "Listo. Empezá cuando quieras."}
-              </p>
+              {estado?.terminada && cal ? (
+                <div className="text-left text-[13px] leading-snug text-gray-100">
+                  <p className="font-semibold text-emerald-300">
+                    Contamos {estado.repeticiones}. ¿Está bien? Corregilo con +1 / −1.
+                  </p>
+                  {cal.rirEstimado !== null && <p>RIR estimado (prueba): {cal.rirEstimado}</p>}
+                  {cal.rangoIncompleto && <p className="text-yellow-300">Las últimas repeticiones recorrieron {Math.round(cal.caidaRango * 100)} % menos.</p>}
+                  {cal.tempoRapido >= 3 && <p className="text-yellow-300">{cal.tempoRapido} repeticiones muy rápidas (menos de 1 s).</p>}
+                </div>
+              ) : (
+                <p className={`text-base font-semibold leading-snug ${enc && !enc.ok ? "text-yellow-300" : "text-gray-100"}`}>
+                  {!hud
+                    ? "Ponete frente a la cámara."
+                    : !hud.armado
+                      ? enc?.ok
+                        ? "Te veo bien. Quedate un segundo así…"
+                        : enc?.mensaje
+                      : estado?.caminando
+                        ? "Quedate en el lugar para que cuente."
+                        : enc && !enc.ok
+                          ? enc.mensaje
+                          : estado?.repeticiones
+                            ? "Contando…"
+                            : "Listo. Empezá cuando quieras."}
+                </p>
+              )}
             </div>
           </>
         )}
       </div>
 
-      <div className="flex flex-col gap-2 px-4 pb-4 pt-3">
+      <div className="flex flex-col gap-2 px-4 pb-3 pt-2">
+        {!hud?.armado && ui === "activo" && (
+          <p className="text-center text-[11px] text-gray-400">
+            Celular parado a la altura de la cintura. Para ejercicios de brazos alcanza con 1 metro; para piernas, que se vean enteras.
+          </p>
+        )}
         <div className="flex items-center justify-center gap-3">
-          <button type="button" onClick={() => setAjuste((a) => a - 1)} disabled={!hud?.armado} aria-label="Restar una repetición" className="h-11 w-14 rounded-full border border-border-strong text-lg text-gray-200 disabled:opacity-40">
+          <button type="button" onClick={() => setAjuste((a) => a - 1)} disabled={!hud?.armado} aria-label="Restar una repetición" className="h-10 w-14 rounded-full border border-border-strong text-lg text-gray-200 disabled:opacity-40">
             −1
           </button>
           <span className="min-w-24 text-center text-xs text-gray-400">Corregir el conteo</span>
-          <button type="button" onClick={() => setAjuste((a) => a + 1)} disabled={!hud?.armado} aria-label="Sumar una repetición" className="h-11 w-14 rounded-full border border-border-strong text-lg text-gray-200 disabled:opacity-40">
+          <button type="button" onClick={() => setAjuste((a) => a + 1)} disabled={!hud?.armado} aria-label="Sumar una repetición" className="h-10 w-14 rounded-full border border-border-strong text-lg text-gray-200 disabled:opacity-40">
             +1
           </button>
         </div>
+
+        {modalidad !== "tiempo" && (
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={dictar} disabled={!hud?.armado} className={`flex-none rounded-full border px-4 py-2 text-sm disabled:opacity-40 ${escuchando ? "border-red-400 text-red-300" : "border-border-strong text-gray-200"}`}>
+              {escuchando ? "🎤 Escuchando…" : "🎤 Decir peso y RIR"}
+            </button>
+            <p className="min-w-0 flex-1 truncate text-[11px] text-gray-400">
+              {avisoVoz ?? (dictado ? `Entendí: ${Object.entries(dictado.datos).map(([k, v]) => `${k} ${v}`).join(", ") || "nada"}` : "Ej.: «setenta kilos, RIR dos»")}
+            </p>
+          </div>
+        )}
+
         <button type="button" onClick={usar} disabled={ui !== "activo" || !hud?.armado} className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-black disabled:opacity-50">
           {reps > 0 ? `Usar ${reps} ${reps === 1 ? "repetición" : "repeticiones"}` : "Terminar sin contar"}
         </button>
         <div className="flex gap-2">
-          <button type="button" onClick={reiniciarConteo} disabled={!hud?.armado} className="flex-1 rounded-full border border-border-strong px-4 py-2.5 text-sm text-gray-200 disabled:opacity-40">
+          {estado?.terminada && (
+            <button type="button" onClick={() => { contadorRef.current.reanudar(); terminadaAvisadaRef.current = false; }} className="flex-1 rounded-full border border-emerald-500/60 px-4 py-2 text-sm text-emerald-300">
+              Seguir contando
+            </button>
+          )}
+          <button type="button" onClick={reiniciarConteo} disabled={!hud?.armado} className="flex-1 rounded-full border border-border-strong px-4 py-2 text-sm text-gray-200 disabled:opacity-40">
             Reiniciar
           </button>
-          <button type="button" onClick={cambiarCamara} disabled={ui === "cargando"} className="flex-1 rounded-full border border-border-strong px-4 py-2.5 text-sm text-gray-200 disabled:opacity-50">
+          <button type="button" onClick={cambiarCamara} disabled={ui === "cargando"} className="flex-1 rounded-full border border-border-strong px-4 py-2 text-sm text-gray-200 disabled:opacity-50">
             Cambiar cámara
           </button>
         </div>
-        <p className="text-center text-[11px] text-gray-500">Prototipo · No se graba ni se envía video: todo se procesa en tu teléfono.</p>
+        <label className="flex items-center justify-center gap-2 text-[11px] text-gray-400">
+          <input type="checkbox" checked={autoAbrir} onChange={alternarAuto} className="h-3.5 w-3.5" />
+          Abrir la cámara sola en este ejercicio
+        </label>
+        <p className="text-center text-[10px] text-gray-600">Prototipo · No se graba ni se envía video: todo se procesa en tu teléfono.</p>
       </div>
     </div>
   );
