@@ -18,9 +18,20 @@ const encabezadosDeSeguridad = [
   { key: "Permissions-Policy", value: "microphone=(self), geolocation=()" },
 ];
 
+// Caché (diagnóstico 2026-10-22): los archivos estáticos propios se servían con max-age=0 y el teléfono los
+// volvía a validar en cada visita. El modelo de cámara y el wasm no cambian de nombre (inmutables); los
+// íconos pueden retocarse, así que se cachean un día y se refrescan en segundo plano.
+const CACHE_INMUTABLE = "public, max-age=31536000, immutable";
+const CACHE_ICONOS = "public, max-age=86400, stale-while-revalidate=604800";
+
 const nextConfig: NextConfig = {
   async headers() {
-    return [{ source: "/:path*", headers: encabezadosDeSeguridad }];
+    return [
+      { source: "/:path*", headers: encabezadosDeSeguridad },
+      { source: "/mediapipe/:path*", headers: [{ key: "Cache-Control", value: CACHE_INMUTABLE }] },
+      { source: "/section-icons/:path*", headers: [{ key: "Cache-Control", value: CACHE_ICONOS }] },
+      { source: "/icons/:path*", headers: [{ key: "Cache-Control", value: CACHE_ICONOS }] },
+    ];
   },
 };
 

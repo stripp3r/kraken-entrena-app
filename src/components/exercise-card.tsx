@@ -292,6 +292,8 @@ export function ExerciseCard({
         {exercise.imagen_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            loading="lazy"
+            decoding="async"
             src={exercise.imagen_url}
             alt={exercise.nombre}
             className={
@@ -429,6 +431,8 @@ export function ExerciseCard({
           {exercise.alternativa.imagen_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
+              loading="lazy"
+              decoding="async"
               src={exercise.alternativa.imagen_url}
               alt={exercise.alternativa.nombre}
               className="mb-3 h-56 w-full rounded-md bg-white object-contain"
