@@ -7,6 +7,7 @@ import { linkWhatsapp } from "@/lib/contacto";
 import { URL_PLANES, URL_SITIO_WEB, URL_MENTORIAS } from "@/lib/legal";
 import { MODO_TIENDA } from "@/lib/modo-tienda";
 import { esUsuarioDePrototipos } from "@/lib/prototipos";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const WHATSAPP_SOPORTE = linkWhatsapp("Hola KRAKEN, tengo un problema con la app");
 
@@ -15,7 +16,7 @@ export default async function Home() {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

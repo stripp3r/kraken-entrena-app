@@ -4,6 +4,7 @@ import { BackLink } from "@/components/back-link";
 import { ExerciseCard } from "@/components/exercise-card";
 import { CambiarAEstaRutinaBoton } from "@/components/cambiar-a-esta-rutina-boton";
 import { rutinaIncluidaEnPlan } from "@/lib/premium";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -24,7 +25,7 @@ export default async function RutinaPreviewDiaPage({
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

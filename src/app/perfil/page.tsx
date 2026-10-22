@@ -5,13 +5,14 @@ import { logout } from "../login/actions";
 import { permisos } from "@/lib/premium";
 import { LinksLegales } from "@/components/links-legales";
 import { tienePdfComprado } from "@/lib/pdf-acceso";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 export default async function PerfilPage() {
   const supabase = await createClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

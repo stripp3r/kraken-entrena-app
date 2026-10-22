@@ -4,13 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { BorrarRutinaBoton } from "@/components/borrar-rutina-boton";
 import { rutinaIncluidaEnPlan } from "@/lib/premium";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 export default async function RutinasAdquiridasPage() {
   const supabase = await createClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

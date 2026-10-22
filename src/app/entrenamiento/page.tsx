@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RutinaHub } from "@/components/rutina-hub";
 import { permisos } from "@/lib/premium";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 export default async function EntrenamientoPage() {
   const supabase = await createClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DatosPersonales } from "@/components/datos-personales";
 import { BackLink } from "@/components/back-link";
 import { obtenerSuscripcion } from "@/lib/premium";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 export default async function PerfilDatosPage({
   searchParams,
@@ -14,7 +15,7 @@ export default async function PerfilDatosPage({
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

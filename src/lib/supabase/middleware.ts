@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { esPremium } from "@/lib/premium";
 import { ACEPTACIONES_REQUERIDAS, aceptacionesFaltantes } from "@/lib/aceptacion-legal-version";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 // "/restablecer-password" entra acá porque ahí se escribe el código de
 // recuperación ANTES de tener sesión -- ver "Recuperar contraseña" en
@@ -79,9 +80,11 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // Sesión verificada localmente (firma ES256), sin viaje a la red: ver lib/supabase/usuario.ts. Antes era
+  // auth.getUser(), una consulta al servidor de Supabase en CADA navegación.
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   const pathname = request.nextUrl.pathname;
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
@@ -92,20 +95,30 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Aceptación de Términos y Privacidad: todo usuario logueado (nuevo, de
-  // Google/Facebook, o previo a que existiera esto) tiene que haber aceptado
-  // la VERSION_LEGAL vigente. Falla ABIERTO si la consulta da error (ej. la
-  // migración 092 todavía no corrió): un error de base no puede dejar a todos
-  // los clientes afuera de la app.
-  if (user && !PATHS_SIN_ACEPTACION.some((path) => pathname.startsWith(path))) {
-    // Términos y Privacidad + mayor de 18 + consentimiento de transferencia
-    // internacional: las tres con su versión vigente (aceptacion-legal-version.ts).
-    const { data: aceptaciones, error } = await supabase
-      .from("aceptaciones_legales")
-      .select("tipo, version")
-      .eq("user_id", user.id)
-      .in("tipo", ACEPTACIONES_REQUERIDAS.map((a) => a.tipo));
+  // Las dos consultas del control de acceso (aceptaciones legales y perfil para el muro de pago) se hacen EN
+  // PARALELO: antes eran dos viajes a la base uno detrás del otro en cada navegación.
+  const necesitaAceptacion = Boolean(user) && !PATHS_SIN_ACEPTACION.some((path) => pathname.startsWith(path));
+  const necesitaPerfil = Boolean(user) && !PATHS_SIN_PREMIUM.some((path) => pathname.startsWith(path));
+  const [resAceptaciones, resPerfil] = await Promise.all([
+    necesitaAceptacion && user
+      ? supabase
+          .from("aceptaciones_legales")
+          .select("tipo, version")
+          .eq("user_id", user.id)
+          .in("tipo", ACEPTACIONES_REQUERIDAS.map((a) => a.tipo))
+      : null,
+    necesitaPerfil && user
+      ? supabase.from("profiles").select("premium_hasta, golden_perpetuo").eq("id", user.id).single()
+      : null,
+  ]);
 
+  // Aceptación de Términos y Privacidad: todo usuario logueado (nuevo, de Google/Facebook, o previo a que
+  // existiera esto) tiene que haber aceptado la VERSION_LEGAL vigente (Términos y Privacidad + mayor de 18 +
+  // consentimiento de transferencia internacional: las tres con su versión vigente, aceptacion-legal-version.ts).
+  // Falla ABIERTO si la consulta da error (ej. la migración 092 todavía no corrió): un error de base no puede
+  // dejar a todos los clientes afuera de la app.
+  if (resAceptaciones) {
+    const { data: aceptaciones, error } = resAceptaciones;
     if (error) {
       console.error("proxy: no se pudo leer aceptaciones_legales:", error.message);
     } else if (aceptacionesFaltantes(aceptaciones ?? []).length > 0) {
@@ -116,23 +129,12 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Muro de pago: usuario logueado pero sin prueba ni Golden vigente ->
-  // solo puede estar en las rutas de arriba; el resto va a /golden.
-  if (user) {
-    const rutaLibre = PATHS_SIN_PREMIUM.some((path) => pathname.startsWith(path));
-    if (!rutaLibre) {
-      const { data: perfil } = await supabase
-        .from("profiles")
-        .select("premium_hasta, golden_perpetuo")
-        .eq("id", user.id)
-        .single();
-
-      if (!esPremium(perfil)) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/golden";
-        return NextResponse.redirect(url);
-      }
-    }
+  // Muro de pago: usuario logueado pero sin prueba ni Golden vigente -> solo puede estar en las rutas libres;
+  // el resto va a /golden.
+  if (resPerfil && !esPremium(resPerfil.data)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/golden";
+    return NextResponse.redirect(url);
   }
 
   return supabaseResponse;

@@ -5,6 +5,7 @@ import { diasRestantesTrial, esGoldenTier, esPremium } from "@/lib/premium";
 import { linkWhatsapp } from "@/lib/contacto";
 import { URL_GOLDEN, URL_MENTORIAS, URL_PLANES } from "@/lib/legal";
 import { MODO_TIENDA } from "@/lib/modo-tienda";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 // Pantalla "Tu acceso". La app no cobra ni muestra precios (decisión del coach,
 // 2026-10-17): los planes y la suscripción se compran en el sitio web. Esta ruta se
@@ -28,7 +29,7 @@ export default async function AccesoPage() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) redirect("/login");
 

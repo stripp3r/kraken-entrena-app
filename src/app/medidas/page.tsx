@@ -4,13 +4,14 @@ import { MedicionForm } from "@/components/medicion-form";
 import { GuiaMedidas } from "@/components/guia-medidas";
 import { BackLink } from "@/components/back-link";
 import { GateSalud } from "@/components/gate-salud";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 export default async function MedidasPage() {
   const supabase = await createClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

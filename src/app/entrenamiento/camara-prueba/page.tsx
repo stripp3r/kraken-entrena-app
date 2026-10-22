@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { CamaraSentadilla } from "@/components/camara-sentadilla";
 import { esUsuarioDePrototipos } from "@/lib/prototipos";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 // PROTOTIPO: análisis de la sentadilla en tiempo real con la cámara. Solo lo ven
 // las cuentas de lib/prototipos.ts (aparece como "Cámara prueba" en Inicio).
@@ -10,7 +11,7 @@ export default async function CamaraPruebaPage() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
   if (!user) redirect("/login");
   // Prototipo: solo para las cuentas habilitadas (lib/prototipos.ts).
   if (!esUsuarioDePrototipos(user.email)) redirect("/");

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -10,7 +11,7 @@ export default async function DiasEntrenamientoPage() {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

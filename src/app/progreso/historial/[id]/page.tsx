@@ -4,6 +4,7 @@ import { BackLink } from "@/components/back-link";
 import { fechaLegible, inicioDelDiaArgentinaUTC } from "@/lib/fecha";
 import type { Lado } from "@/lib/descanso";
 import { modalidadValida, textoSerie, type ModalidadCarga } from "@/lib/carga";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -42,7 +43,7 @@ export default async function HistorialDetallePage({
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

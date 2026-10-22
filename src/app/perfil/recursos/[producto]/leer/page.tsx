@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { VisorPdf } from "@/components/visor-pdf";
 import { productoPdfConAcceso } from "@/lib/pdf-acceso";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 // Visor de solo lectura del PDF de un plan autoguiado (reemplaza al botón
 // "Descargar PDF"). Los bytes los entrega la ruta ../pdf/route.ts.
@@ -10,7 +11,7 @@ export default async function LeerPdfPage({ params }: { params: Promise<{ produc
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
   if (!user) redirect("/login");
 
   // Sin chequeo de premium a propósito: el PDF comprado se lee siempre (ver

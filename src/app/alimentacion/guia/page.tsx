@@ -5,6 +5,7 @@ import { DisclaimerGate } from "@/components/disclaimer-gate";
 import { DescargarGuiaBoton } from "@/components/descargar-guia-boton";
 import { permisos, esMentoria } from "@/lib/premium";
 import { linkWhatsapp } from "@/lib/contacto";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const WHATSAPP_MENTORIA = linkWhatsapp("Hola KRAKEN, quiero info de la Mentoría");
 
@@ -24,7 +25,7 @@ export default async function GuiaAlimenticiaPage() {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

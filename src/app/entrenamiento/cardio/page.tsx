@@ -5,12 +5,13 @@ import { CardioCliente } from "@/components/cardio-cliente";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { hoyISO } from "@/lib/fecha";
 import { permisos } from "@/lib/premium";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 export default async function CardioPage() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

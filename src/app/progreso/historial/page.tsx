@@ -5,6 +5,7 @@ import { BackLink } from "@/components/back-link";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { fechaLegible } from "@/lib/fecha";
 import { permisos } from "@/lib/premium";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 function duracionLegible(fechaInicio: string, fechaFin: string | null) {
   const desde = new Date(`${fechaInicio}T00:00:00`);
@@ -27,7 +28,7 @@ export default async function HistorialPage() {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

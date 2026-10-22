@@ -5,6 +5,7 @@ import { CrearRutinaCliente } from "@/components/crear-rutina-cliente";
 import { parsearSeriesReps } from "@/lib/parsear-series-reps";
 import type { TipoEsfuerzo } from "@/lib/descanso";
 import type { GrupoMuscular } from "@/lib/grupos-musculares";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -23,7 +24,7 @@ export default async function EditarRutinaPage({ params }: { params: Promise<{ i
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

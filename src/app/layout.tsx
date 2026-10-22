@@ -11,6 +11,7 @@ import { AvisoPagoRechazado } from "@/components/aviso-pago-rechazado";
 import { avisoPrecioPendiente, type AvisoPrecio } from "@/lib/aviso-precio";
 import { createClient } from "@/lib/supabase/server";
 import { diasRestantesTrial } from "@/lib/premium";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-display",
@@ -45,7 +46,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   let genero: "femenino" | "masculino" = "masculino";
   let diasTrial: number | null = null;

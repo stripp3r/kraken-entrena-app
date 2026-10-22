@@ -7,6 +7,7 @@ import { ultimoTopSet, pesoSugerido } from "@/lib/analytics";
 import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
 import { modalidadValida } from "@/lib/carga";
 import { esUsuarioDePrototipos } from "@/lib/prototipos";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const DIAS_VALIDOS = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -26,7 +27,7 @@ export default async function DiaEntrenamientoPage({
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

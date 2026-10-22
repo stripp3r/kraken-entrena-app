@@ -5,6 +5,7 @@ import { BackLink } from "@/components/back-link";
 import { CambiarAEstaRutinaBoton } from "@/components/cambiar-a-esta-rutina-boton";
 import { BorrarRutinaBoton } from "@/components/borrar-rutina-boton";
 import { rutinaIncluidaEnPlan } from "@/lib/premium";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -24,7 +25,7 @@ export default async function RutinaPreviewPage({
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

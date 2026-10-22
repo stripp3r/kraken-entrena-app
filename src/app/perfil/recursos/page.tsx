@@ -8,6 +8,7 @@ import { permisos } from "@/lib/premium";
 import { tienePdfComprado } from "@/lib/pdf-acceso";
 import { URL_PLANES } from "@/lib/legal";
 import { MODO_TIENDA } from "@/lib/modo-tienda";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 type ProductoConPdf = { id: number; nombre: string; slug: string };
 
@@ -15,7 +16,7 @@ export default async function RecursosPage() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

@@ -10,6 +10,7 @@ import { fechaISO } from "@/lib/fecha";
 import type { EjercicioGlobal, LogCrudo } from "@/lib/progreso-global";
 import type { FilaMedida } from "@/lib/progreso-simple";
 import type { Sexo } from "@/lib/estandares-fuerza";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 // PROTOTIPO: panel global de progreso ("¿progresé?", constancia, equilibrio). Solo cuentas de
 // lib/prototipos.ts. ?demo=1 muestra 16 semanas de datos de demostración.
@@ -18,7 +19,7 @@ export default async function ProgresoPruebaPage({ searchParams }: { searchParam
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
   if (!user) redirect("/login");
   if (!esUsuarioDePrototipos(user.email)) redirect("/");
 

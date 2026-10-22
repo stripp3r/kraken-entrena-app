@@ -13,6 +13,7 @@ import {
   TIPO_TRANSFERENCIA,
   aceptacionesFaltantes,
 } from "@/lib/aceptacion-legal-version";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 // Pantalla de aceptación obligatoria: la ve quien entró con Google/Facebook
 // por primera vez, quien ya tenía cuenta antes de que existiera una
@@ -32,7 +33,7 @@ export default async function AceptarTerminosPage({
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
   if (!user) redirect("/login");
 
   const { data: registradas } = await supabase

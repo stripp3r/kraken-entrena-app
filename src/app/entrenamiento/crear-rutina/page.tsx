@@ -5,12 +5,13 @@ import { CrearRutinaCliente } from "@/components/crear-rutina-cliente";
 import { PantallaBloqueada } from "@/components/pantalla-bloqueada";
 import { permisos } from "@/lib/premium";
 import { contarRutinasCreadasPorUsuario } from "@/lib/limite-rutinas-creadas";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 export default async function CrearRutinaPage() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

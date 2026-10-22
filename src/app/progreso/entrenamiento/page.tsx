@@ -5,6 +5,7 @@ import { BackLink } from "@/components/back-link";
 import type { SetLog } from "@/lib/analytics";
 import { claveEjercicioDia } from "@/lib/clave-ejercicio-dia";
 import { dentroDeVentanas, inicioMasAntiguo, ventanasDeRutina } from "@/lib/periodos-rutina";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const LETRAS_DIA = ["A", "B", "C", "D", "E", "F", "G"];
 
@@ -13,7 +14,7 @@ export default async function ProgresoPage() {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { GateSalud } from "@/components/gate-salud";
 import { FormularioIngresoCliente } from "./formulario-ingreso-cliente";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 // Formulario de ingreso de las mentorías (anamnesis). Los campos de salud son
 // opcionales y el consentimiento específico se pide antes (GateSalud).
@@ -10,7 +11,7 @@ export default async function IngresoPage() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
   if (!user) redirect("/login");
 
   const { data: inicial } = await supabase

@@ -3,12 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
 import { linkWhatsapp } from "@/lib/contacto";
 import { RecuperarCompraCliente } from "./recuperar-compra-cliente";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 export default async function RecuperarCompraPage() {
   const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
   if (!user) redirect("/login");
 
   return (

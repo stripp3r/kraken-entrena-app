@@ -11,6 +11,7 @@ import {
   type ActividadNutricional,
   type ObjetivoNutricional,
 } from "@/lib/nutricion";
+import { obtenerUsuario } from "@/lib/supabase/usuario";
 
 const TEXTO_DISCLAIMER_CALCULADORA = `Esta calculadora estima tus calorías y macros usando una fórmula estándar (Mifflin-St Jeor) sobre los datos de tu perfil y tu última medición. Es una referencia general, no un cálculo clínico ni un diagnóstico.
 
@@ -21,7 +22,7 @@ export default async function CalculadoraCaloriasPage() {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await obtenerUsuario(supabase);
 
   if (!user) {
     redirect("/login");
