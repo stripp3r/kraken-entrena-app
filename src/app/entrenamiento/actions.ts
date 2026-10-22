@@ -166,6 +166,8 @@ export async function guardarSesionPose(datos: {
   final: number;
   senal: string | null;
   senales: Record<string, number[]>;
+  // Resumen numérico del intento (estados de encuadre, resolución, GPU/CPU, modelo...): ver migración 108.
+  diagnostico?: Record<string, unknown> | null;
 }) {
   const supabase = await createClient();
   const {
@@ -184,6 +186,7 @@ export async function guardarSesionPose(datos: {
     final: datos.final,
     senal: datos.senal,
     senales: datos.senales,
+    diagnostico: datos.diagnostico ?? null,
   });
   if (error) return { error: error.message };
   return { ok: true };

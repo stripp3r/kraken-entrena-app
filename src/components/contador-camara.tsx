@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ContadorUniversal, type EstadoContador } from "@/lib/pose/contador";
 import { evaluarEncuadre, type Encuadre } from "@/lib/pose/encuadre";
 import { PUNTO, type Punto } from "@/lib/pose/geometria";
-import { obtenerLandmarker, type Landmarker } from "@/lib/pose/landmarker-cache";
+import { delegadoDe, obtenerLandmarker, type Landmarker, type ModeloPose } from "@/lib/pose/landmarker-cache";
 import { guardarSesionPose } from "@/app/entrenamiento/actions";
 import { callar, guardarPreferencia, hablar, leerPreferencia, PREF, vozDisponible } from "@/lib/voz";
 import { interpretarDictado, type DatosDictados } from "@/lib/voz-comandos";
@@ -42,6 +42,7 @@ export type ResultadoCamara = { rir?: number; rirEstimado?: boolean; peso?: numb
 
 const MS_ENCUADRE_PARA_ARMAR = 1000;
 const MS_AVISO_ENCUADRE = 4000;
+const MS_MANUAL_VISIBLE = 4000; // pasado este tiempo sin armarse, aparece el botón "Contar igual"
 const MS_INACTIVIDAD = 3 * 60 * 1000; // la cámara se apaga sola si no pasa nada (cuida la batería)
 
 // Reconocimiento de voz del navegador (Chrome/Android). Se usa solo si la persona toca el micrófono.
@@ -113,6 +114,9 @@ export function ContadorCamara({
   const terminadaAvisadaRef = useRef(false);
   const ultimaVozEncuadreRef = useRef(0);
   const ultimaActividadRef = useRef(0);
+  // Diagnóstico del intento (solo números): se guarda aunque no haya contado nada, para entender por qué falló.
+  const diagRef = useRef<{ inicio: number; frames: Record<string, number>; armadoEnS: number | null; manual: boolean; resolucion: string; delegado: string; modelo: string }>({ inicio: 0, frames: {}, armadoEnS: null, manual: false, resolucion: "", delegado: "", modelo: "lite" });
+  const modeloRef = useRef<ModeloPose>("lite");
 
   const [ui, setUi] = useState<Ui>("cargando");
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +126,8 @@ export function ContadorCamara({
   const [aspecto, setAspecto] = useState(3 / 4);
   const [hud, setHud] = useState<Hud | null>(null);
   const [ajuste, setAjuste] = useState(0); // correcciones manuales (+1 / -1)
+  const [modelo, setModelo] = useState<ModeloPose>(() => (typeof window === "undefined" ? "lite" : leerPreferencia<ModeloPose>("kraken_camara_modelo", ["lite", "full"], "lite")));
+  const [mostrarManual, setMostrarManual] = useState(false);
   const [escuchando, setEscuchando] = useState(false);
   const [dictado, setDictado] = useState<{ texto: string; datos: DatosDictados } | null>(null);
   const [avisoVoz, setAvisoVoz] = useState<string | null>(null);
@@ -164,6 +170,8 @@ export function ContadorCamara({
     setAjuste(0);
     setHud(null);
     setDictado(null);
+    setMostrarManual(false);
+    diagRef.current = { ...diagRef.current, inicio: performance.now(), frames: {}, armadoEnS: null, manual: false };
   }, []);
 
   const iniciar = useCallback(
@@ -179,7 +187,7 @@ export function ContadorCamara({
         let stream: MediaStream | null = null;
         const video = videoRef.current!;
         // Cámara y modelo se preparan en paralelo (el modelo suele estar ya precargado).
-        const modeloPromesa = obtenerLandmarker();
+        const modeloPromesa = obtenerLandmarker(modeloRef.current);
         for (const [ancho, alto] of pedidos) {
           stream?.getTracks().forEach((t) => t.stop());
           stream = await navigator.mediaDevices.getUserMedia({
@@ -193,6 +201,10 @@ export function ContadorCamara({
         streamRef.current = stream;
         setAspecto(video.videoWidth / video.videoHeight);
         landmarkerRef.current = await modeloPromesa;
+        diagRef.current.resolucion = `${video.videoWidth}x${video.videoHeight}`;
+        diagRef.current.delegado = delegadoDe(modeloRef.current);
+        diagRef.current.modelo = modeloRef.current;
+        diagRef.current.inicio = performance.now();
 
         try {
           const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } };
@@ -251,6 +263,8 @@ export function ContadorCamara({
           const r = landmarker.detectForVideo(video, ahora);
           const puntos = r.landmarks?.[0];
           const encuadre = evaluarEncuadre(puntos);
+          diagRef.current.frames[encuadre.codigo] = (diagRef.current.frames[encuadre.codigo] ?? 0) + 1;
+          if (!armadoRef.current && ahora - diagRef.current.inicio > MS_MANUAL_VISIBLE) setMostrarManual(true);
 
           // Armado automático: encuadre bien durante 1 s seguido -> empieza a contar.
           if (!armadoRef.current) {
@@ -259,6 +273,7 @@ export function ContadorCamara({
               if (ahora - okDesdeRef.current >= MS_ENCUADRE_PARA_ARMAR) {
                 armadoRef.current = true;
                 ultimaActividadRef.current = ahora;
+                diagRef.current.armadoEnS = Math.round((ahora - diagRef.current.inicio) / 100) / 10;
                 contadorRef.current.empezar();
                 decir("Listo, empezá");
                 vibrar(120);
@@ -318,6 +333,27 @@ export function ContadorCamara({
     // Solo al abrir: cambiar de cámara llama a iniciar() a mano.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // "Contar igual": si la guía de encuadre no se pone verde (posición rara, ejercicio acostado, poca luz), se
+  // empieza a contar a mano y el contador hace su mejor esfuerzo con lo que ve.
+  function contarIgual() {
+    armadoRef.current = true;
+    ultimaActividadRef.current = performance.now();
+    diagRef.current.manual = true;
+    diagRef.current.armadoEnS = Math.round((performance.now() - diagRef.current.inicio) / 100) / 10;
+    contadorRef.current.empezar();
+    setMostrarManual(false);
+    decir("Contando");
+    setHud((h) => (h ? { ...h, armado: true } : h));
+  }
+
+  function cambiarModelo() {
+    const nuevo: ModeloPose = modelo === "lite" ? "full" : "lite";
+    setModelo(nuevo);
+    modeloRef.current = nuevo;
+    guardarPreferencia("kraken_camara_modelo", nuevo);
+    void iniciar(lado);
+  }
 
   function cambiarCamara() {
     const nuevo: Lado = lado === "user" ? "environment" : "user";
@@ -381,12 +417,17 @@ export function ContadorCamara({
   }
 
   const reps = Math.max(0, (hud?.estado.repeticiones ?? 0) + ajuste);
+  const sinConteo = !hud?.armado;
 
   // Guarda los números de la serie (sin video) para ajustar el conteo con datos reales.
   function guardarTraza() {
     const senales = contadorRef.current.exportarTraza();
-    if (!avanzado || Object.keys(senales).length === 0 || (hud?.estado.repeticiones ?? 0) + ajuste === 0) return;
+    if (!avanzado) return;
+    const d = diagRef.current;
+    const total = Object.values(d.frames).reduce((a, b) => a + b, 0);
+    if (total < 15) return; // casi no hubo cámara: no vale la pena registrar
     void guardarSesionPose({
+      diagnostico: { ...d, frames: d.frames, duracionS: Math.round((performance.now() - d.inicio) / 100) / 10, cuadros: total, contado: hud?.estado.repeticiones ?? 0, final: Math.max(0, (hud?.estado.repeticiones ?? 0) + ajuste), confianza: hud?.estado.confianza ?? null },
       exerciseId,
       camara: lado,
       fps: fpsRef.current === null ? null : Math.round(fpsRef.current * 10) / 10,
@@ -522,7 +563,17 @@ export function ContadorCamara({
           </div>
         )}
 
-        <button type="button" onClick={usar} disabled={ui !== "activo" || !hud?.armado} className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-black disabled:opacity-50">
+        {mostrarManual && !hud?.armado && ui === "activo" && (
+          <button type="button" onClick={contarIgual} className="rounded-full border border-emerald-500 bg-emerald-500/10 px-5 py-3 text-sm font-semibold text-emerald-300">
+            Contar igual (empezar ahora)
+          </button>
+        )}
+        {avanzado && (
+          <button type="button" onClick={cambiarModelo} disabled={ui === "cargando"} className="text-[11px] text-gray-400 underline disabled:opacity-40">
+            Precisión: {modelo === "full" ? "alta (más lenta)" : "normal"} · tocá para cambiar
+          </button>
+        )}
+        <button type="button" onClick={usar} disabled={ui !== "activo"} className="rounded-full bg-emerald-500 px-5 py-3 text-sm font-semibold text-black disabled:opacity-50">
           {reps > 0 ? `Usar ${reps} ${reps === 1 ? "repetición" : "repeticiones"}` : "Terminar sin contar"}
         </button>
         <div className="flex gap-2">

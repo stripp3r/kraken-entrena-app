@@ -10,10 +10,10 @@ export type CodigoEncuadre = "ok" | "sin-cuerpo" | "lejos" | "cerca" | "cortado"
 
 export type Encuadre = { codigo: CodigoEncuadre; ok: boolean; mensaje: string; voz: string | null };
 
-const VIS = 0.5;
+const VIS = 0.4;
 const ANCHO_HOMBROS_MIN = 0.14; // menos: muy lejos
 const ANCHO_HOMBROS_MAX = 0.62; // más: muy cerca
-const MARGEN = 0.015;
+const MARGEN = 0.0;
 
 export function evaluarEncuadre(vis: Punto[] | undefined): Encuadre {
   const hI = vis?.[PUNTO.hombroIzq];
@@ -33,6 +33,7 @@ export function evaluarEncuadre(vis: Punto[] | undefined): Encuadre {
     const p = vis[i];
     return p && (p.visibility ?? 0) >= VIS && (p.x < MARGEN || p.x > 1 - MARGEN || p.y < MARGEN || p.y > 1 - MARGEN);
   });
-  if (cortado) return { codigo: "cortado", ok: false, mensaje: "Se te corta el cuerpo por el borde: corré el teléfono o alejate.", voz: "Se te corta el cuerpo, alejate un poco" };
+  // Un borde cortado es solo un aviso: se cuenta igual (exigir cuerpo entero obligaba a alejarse de más).
+  if (cortado) return { codigo: "cortado", ok: true, mensaje: "Se te corta un poco el cuerpo por el borde; cuento igual.", voz: null };
   return { codigo: "ok", ok: true, mensaje: "Te veo bien.", voz: null };
 }
