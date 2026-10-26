@@ -192,6 +192,25 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
 
   return (
     <div>
+      {/* Elegir el método (arriba de todo) */}
+      <p className="mb-2 text-sm font-semibold text-white">Elegí con qué método querés calcularlo</p>
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        {METODOS.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => {
+              setMetodo(m.id);
+              setEditando(false);
+            }}
+            className={`rounded-xl border px-2 py-3 text-center transition-colors ${metodo === m.id ? "border-emerald-500 bg-emerald-950/50" : "border-border-strong bg-bg-card"}`}
+          >
+            <p className={`text-sm font-semibold ${metodo === m.id ? "text-emerald-300" : "text-white"}`}>{m.nombre}</p>
+            <p className="mt-0.5 text-[10px] leading-tight text-gray-500">{m.detalle}</p>
+          </button>
+        ))}
+      </div>
+
       <p className="mb-3 text-[12px] leading-snug text-gray-400">
         <b className="text-amber-300">Son estimaciones, no límites.</b> Para una cifra mucho más exacta hacen falta más análisis (composición corporal con
         DEXA y mediciones antropométricas completas); la genética, las hormonas y los años de entrenamiento también influyen.
@@ -334,25 +353,6 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
           </p>
         </>
       ) : null}
-
-      {/* Elegir el método (abajo, como pediste) */}
-      <p className="mb-2 mt-6 text-[11px] uppercase tracking-wider text-gray-400">Calcular con otro método</p>
-      <div className="grid grid-cols-3 gap-2">
-        {METODOS.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => {
-              setMetodo(m.id);
-              setEditando(false);
-            }}
-            className={`rounded-xl border px-2 py-3 text-center transition-colors ${metodo === m.id ? "border-emerald-500 bg-emerald-950/50" : "border-border-strong bg-bg-card"}`}
-          >
-            <p className={`text-sm font-semibold ${metodo === m.id ? "text-emerald-300" : "text-white"}`}>{m.nombre}</p>
-            <p className="mt-0.5 text-[10px] leading-tight text-gray-500">{m.detalle}</p>
-          </button>
-        ))}
-      </div>
 
       {/* Cómo se calcula (del método elegido) */}
       <details className="mt-4 rounded-xl border border-border bg-bg-card p-3 text-[12px] leading-snug text-gray-400" open>
