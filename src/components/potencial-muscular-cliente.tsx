@@ -41,8 +41,16 @@ const METODOS: { id: Metodo; nombre: string; detalle: string }[] = [
 ];
 
 const CLAVES = { tobillo: "kraken_potencial_tobillo", grasaObj: "kraken_potencial_grasa", grasaActual: "kraken_potencial_grasa_actual" };
-const num = (n: number) => String(n).replace(".", ",");
+// Siempre con un decimal como máximo (evita colas como 70,69999999999999 por el punto flotante).
+const num = (n: number) => String(Math.round(n * 10) / 10).replace(".", ",");
 const campo = "w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500";
+
+// Color según qué tan cerca estés del potencial: lejos = rojo, a mitad de camino = amarillo, cerca = verde.
+// Pasa de rojo (≤ 40 %) a verde (≥ 90 %) por el amarillo, de forma continua.
+export function colorDePorcentaje(pct: number): string {
+  const t = Math.max(0, Math.min(1, (pct - 40) / 50));
+  return `hsl(${Math.round(t * 130)} 80% 58%)`;
+}
 
 function Anillo({ pct }: { pct: number }) {
   const r = 42;
@@ -51,7 +59,7 @@ function Anillo({ pct }: { pct: number }) {
   return (
     <svg viewBox="0 0 100 100" className="h-28 w-28 flex-none -rotate-90" role="img" aria-label={`${Math.round(pct)} % del potencial`}>
       <circle cx="50" cy="50" r={r} fill="none" stroke="#262626" strokeWidth="9" />
-      <circle cx="50" cy="50" r={r} fill="none" stroke="#34d399" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${(lleno / 100) * c} ${c}`} />
+      <circle cx="50" cy="50" r={r} fill="none" stroke={colorDePorcentaje(pct)} strokeWidth="9" strokeLinecap="round" strokeDasharray={`${(lleno / 100) * c} ${c}`} style={{ transition: "stroke 300ms, stroke-dasharray 300ms" }} />
     </svg>
   );
 }
@@ -63,7 +71,7 @@ function Resumen({ pct, etiqueta, grande, chico, extra }: { pct: number | null; 
         <div className="relative flex-none">
           <Anillo pct={pct ?? 0} />
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-2xl font-bold text-white">{pct !== null ? `${Math.round(pct)}%` : "–"}</p>
+            <p className="text-2xl font-bold" style={{ color: pct !== null ? colorDePorcentaje(pct) : "#fff" }}>{pct !== null ? `${Math.round(pct)}%` : "–"}</p>
             <p className="text-[10px] text-gray-400">de tu potencial</p>
           </div>
         </div>
@@ -94,11 +102,11 @@ function FilaMedida({ nombre, rango, actual }: { nombre: string; rango: Rango; a
       </div>
       <div className="relative mt-2 h-2.5 rounded-full bg-neutral-800">
         <div className="absolute inset-y-0 rounded-full bg-emerald-900/70" style={{ left: x(rango.min), width: `calc(${x(rango.max)} - ${x(rango.min)})` }} />
-        {actual && <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-300" style={{ width: x(actual) }} />}
+        {actual && <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: x(actual), background: colorDePorcentaje(pct ?? 100) }} />}
         <div className="absolute -top-0.5 h-3.5 w-0.5 rounded bg-white/70" style={{ left: x(rango.valor) }} />
       </div>
       <p className="mt-1 text-[11px] text-gray-500">
-        {pct !== null ? `${Math.round(pct)} % del potencial · ` : "Cargá esta medida en Mis medidas para ver tu avance · "}
+        {pct !== null ? <span style={{ color: colorDePorcentaje(pct) }}>{Math.round(pct)} % del potencial</span> : null}{pct !== null ? " · " : "Cargá esta medida en Mis medidas para ver tu avance · "}
         rango {num(rango.min)} – {num(rango.max)} cm
       </p>
     </div>
