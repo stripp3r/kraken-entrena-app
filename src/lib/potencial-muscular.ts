@@ -81,3 +81,54 @@ export function porcentajeAlcanzado(actual: number | null | undefined, potencial
   if (!actual || actual <= 0 || potencial <= 0) return null;
   return redondear((actual / potencial) * 100);
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Otros dos enfoques para comparar (todos son ESTIMACIONES, ver el aviso de arriba).
+// ---------------------------------------------------------------------------------------------------------------
+
+// Índice de masa libre de grasa (FFMI) normalizado, Kouri et al. 1995 (Clin J Sport Med):
+//   FFMI = masa magra (kg) / altura(m)^2 + 6,1 × (1,8 − altura(m))
+// El valor 25 es la referencia de límite natural más citada, pero se han reportado valores mayores en personas naturales.
+export const FFMI_REFERENCIA = 25;
+
+export type EntradaFfmi = { alturaCm: number; pesoKg: number; grasaPct: number };
+export type ResultadoFfmi = {
+  masaMagraActualKg: number;
+  ffmiActual: number;
+  masaMagraMaxKg: number; // masa magra con FFMI = 25
+  pesoMaxKg: number; // con el mismo % de grasa actual
+  kgPorGanar: number; // masa magra que falta para llegar a 25 (0 si ya lo alcanzó)
+  porcentaje: number; // FFMI actual / 25
+};
+
+export function datosFfmiValidos(e: EntradaFfmi): boolean {
+  return [e.alturaCm, e.pesoKg, e.grasaPct].every((n) => Number.isFinite(n) && n > 0) && e.grasaPct < 60 && e.alturaCm > 100 && e.alturaCm < 250;
+}
+
+export function ffmiPotencial(e: EntradaFfmi): ResultadoFfmi {
+  const h = e.alturaCm / 100;
+  const masaMagra = e.pesoKg * (1 - e.grasaPct / 100);
+  const ffmiActual = masaMagra / (h * h) + 6.1 * (1.8 - h);
+  const masaMagraMax = (FFMI_REFERENCIA - 6.1 * (1.8 - h)) * h * h;
+  return {
+    masaMagraActualKg: redondear(masaMagra),
+    ffmiActual: redondear(ffmiActual),
+    masaMagraMaxKg: redondear(masaMagraMax),
+    pesoMaxKg: redondear(masaMagraMax / (1 - e.grasaPct / 100)),
+    kgPorGanar: redondear(Math.max(0, masaMagraMax - masaMagra)),
+    porcentaje: redondear((ffmiActual / FFMI_REFERENCIA) * 100),
+  };
+}
+
+// Regla de Martin Berkhan (Leangains): el peso en definición extrema es aproximadamente la altura en cm menos 100 (en kg);
+// el propio autor sugiere sumar entre 5 y 10 libras (2,3 a 4,5 kg) para el peso de todos los días. Es muy burda: no mira el esqueleto.
+export type ResultadoBerkhan = {
+  pesoDefinicionKg: number;
+  pesoCotidianoMinKg: number;
+  pesoCotidianoMaxKg: number;
+};
+
+export function berkhan(alturaCm: number): ResultadoBerkhan {
+  const base = alturaCm - 100;
+  return { pesoDefinicionKg: redondear(base), pesoCotidianoMinKg: redondear(base + 2.3), pesoCotidianoMaxKg: redondear(base + 4.5) };
+}
