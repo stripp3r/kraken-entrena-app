@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MedicionForm } from "@/components/medicion-form";
@@ -42,16 +41,6 @@ export default async function MedidasPage() {
 
         <div className="flex flex-col gap-4">
           <MedicionForm historial={historial ?? []} />
-          <Link
-            href="/medidas/potencial"
-            className="flex items-center justify-between rounded-lg border border-border bg-bg-card px-4 py-3 text-sm text-white transition-colors hover:border-border-strong"
-          >
-            <span>
-              Potencial muscular estimado
-              <span className="mt-0.5 block text-[11px] text-gray-500">Cuánto músculo natural puede sostener tu estructura</span>
-            </span>
-            <span className="text-2xl font-light leading-none text-gray-500">›</span>
-          </Link>
           <GuiaMedidas />
         </div>
       </div>
