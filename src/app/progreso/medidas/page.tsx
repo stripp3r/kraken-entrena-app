@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProgresoMedidas } from "@/components/progreso-medidas";
@@ -34,6 +35,17 @@ export default async function ProgresoMedidasPage() {
             MEDIDAS
           </h1>
         </div>
+
+        <Link
+          href="/medidas/potencial?desde=progreso"
+          className="mb-5 flex items-center justify-between rounded-lg border border-emerald-700 bg-emerald-950/40 px-4 py-3 text-sm text-white transition-colors hover:border-emerald-500"
+        >
+          <span>
+            Potencial muscular estimado
+            <span className="mt-0.5 block text-[11px] text-gray-400">Cuánto músculo natural puede sostener tu estructura</span>
+          </span>
+          <span className="text-2xl font-light leading-none text-emerald-400">›</span>
+        </Link>
 
         {!historial || historial.length === 0 ? (
           <p className="text-center text-sm text-gray-500">

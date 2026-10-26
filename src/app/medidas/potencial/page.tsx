@@ -6,7 +6,9 @@ import { GateSalud } from "@/components/gate-salud";
 import { PotencialMuscularCliente } from "@/components/potencial-muscular-cliente";
 
 // Potencial muscular natural estimado (ver lib/potencial-muscular.ts). Toma las medidas de la última carga en Medidas.
-export default async function PotencialMuscularPage() {
+export default async function PotencialMuscularPage({ searchParams }: { searchParams: Promise<{ desde?: string }> }) {
+  const { desde } = await searchParams;
+  const volverA = desde === "progreso" ? "/progreso/medidas" : "/medidas";
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,7 +36,7 @@ export default async function PotencialMuscularPage() {
       <GateSalud volverA="/" />
       <div className="w-full max-w-sm">
         <div className="relative mb-2">
-          <BackLink href="/medidas" />
+          <BackLink href={volverA} />
           <h1 className="text-center font-[family-name:var(--font-display)] text-4xl tracking-wide text-white">POTENCIAL MUSCULAR</h1>
         </div>
         <p className="mb-5 text-center text-xs text-gray-500">Estimación de cuánto músculo natural puede sostener tu estructura</p>
