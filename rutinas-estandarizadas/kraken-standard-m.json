@@ -9,7 +9,7 @@
     { "dia": "A", "orden": 2, "ejercicio_nombre": "Press inclinado con mancuernas", "series_reps": "3 x 10-12" },
     { "dia": "A", "orden": 3, "ejercicio_nombre": "Press militar con mancuernas", "series_reps": "3 x 8-12" },
     { "dia": "A", "orden": 4, "ejercicio_nombre": "Curl femoral", "series_reps": "3 x 10-15" },
-    { "dia": "A", "orden": 5, "ejercicio_nombre": "Abdominales en banco plano", "series_reps": "3 x 15-20" },
+    { "dia": "A", "orden": 5, "ejercicio_nombre": "Elevación de rodillas sentado con apoyo de manos", "series_reps": "3 x 15-20" },
     { "dia": "A", "orden": 6, "ejercicio_nombre": "Jalón al pecho en polea alta agarre supino", "series_reps": "3 x 10-12" },
 
     { "dia": "B", "orden": 1, "ejercicio_nombre": "Peso muerto", "series_reps": "3 x 6-8" },

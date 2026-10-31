@@ -5,7 +5,7 @@
 -- (CLAUDE.md, "Auditoría del catálogo"): agarre o implemento distinto SIEMPRE es un ejercicio separado. Solo se fusiona
 -- lo que es el MISMO ejercicio (mismo movimiento, implemento y lateralidad) y no contradice una decisión ya tomada.
 --
--- A) Fusión de 9 duplicados (duplicado -> canónico). Por cada uno, en este orden:
+-- A) Fusión de 11 duplicados (duplicado -> canónico). Por cada uno, en este orden:
 --   1) respaldo completo del duplicado y del canónico en public.ejercicios_fusion_112 (para poder deshacer),
 --   2) el canónico hereda lo que le falte (video, video femenino, ejercicio alternativo),
 --   3) rutinas, historial de series, sesiones de la cámara y alternativas que apuntaban al duplicado pasan al canónico,
@@ -18,9 +18,8 @@
 -- alguna referencia en NULL, lanza una excepción y se revierte todo.
 -- Deshacer: supabase/rollback_112_fusion_ejercicios.sql (NO se corre sola).
 --
+-- 91 / 93 / 214 (misma animación): el coach lo confirmó el 2026-10-31 y se unifican en el 91.
 -- A propósito NO se fusionó (decisiones previas del coach o variantes reales; ver CLAUDE.md):
---   91 / 93 / 214  comparten animación (elevación de rodillas sentado); el coach confirmó el 93 y el 214 está en
---                  "Kraken Standard M" -> pendiente de que el coach elija el nombre único.
 --   162 / 283      el coach corrigió (migración 078): el ancho de agarre distingue variantes de press de banca.
 --   41 / 240       evaluados como variante real (manija en T vs barra directa).
 --   190 / 44       la pelota es un implemento distinto.   22 / 278   el coach lo dio por ejercicio genuino (077).
@@ -52,7 +51,9 @@ declare
     [146, 240], -- Remo parado con barra agarre cerrado = Remo landmine con barra (dos ilustraciones del mismo ejercicio)
     [273, 73],  -- Aperturas con mancuernas en el piso con rodillo = Aperturas con mancuernas (la animación era la misma)
     [2, 111],   -- Cuádriceps en prensa = Prensa de piernas 45°
-    [88, 96]    -- Elevación de cadera con rodillas flexionadas = Crunch inverso
+    [88, 96],   -- Elevación de cadera con rodillas flexionadas = Crunch inverso
+    [93, 91],   -- Elevación de rodillas sentado con apoyo de manos = misma animación (el coach confirmó 2026-10-31 que son el mismo)
+    [214, 91]   -- Abdominales en banco plano = misma animación (el coach confirmó 2026-10-31); su texto describía un sit-up que la imagen no muestra
   ];
   n int := array_length(mapa, 1);
   i int;
@@ -126,6 +127,11 @@ begin
   update public.exercise_definitions set nombre = 'Tríceps katana (extensión sobre la cabeza en polea a un brazo)' where id = 292;
   update public.exercise_definitions set nombre = 'Press militar en máquina Smith' where id = 34;
   update public.exercise_definitions set nombre = 'Elevación lateral con mancuernas' where id = 14;
+  -- La tríada de abdominales: queda el 91 con el nombre y el texto del 93 (el que describe lo que muestra la animación).
+  update public.exercise_definitions c
+     set nombre = 'Elevación de rodillas sentado con apoyo de manos',
+         como_hacerlo = (select f.fila_duplicado ->> 'como_hacerlo' from public.ejercicios_fusion_112 f where f.id_duplicado = 93)
+   where c.id = 91;
 
   -- B) Imagen correcta para "Press de banca con barra (pies en el banco)": solo si sigue con la imagen de antes.
   update public.exercise_definitions
@@ -155,7 +161,7 @@ begin
   if exists (select 1 from public.exercise_definitions where alternativa_id = id) then
     raise exception 'Quedó un ejercicio que es alternativa de sí mismo';
   end if;
-  if (select count(*) from public.exercise_definitions where id in (292, 34, 14)) <> 3 then
+  if (select count(*) from public.exercise_definitions where id in (292, 34, 14, 91)) <> 4 then
     raise exception 'Falta alguno de los ejercicios a renombrar';
   end if;
 end

@@ -14,6 +14,8 @@ export const EJERCICIOS_FUSIONADOS: Readonly<Record<number, number>> = {
   273: 73,
   2: 111,
   88: 96,
+  93: 91,
+  214: 91,
 };
 
 export function idVigente(id: number): number {

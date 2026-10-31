@@ -46,6 +46,7 @@ begin
      set nombre         = f.fila_canonico_antes ->> 'nombre',
          video_url      = f.fila_canonico_antes ->> 'video_url',
          video_url_fem  = f.fila_canonico_antes ->> 'video_url_fem',
+         como_hacerlo   = f.fila_canonico_antes ->> 'como_hacerlo',
          alternativa_id = (f.fila_canonico_antes ->> 'alternativa_id')::bigint
     from public.ejercicios_fusion_112 f
    where c.id = f.id_canonico;
