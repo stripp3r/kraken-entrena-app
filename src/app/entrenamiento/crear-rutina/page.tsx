@@ -62,7 +62,7 @@ export default async function CrearRutinaPage() {
             CREA TU RUTINA
           </h1>
         </div>
-        <CrearRutinaCliente catalogo={catalogo ?? []} />
+        <CrearRutinaCliente catalogo={catalogo ?? []} usuarioId={user.id} />
       </div>
     </main>
   );

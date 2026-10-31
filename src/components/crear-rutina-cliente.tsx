@@ -22,36 +22,22 @@ import {
   minutosTotalesSemana,
   formatearMinutosSemana,
 } from "@/lib/formato-metricas";
-import type { TipoEsfuerzo } from "@/lib/descanso";
 import { guardarRutinaCreada, actualizarRutinaCreada } from "@/app/entrenamiento/crear-rutina/actions";
-
-type ExerciseCatalogo = {
-  id: number;
-  nombre: string;
-  imagen_url: string | null;
-  tipo_esfuerzo: TipoEsfuerzo;
-  grupos_musculares: string[] | null;
-};
-
-const FILTRO_TODOS = "Todos";
-
-type EjercicioDia = {
-  exerciseDefinitionId: number;
-  nombre: string;
-  tipoEsfuerzo: TipoEsfuerzo;
-  series: number;
-  repsMin: number;
-  repsMax: number;
-  rirObjetivo: number;
-  gruposMusculares: string[];
-};
-
-type DiaWizard = {
-  gruposMusculares: GrupoMuscular[];
-  ejercicios: EjercicioDia[];
-};
+import { CampoNumero } from "@/components/campo-numero";
+import {
+  ejercicioNuevo,
+  sanearBorrador,
+  type Borrador,
+  type DiaWizard,
+  type EjercicioCatalogo,
+  type EjercicioDia,
+} from "@/lib/borrador-rutina";
+import { LIMITES_RUTINA, validarRutina } from "@/lib/validar-rutina";
+import { FILTRO_TODOS, filtrarCatalogo } from "@/lib/buscar-ejercicios";
 
 const diaVacio = (): DiaWizard => ({ gruposMusculares: [], ejercicios: [] });
+
+const CLASE_CAMPO = "w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none";
 
 // El wizard es varios pasos y puede llevar un rato armarlo -- sin esto, un
 // F5 o un cierre accidental del navegador borraba todo lo cargado (el
@@ -59,38 +45,40 @@ const diaVacio = (): DiaWizard => ({ gruposMusculares: [], ejercicios: [] });
 // borrador por dispositivo, y se limpia solo al guardar la rutina con
 // éxito. Nunca se persiste el paso "cantidad" porque ahí no hay nada
 // todavía que valga la pena recuperar.
-const BORRADOR_KEY = "kraken-crear-rutina-borrador";
+// La clave lleva el id del usuario: si dos personas usan el mismo teléfono no ven el borrador de la otra. Lo que se
+// lee se sanea contra el catálogo de hoy (lib/borrador-rutina.ts): puede venir de una versión anterior de la app,
+// con ejercicios fusionados o que ya no existen.
+const BORRADOR_KEY_ANTERIOR = "kraken-crear-rutina-borrador";
+const claveBorrador = (usuarioId: string) => `${BORRADOR_KEY_ANTERIOR}:${usuarioId}`;
 
-type Borrador = {
-  paso: "dias" | "resumen";
-  dias: DiaWizard[];
-  diaActivo: number;
-  nombreRutina: string;
-};
-
-function cargarBorrador(): Borrador | null {
+function leerBorrador(clave: string): unknown {
   try {
-    const crudo = localStorage.getItem(BORRADOR_KEY);
-    if (!crudo) return null;
-    const datos = JSON.parse(crudo);
-    if (!Array.isArray(datos?.dias) || datos.dias.length === 0) return null;
-    return datos as Borrador;
+    const crudo = localStorage.getItem(clave);
+    return crudo ? JSON.parse(crudo) : null;
   } catch {
     return null;
   }
 }
 
-function guardarBorrador(borrador: Borrador) {
+function guardarBorrador(clave: string, borrador: Borrador) {
   try {
-    localStorage.setItem(BORRADOR_KEY, JSON.stringify(borrador));
+    localStorage.setItem(clave, JSON.stringify(borrador));
   } catch {
     // Storage lleno, modo privado, etc. -- no es crítico, seguimos sin persistir.
   }
 }
 
-function borrarBorrador() {
+function borrarBorrador(clave: string) {
   try {
-    localStorage.removeItem(BORRADOR_KEY);
+    localStorage.removeItem(clave);
+  } catch {
+    // no-op
+  }
+}
+
+function quitarBorradorAnterior() {
+  try {
+    localStorage.removeItem(BORRADOR_KEY_ANTERIOR);
   } catch {
     // no-op
   }
@@ -101,11 +89,15 @@ export type RutinaExistente = { id: number; nombre: string; dias: DiaWizard[] };
 export function CrearRutinaCliente({
   catalogo,
   rutinaExistente,
+  usuarioId,
 }: {
-  catalogo: ExerciseCatalogo[];
+  catalogo: EjercicioCatalogo[];
   rutinaExistente?: RutinaExistente;
+  // Solo hace falta al crear (el borrador se guarda por usuario); al editar no hay borrador.
+  usuarioId?: string;
 }) {
   const router = useRouter();
+  const clave = usuarioId ? claveBorrador(usuarioId) : null;
   const [paso, setPaso] = useState<"cantidad" | "dias" | "resumen">(
     rutinaExistente ? "dias" : "cantidad"
   );
@@ -126,9 +118,14 @@ export function CrearRutinaCliente({
   // distinta) ni guardar uno nuevo mientras se edita, cada edición es una
   // sesión corta y autocontenida.
   useEffect(() => {
-    if (rutinaExistente) return;
+    if (rutinaExistente || !clave) return;
+    // Antes el borrador se guardaba en una clave común del teléfono: si hay uno y el usuario no tiene el suyo, se
+    // rescata una sola vez y se descarta la clave vieja, para no mostrarle a otra persona un borrador ajeno.
+    const propio = leerBorrador(clave);
+    const heredado = propio === null ? leerBorrador(BORRADOR_KEY_ANTERIOR) : null;
+    quitarBorradorAnterior();
     /* eslint-disable react-hooks/set-state-in-effect */
-    const borrador = cargarBorrador();
+    const borrador = sanearBorrador(propio ?? heredado, catalogo);
     if (!borrador) return;
     setDias(borrador.dias);
     setDiaActivo(borrador.diaActivo);
@@ -142,10 +139,10 @@ export function CrearRutinaCliente({
   }, []);
 
   useEffect(() => {
-    if (rutinaExistente) return;
+    if (rutinaExistente || !clave) return;
     if (paso === "cantidad") return;
-    guardarBorrador({ paso, dias, diaActivo, nombreRutina });
-  }, [rutinaExistente, paso, dias, diaActivo, nombreRutina]);
+    guardarBorrador(clave, { paso, dias, diaActivo, nombreRutina });
+  }, [rutinaExistente, clave, paso, dias, diaActivo, nombreRutina]);
 
   function elegirCantidad(n: number) {
     setDias(Array.from({ length: n }, diaVacio));
@@ -171,27 +168,14 @@ export function CrearRutinaCliente({
     }
   }
 
-  function agregarEjercicio(ex: ExerciseCatalogo) {
+  // Un ejercicio no se repite dentro del mismo día: el historial se indexa por ejercicio y día
+  // (lib/clave-ejercicio-dia.ts) y las dos tarjetas compartirían los registros.
+  function agregarEjercicio(ex: EjercicioCatalogo) {
     setDias((prev) =>
       prev.map((d, i) =>
-        i !== diaActivo
+        i !== diaActivo || d.ejercicios.some((e) => e.exerciseDefinitionId === ex.id)
           ? d
-          : {
-              ...d,
-              ejercicios: [
-                ...d.ejercicios,
-                {
-                  exerciseDefinitionId: ex.id,
-                  nombre: ex.nombre,
-                  tipoEsfuerzo: ex.tipo_esfuerzo,
-                  series: 3,
-                  repsMin: 8,
-                  repsMax: 12,
-                  rirObjetivo: 2,
-                  gruposMusculares: ex.grupos_musculares ?? [],
-                },
-              ],
-            }
+          : { ...d, ejercicios: [...d.ejercicios, ejercicioNuevo(ex)] }
       )
     );
     setBusqueda("");
@@ -218,19 +202,10 @@ export function CrearRutinaCliente({
 
   const gruposDelDia = useMemo(() => dias[diaActivo]?.gruposMusculares ?? [], [dias, diaActivo]);
 
-  const ejerciciosFiltrados = useMemo(() => {
-    if (gruposDelDia.length === 0) return [];
-    const q = busqueda.trim().toLowerCase();
-    return catalogo.filter((ex) => {
-      const gruposEx = ex.grupos_musculares ?? [];
-      const pasaGrupo =
-        filtroGrupo === FILTRO_TODOS
-          ? gruposEx.some((g) => (gruposDelDia as string[]).includes(g))
-          : gruposEx.includes(filtroGrupo);
-      const pasaBusqueda = !q || ex.nombre.toLowerCase().includes(q);
-      return pasaGrupo && pasaBusqueda;
-    });
-  }, [busqueda, filtroGrupo, catalogo, gruposDelDia]);
+  const ejerciciosFiltrados = useMemo(
+    () => filtrarCatalogo(catalogo, gruposDelDia, filtroGrupo, busqueda),
+    [busqueda, filtroGrupo, catalogo, gruposDelDia]
+  );
 
   const diasParaCalculo: DiaBorrador[] = useMemo(
     () =>
@@ -268,11 +243,6 @@ export function CrearRutinaCliente({
 
   async function guardar(activar: boolean) {
     setError(null);
-    if (!nombreRutina.trim()) {
-      setError("Ponele un nombre a tu rutina.");
-      return;
-    }
-    setGuardando(true);
     const diasParaGuardar = dias.map((d) => ({
       gruposMusculares: d.gruposMusculares,
       ejercicios: d.ejercicios.map((e) => ({
@@ -283,18 +253,31 @@ export function CrearRutinaCliente({
         rirObjetivo: e.rirObjetivo,
       })),
     }));
-    const result = rutinaExistente
-      ? await actualizarRutinaCreada(rutinaExistente.id, nombreRutina, diasParaGuardar, activar)
-      : await guardarRutinaCreada(nombreRutina, diasParaGuardar, activar);
-    setGuardando(false);
-
-    if (result.error) {
-      setError(result.error);
+    // Mismo chequeo que hace el servidor (que es el que protege de verdad), pero acá el mensaje llega al instante y
+    // nombra el día y el ejercicio con el problema.
+    const nombresPorId = Object.fromEntries(catalogo.map((ex) => [ex.id, ex.nombre]));
+    const validada = validarRutina(nombreRutina, diasParaGuardar, nombresPorId);
+    if (!validada.ok) {
+      setError(validada.error);
       return;
     }
 
-    if (!rutinaExistente) borrarBorrador();
-    router.push(rutinaExistente ? `/entrenamiento/rutinas/${rutinaExistente.id}` : "/entrenamiento");
+    setGuardando(true);
+    const resultado = rutinaExistente
+      ? await actualizarRutinaCreada(rutinaExistente.id, validada.nombre, diasParaGuardar, activar)
+      : await guardarRutinaCreada(validada.nombre, diasParaGuardar, activar);
+    setGuardando(false);
+
+    if ("error" in resultado) {
+      setError(resultado.error);
+      return;
+    }
+
+    if (!rutinaExistente && clave) borrarBorrador(clave);
+    // Si quedó guardada pero no se pudo activar, se abre su detalle, donde se activa a mano (volver a intentar acá
+    // crearía una copia).
+    const faltoActivar = activar && !resultado.activada;
+    router.push(rutinaExistente || faltoActivar ? `/entrenamiento/rutinas/${resultado.routineId}` : "/entrenamiento");
     router.refresh();
   }
 
@@ -434,26 +417,42 @@ export function CrearRutinaCliente({
                     Ningún ejercicio coincide -- probá otro grupo o buscá por nombre.
                   </p>
                 )}
-                {ejerciciosFiltrados.map((ex) => (
-                  <button
-                    key={ex.id}
-                    type="button"
-                    onClick={() => agregarEjercicio(ex)}
-                    className="flex flex-col items-center gap-1 rounded-md p-1.5 text-center hover:bg-bg"
-                  >
-                    {ex.imagen_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={ex.imagen_url}
-                        alt=""
-                        className="aspect-square w-full rounded bg-white object-contain"
-                      />
-                    ) : (
-                      <div className="aspect-square w-full rounded bg-bg" />
-                    )}
-                    <span className="text-[10px] leading-tight text-gray-300">{ex.nombre}</span>
-                  </button>
-                ))}
+                {ejerciciosFiltrados.map((ex) => {
+                  const agregado = dia.ejercicios.some((e) => e.exerciseDefinitionId === ex.id);
+                  return (
+                    <button
+                      key={ex.id}
+                      type="button"
+                      onClick={() => agregarEjercicio(ex)}
+                      disabled={agregado}
+                      title={agregado ? "Ya está en este día" : undefined}
+                      className={`flex flex-col items-center gap-1 rounded-md p-1.5 text-center ${agregado ? "opacity-40" : "hover:bg-bg"}`}
+                    >
+                      <div className="relative w-full">
+                        {ex.imagen_url ? (
+                          // loading="lazy": cada imagen es un GIF animado de ~100 KB; sin esto el teléfono baja de
+                          // una vez todos los del grupo (hasta ~10 MB) aunque se vean unos pocos.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={ex.imagen_url}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            className="aspect-square w-full rounded bg-white object-contain"
+                          />
+                        ) : (
+                          <div className="aspect-square w-full rounded bg-bg" />
+                        )}
+                        {agregado && (
+                          <span className="absolute right-1 top-1 rounded-full bg-emerald-500 px-1.5 text-[10px] font-semibold text-black">
+                            ✓
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] leading-tight text-gray-300">{ex.nombre}</span>
+                    </button>
+                  );
+                })}
               </div>
             </>
           )}
@@ -462,7 +461,7 @@ export function CrearRutinaCliente({
         {dia.ejercicios.length > 0 && (
           <div className="flex flex-col gap-2">
             {dia.ejercicios.map((ej, indice) => (
-              <div key={indice} className="rounded-md border border-border bg-bg-card p-3">
+              <div key={ej.exerciseDefinitionId} className="rounded-md border border-border bg-bg-card p-3">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-sm font-medium text-white">{ej.nombre}</span>
                   <button
@@ -476,38 +475,49 @@ export function CrearRutinaCliente({
                 <div className="flex items-end gap-2">
                   <div className="flex flex-1 flex-col gap-1">
                     <label className="text-[11px] text-gray-500">Series</label>
-                    <input
-                      type="number"
-                      value={ej.series}
-                      onChange={(e) => actualizarEjercicio(indice, { series: Number(e.target.value) })}
-                      className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none"
+                    <CampoNumero
+                      valor={ej.series}
+                      min={LIMITES_RUTINA.series.min}
+                      max={LIMITES_RUTINA.series.max}
+                      etiqueta={`Series de ${ej.nombre}`}
+                      onCambio={(n) => actualizarEjercicio(indice, { series: n })}
+                      className={CLASE_CAMPO}
                     />
                   </div>
                   <div className="flex flex-1 flex-col gap-1">
                     <label className="text-[11px] text-gray-500">Reps min</label>
-                    <input
-                      type="number"
-                      value={ej.repsMin}
-                      onChange={(e) => actualizarEjercicio(indice, { repsMin: Number(e.target.value) })}
-                      className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none"
+                    <CampoNumero
+                      valor={ej.repsMin}
+                      min={LIMITES_RUTINA.reps.min}
+                      max={LIMITES_RUTINA.reps.max}
+                      etiqueta={`Repeticiones mínimas de ${ej.nombre}`}
+                      // El mínimo nunca pasa al máximo: si se sube por encima, el máximo lo acompaña.
+                      onCambio={(n) => actualizarEjercicio(indice, { repsMin: n, repsMax: Math.max(n, ej.repsMax) })}
+                      className={CLASE_CAMPO}
                     />
                   </div>
                   <div className="flex flex-1 flex-col gap-1">
                     <label className="text-[11px] text-gray-500">Reps max</label>
-                    <input
-                      type="number"
-                      value={ej.repsMax}
-                      onChange={(e) => actualizarEjercicio(indice, { repsMax: Number(e.target.value) })}
-                      className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none"
+                    <CampoNumero
+                      valor={ej.repsMax}
+                      min={LIMITES_RUTINA.reps.min}
+                      max={LIMITES_RUTINA.reps.max}
+                      etiqueta={`Repeticiones máximas de ${ej.nombre}`}
+                      // Y al revés: si el máximo baja del mínimo, el mínimo baja con él.
+                      onCambio={(n) => actualizarEjercicio(indice, { repsMax: n, repsMin: Math.min(n, ej.repsMin) })}
+                      className={CLASE_CAMPO}
                     />
                   </div>
                   <div className="flex flex-1 flex-col gap-1">
                     <label className="text-[11px] text-gray-500">RIR obj.</label>
-                    <input
-                      type="number"
-                      value={ej.rirObjetivo}
-                      onChange={(e) => actualizarEjercicio(indice, { rirObjetivo: Number(e.target.value) })}
-                      className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-white outline-none"
+                    <CampoNumero
+                      valor={ej.rirObjetivo}
+                      min={LIMITES_RUTINA.rir.min}
+                      max={LIMITES_RUTINA.rir.max}
+                      paso={0.5}
+                      etiqueta={`RIR objetivo de ${ej.nombre}`}
+                      onCambio={(n) => actualizarEjercicio(indice, { rirObjetivo: n })}
+                      className={CLASE_CAMPO}
                     />
                   </div>
                 </div>

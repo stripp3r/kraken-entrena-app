@@ -15,6 +15,10 @@ const eslintConfig = defineConfig([
     // Scripts de Node sueltos (CommonJS a propósito, corren con `node
     // scripts/x.js`, usan __dirname) -- no son parte de la app Next/TS.
     "scripts/**",
+    // Archivos estáticos servidos tal cual (el WASM de MediaPipe es código de terceros ya compilado: daba 10
+    // errores y ~500 avisos que tapaban los del código propio) y los skills locales de Claude Code.
+    "public/**",
+    ".claude/**",
   ]),
 ]);
 

@@ -7,6 +7,7 @@ import { ladoOpuesto, ladoPendiente } from "@/lib/lado-pendiente";
 import type { TipoSerie } from "@/lib/dropset";
 import { modalidadValida, type ModalidadCarga } from "@/lib/carga";
 import { esUsuarioDePrototipos } from "@/lib/prototipos";
+import { idVigente } from "@/lib/ejercicios-fusionados";
 
 export type SetInput = {
   peso: number | null;
@@ -25,7 +26,17 @@ export type SetInput = {
 
 const MAX_BAJADAS_POR_SERIE = 5;
 
-export async function registrarSets(exerciseDefinitionId: number, sets: SetInput[], dia?: string) {
+// Una pantalla abierta (o una PWA con la pantalla en caché) desde antes de que se fusionara un ejercicio duplicado del
+// catálogo todavía manda el id viejo. Solo si ese id YA NO existe se usa el vigente (lib/ejercicios-fusionados.ts): así
+// no se pierde la serie, y el código es seguro antes de aplicar la migración 112 o si se deshace.
+async function idDeEjercicioVigente(supabase: Awaited<ReturnType<typeof createClient>>, id: number): Promise<number> {
+  const vigente = idVigente(id);
+  if (vigente === id) return id;
+  const { data } = await supabase.from("exercise_definitions").select("id").eq("id", id).maybeSingle();
+  return data ? id : vigente;
+}
+
+export async function registrarSets(exerciseDefinitionIdRecibido: number, sets: SetInput[], dia?: string) {
   const supabase = await createClient();
 
   const {
@@ -35,6 +46,8 @@ export async function registrarSets(exerciseDefinitionId: number, sets: SetInput
   if (!user) {
     return { error: "Tenés que iniciar sesión de nuevo." };
   }
+
+  const exerciseDefinitionId = await idDeEjercicioVigente(supabase, exerciseDefinitionIdRecibido);
 
   // El lado de un set unilateral NO se toma del que manda el cliente: se
   // asigna acá, contando lo ya registrado hoy para este ejercicio (mismo
@@ -179,7 +192,7 @@ export async function guardarSesionPose(datos: {
   if (total > 50000) return { error: "Serie demasiado larga." };
   const { error } = await supabase.from("pose_sesiones_prueba").insert({
     user_id: user.id,
-    exercise_definition_id: datos.exerciseId,
+    exercise_definition_id: datos.exerciseId === null ? null : await idDeEjercicioVigente(supabase, datos.exerciseId),
     camara: datos.camara.slice(0, 20),
     fps: datos.fps,
     contado: datos.contado,

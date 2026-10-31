@@ -417,7 +417,6 @@ export function ContadorCamara({
   }
 
   const reps = Math.max(0, (hud?.estado.repeticiones ?? 0) + ajuste);
-  const sinConteo = !hud?.armado;
 
   // Guarda los números de la serie (sin video) para ajustar el conteo con datos reales.
   function guardarTraza() {

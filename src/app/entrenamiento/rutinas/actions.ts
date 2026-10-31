@@ -47,7 +47,8 @@ export async function borrarRutinaCreada(routineId: number) {
   const { error } = await admin.from("routines").delete().eq("id", routineId);
 
   if (error) {
-    return { error: error.message };
+    console.error("[rutinas] no se pudo borrar la rutina", routineId, error.message);
+    return { error: "No se pudo borrar la rutina. Probá de nuevo en unos segundos." };
   }
 
   return { ok: true };
