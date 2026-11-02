@@ -12,6 +12,7 @@ import { contarSeriesPrincipales, planDeSeries, seriesObjetivoDelPlan, type Tipo
 import { leerSesionActiva, guardarSesionActiva, borrarSesionActiva } from "@/lib/sesion-entrenamiento";
 import type { ModalidadCarga } from "@/lib/carga";
 import { liberarLandmarker, precargarLandmarker } from "@/lib/pose/landmarker-cache";
+import { agruparBloques, transicionBloque, type InfoBloque } from "@/lib/bloques";
 
 const OBJETIVO_SERIES_DEFAULT = 3;
 
@@ -64,6 +65,8 @@ export type ExerciseFull = {
   tipoEsfuerzo: TipoEsfuerzo;
   modalidad?: ModalidadCarga;
   sugerencia: Sugerencia | null;
+  // Biserie (migración 113): este ejercicio se hace seguido de los otros del mismo bloque.
+  bloque?: InfoBloque | null;
 };
 
 function contarSeriesCompletas(ex: ExerciseFull, logs: WorkoutLog[]): number {
@@ -215,6 +218,19 @@ export function EntrenamientoDiaCliente({
       setDescansoHasta(null);
       return;
     }
+    // Biserie: pasa solo al ejercicio siguiente del bloque (descanso corto) y, al cerrar la ronda, vuelve al primero
+    // (descanso de cierre). En la última ronda cae en el descanso común. Cada ejercicio guarda sus propias series.
+    if (activo.bloque && !activo.unilateral) {
+      const miembros = exercises.filter((e) => e.bloque?.numero === activo.bloque?.numero);
+      const t = transicionBloque(miembros, activo.id, activo.bloque, seriesCompletas, seriesObjetivoDe(miembros[0]?.series_reps ?? null));
+      if (t.siguienteId !== null) {
+        setActivoId(t.siguienteId);
+        setEtiquetaDescanso(t.etiqueta);
+        // eslint-disable-next-line react-hooks/purity
+        setDescansoHasta(Date.now() + (t.descansoS ?? 0) * 1000);
+        return;
+      }
+    }
     if (activo.unilateral && lado === "derecho") {
       setEtiquetaDescanso("Descanso entre lados");
       // eslint-disable-next-line react-hooks/purity
@@ -258,6 +274,38 @@ export function EntrenamientoDiaCliente({
     );
   }
 
+  const renderTarjeta = (ex: ExerciseFull) => {
+    const esActivo = sesionActiva && ex.id === activoId;
+    return (
+      <ExerciseCard
+        key={ex.id}
+        exercise={ex}
+        dia={dia}
+        logsDeHoy={logsPorEjercicio[ex.id] ?? []}
+        activo={esActivo}
+        camara={camara}
+        avanzado={avanzado}
+        compacto={!sesionActiva}
+        onSeleccionar={sesionActiva && !esActivo ? () => seleccionar(ex.id) : undefined}
+        sesion={
+          esActivo
+            ? {
+                lado,
+                descansoHasta,
+                etiquetaDescanso,
+                seriesCompletas,
+                listoParaOtro,
+                onSetGuardado,
+                onDescansoTerminado: terminarDescanso,
+                onSaltarDescanso: terminarDescanso,
+                onFinalizarEjercicio: finalizarEjercicio,
+              }
+            : undefined
+        }
+      />
+    );
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {exercises.length > 0 && !sesionActiva && (
@@ -277,37 +325,24 @@ export function EntrenamientoDiaCliente({
       )}
 
       <div className={sesionActiva ? "flex flex-col gap-3" : "grid grid-cols-2 gap-3"}>
-        {exercises.map((ex) => {
-          const esActivo = sesionActiva && ex.id === activoId;
-          return (
-            <ExerciseCard
-              key={ex.id}
-              exercise={ex}
-              dia={dia}
-              logsDeHoy={logsPorEjercicio[ex.id] ?? []}
-              activo={esActivo}
-              camara={camara}
-              avanzado={avanzado}
-              compacto={!sesionActiva}
-              onSeleccionar={sesionActiva && !esActivo ? () => seleccionar(ex.id) : undefined}
-              sesion={
-                esActivo
-                  ? {
-                      lado,
-                      descansoHasta,
-                      etiquetaDescanso,
-                      seriesCompletas,
-                      listoParaOtro,
-                      onSetGuardado,
-                      onDescansoTerminado: terminarDescanso,
-                      onSaltarDescanso: terminarDescanso,
-                      onFinalizarEjercicio: finalizarEjercicio,
-                    }
-                  : undefined
-              }
-            />
-          );
-        })}
+        {agruparBloques(exercises).map((g) =>
+          g.bloque ? (
+            <div
+              key={`bloque-${g.bloque.numero}-${g.items[0].id}`}
+              className={`${sesionActiva ? "" : "col-span-2"} rounded-lg border border-amber-500/40 bg-amber-500/5 p-2`}
+            >
+              <p className="text-xs font-semibold tracking-wide text-amber-300">
+                BISERIE {g.bloque.numero}{g.bloque.titulo ? ` — ${g.bloque.titulo.toUpperCase()}` : ""}
+              </p>
+              <p className="mb-2 mt-0.5 text-[11px] text-gray-400">
+                Se hacen seguidos: {g.items.map((e) => e.nombre).join(" → ")}. Descanso entre ejercicios {g.bloque.entreS} s y al cerrar la ronda {g.bloque.finalS} s.
+              </p>
+              <div className={sesionActiva ? "flex flex-col gap-3" : "grid grid-cols-2 gap-3"}>{g.items.map(renderTarjeta)}</div>
+            </div>
+          ) : (
+            g.items.map(renderTarjeta)
+          )
+        )}
       </div>
 
       {sesionActiva && (

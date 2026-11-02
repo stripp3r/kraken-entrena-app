@@ -1,3 +1,4 @@
+import { infoDeBloques } from "@/lib/bloques";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EntrenamientoDiaCliente } from "@/components/entrenamiento-dia-cliente";
@@ -49,7 +50,7 @@ export default async function DiaEntrenamientoPage({
     supabase
       .from("routine_exercises")
       .select(
-        "orden, exercise_definition_id, series_reps, exercise_definitions(nombre, video_url, video_url_fem, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo, modalidad_carga)"
+        "orden, exercise_definition_id, series_reps, bloque, bloque_titulo, bloque_descanso_entre_s, bloque_descanso_final_s, exercise_definitions(nombre, video_url, video_url_fem, imagen_url, como_hacerlo, alternativa_id, unilateral, tipo_esfuerzo, modalidad_carga)"
       )
       .eq("dia", dia)
       .eq("routine_id", profile.routine_id)
@@ -65,9 +66,11 @@ export default async function DiaEntrenamientoPage({
 
   // "id" de acá en más es el exercise_definition_id (canónico) -- es lo que
   // identifica al ejercicio en workout_logs, no la fila de scheduling.
-  const exercises = (routineExercises ?? [])
-    .filter((re) => re.exercise_definition_id !== null)
-    .map((re) => {
+  const filasConEjercicio = (routineExercises ?? []).filter((re) => re.exercise_definition_id !== null);
+  // Biseries (migración 113): filas consecutivas con el mismo `bloque` se muestran y se descansan juntas.
+  const infoBloques = infoDeBloques(filasConEjercicio);
+  const exercises = filasConEjercicio
+    .map((re, i) => {
       const def = Array.isArray(re.exercise_definitions)
         ? re.exercise_definitions[0]
         : re.exercise_definitions;
@@ -84,6 +87,7 @@ export default async function DiaEntrenamientoPage({
         unilateral: def?.unilateral ?? false,
         tipo_esfuerzo: def?.tipo_esfuerzo ?? "compuesto",
         modalidad: modalidadValida(def?.modalidad_carga),
+        bloque: infoBloques[i],
       };
     });
 
@@ -216,6 +220,7 @@ export default async function DiaEntrenamientoPage({
               tipoEsfuerzo: ex.tipo_esfuerzo as "compuesto" | "aislado",
               modalidad: ex.modalidad,
               sugerencia: sugerenciaPorEjercicio.get(ex.id) ?? null,
+              bloque: ex.bloque,
             }))}
             logsPorEjercicio={Object.fromEntries(
               exercises.map((ex) => [
