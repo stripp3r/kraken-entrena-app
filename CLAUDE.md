@@ -301,6 +301,22 @@ SQL Editor. Estado al 2026-10-12:
   `src/lib/ultima-pantalla.ts`), NO en la base de datos -- es conveniencia
   de UI por dispositivo, no un dato que haya que persistir server-side.
 
+## Reglas de producto (traídas de la memoria de Claude, 2026-11-03)
+
+- Botones de cobro: **Mercado Pago amarillo, PayPal celeste** (al revés de las marcas; lo corrigió dos veces).
+- Todo se cobra en el sitio web; la app es gratis y no habla de precios. Nunca Google Play Billing ni Apple IAP
+  (cero comisiones). Publicar en tiendas está postergado: ver bitácora antes de retomarlo.
+- Cada ejercicio nuevo lleva GIF (`imagen_url`) y video: buscar en la librería de GIFs; si no está el exacto,
+  usar el de un ejercicio hermano. Nunca dejarlo vacío. Antes de sumar uno, correr
+  `node scripts/detectar-ejercicios-duplicados.mjs --candidato` (agarre o implemento distinto = ejercicio aparte).
+- Cámara: lo primero es que **cuente bien las repeticiones**; corregir técnica es secundario. Medir siempre contra
+  series reales guardadas (`pose_sesiones_prueba`).
+- Después de guardar un dato, mostrar lo guardado ahí mismo (refresco en el lugar), no solo un cartel.
+- Día extra o cambios de rutina para un cliente de mentoría: si la rutina es compartida (ej. "Kraken Standard M"),
+  NUNCA editarla: crear copia privada del cliente, darle acceso, dejarla activa y reapuntar su
+  `profile_routine_history` abierto a la copia (no abrir tramo nuevo). Verificar leyendo la base que la original
+  quedó intacta. Ejemplo: día C de Walter (rutina 14) → Coco (27), Rahim (28).
+
 ## Qué NO hacer sin preguntarle antes al usuario
 
 - (Actualizado 2026-10-12) Las migraciones SQL contra producción SÍ las corre
