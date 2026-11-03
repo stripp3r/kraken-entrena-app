@@ -1,0 +1,3560 @@
+# Bitácora de KRAKEN Entrena
+
+> Historia completa del proyecto: decisiones, diagnósticos y features. Hasta el 2026-11-03 era el CLAUDE.md entero;
+> desde ese día el CLAUDE.md solo tiene las reglas que sirven siempre. Buscá acá (grep por tema) antes de tocar una feature.
+
+
+# KRAKEN Entrena — memoria del proyecto
+
+Este archivo se carga solo al empezar cada sesión acá. Es la fuente de
+verdad sobre decisiones ya tomadas y convenciones establecidas -- no
+"corregir" nada de lo que sigue sin preguntarle antes al usuario (el coach,
+Ezequiel). Si algo de esto queda desactualizado, avisar y actualizar este
+archivo, no solo arreglarlo una vez y dejar que se repita el error.
+
+## Regla fija: mantener este documento actualizado, siempre, en el momento
+
+El usuario pidió explícitamente que este archivo funcione como reglamento
+vivo del proyecto -- la base para no repetir errores ni perder criterios
+ya definidos, pase lo que pase con la memoria de la conversación.
+
+**Cada vez que pase algo de esto, hay que sumarlo (o corregirlo) ACÁ
+MISMO, en el momento, no "después" ni "si me acuerdo":**
+- El usuario corrige algo que hice mal, o rechaza un enfoque.
+- El usuario confirma/define un criterio, convención o decisión de negocio
+  nueva (aunque sea chica).
+- Se descubre un bug o una limitación real de una herramienta/plataforma
+  (ej. el bug de tildes en Supabase Storage, las limitaciones de PWA en
+  iOS/Samsung Internet) -- documentarlo apenas se confirma, no al final de
+  la sesión.
+- Se toma una decisión de arquitectura o se establece un patrón de código
+  nuevo que otras pantallas/features deberían seguir.
+
+No hace falta preguntarle al usuario si hay que anotarlo -- se anota
+directo, como parte natural de resolver lo que sea que esté pasando en ese
+momento. Preferir agregarlo bajo la sección que ya existe más parecida
+(Modelo de datos / Decisiones de negocio / Convenciones de código / Qué NO
+hacer) antes que crear una sección nueva suelta.
+
+## Qué es esto
+
+PWA (Progressive Web App) de entrenamiento -- reemplaza un Excel
+(`EntrenaOptimo`) que el coach usaba para dar rutinas online. Clientes
+reales ya la están usando.
+
+- **Repo**: `D:\PROYECTO FITNESS\APP\kraken-entrena-app`
+- **Deploy**: Vercel, producción en `https://kraken-entrena-app.vercel.app`
+- **Stack**: Next.js 16 (App Router) + TypeScript + Tailwind CSS,
+  Supabase (Postgres + Auth + Storage), rutas API de Next
+  (`src/app/api/...`) para checkout/webhooks -- sin backend propio aparte.
+- **Proyecto hermano** (repo distinto, no tocar desde acá salvo que se pida
+  explícitamente): sitio de marketing en
+  `D:\PROYECTO FITNESS\WEB SITE\NUEVO SITIO WEB` (HTML/CSS/JS estático,
+  Vercel aparte), vende los mismos planes/Golden/mentoría por fuera de la
+  app.
+- Hay una sesión de **Codex** corriendo diagnósticos en paralelo sobre este
+  mismo repo. `CODEX_BRIEFING.md` (raíz del repo, NO commiteado a propósito)
+  es el handoff que el usuario le comparte a mano -- mantenerlo actualizado
+  cuando cambien cosas importantes.
+- **División de trabajo entre chats (aclarado 2026-09-21)**: hay OTRO chat
+  de Claude Code, separado de este, que el usuario usa exclusivamente para
+  dar de alta clientes de mentoría puntuales (le pasa un PDF/texto y ese
+  chat le carga la rutina + el PDF de guía alimenticia a ESE cliente). Todo
+  lo demás -- construir la app, mantener el catálogo de `exercise_definitions`
+  (deduplicar, completar, corregir GIFs), features nuevas -- se hace ACÁ.
+  No asumir que "cargar contenido" es trabajo del otro chat sin preguntar
+  primero; el otro chat es específicamente para eso, nada más.
+
+## Estructura de carpetas relevante
+
+```
+src/
+  app/                      -- rutas (App Router). Cada carpeta = una pantalla.
+    entrenamiento/          -- hub de entrenar, rutinas, cardio
+    progreso/               -- analíticas (entrenamiento, medidas, salud, historial)
+    perfil/                 -- datos personales, recursos (PDFs)
+    alimentacion/           -- calculadora de calorías (Golden) + guía (Mentoría)
+    golden/                 -- venta de Golden
+    api/checkout/           -- Mercado Pago / PayPal (Golden + productos sueltos)
+    api/webhooks/           -- confirman pagos, acreditan acceso
+  components/               -- componentes de UI, casi todos "use client"
+  lib/                      -- lógica pura sin UI: fecha.ts, premium.ts, analytics.ts,
+                               salud.ts, contextura.ts, nutricion.ts, mercadopago.ts,
+                               paypal.ts, compras.ts, sonido.ts, sesion-entrenamiento.ts,
+                               ultima-pantalla.ts
+supabase/
+  schema.sql                -- esquema base original
+  migration_001..048.sql    -- TODAS las migraciones desde el inicio, en orden.
+                               NO se aplican solas. El coach las corre a mano en
+                               el SQL Editor de Supabase, una por una, en orden
+                               numérico. Un cambio de esquema nuevo SIEMPRE sale
+                               como un migration_0XX.sql nuevo (siguiente número
+                               libre), nunca editando uno viejo ya corrido.
+public/section-icons/        -- íconos de cada sección/hub, PNG 160x160 transparentes
+```
+
+Carpetas sueltas en la raíz del repo tipo `gifs-*/`, `videos-*/` son
+**staging temporal** para que el coach suba archivos a Supabase Storage a
+mano vía Dashboard -- no son parte del código, no hace falta commitearlas
+(y de hecho no están en git), se pueden borrar una vez subido su contenido.
+
+## Modelo de datos (lo esencial)
+
+- `profiles`: datos del usuario + acceso. Campos clave: `premium_hasta`
+  (fecha), `golden_perpetuo` (bool), `premium_origen`
+  ('trial'|'compra'|'golden'|'mentoria'|'founder', el último desde
+  migración 083). **`src/lib/premium.ts` es la única fuente de verdad
+  para esto** -- nunca reimplementar esta lógica inline en una pantalla:
+  - `esPremium(p)`: acceso vigente a la app (cualquier origen).
+  - `permisos(p)`: **la única fuente de verdad de qué incluye cada
+    categoría** -- devuelve un objeto (`catalogoCompleto`, `cardio`,
+    `limiteRutinasCreadas`, `historial`, `evolucion`, `misPdfs`,
+    `calculadora`, `guiaAlimenticia`) con la matriz completa por plan
+    (Founder/Mentoría/Golden/Compra/Trial). Para gatear CUALQUIER feature
+    que dependa del plan del usuario, usar esto -- nunca reimplementar el
+    chequeo inline ni agregar una función booleana suelta nueva (ese
+    patrón ya causó varios bugs reales, ver "Categorías de acceso de
+    usuario" más abajo).
+  - `rutinaIncluidaEnPlan(p, rutina)`: "¿esta rutina PUNTUAL está incluida
+    en el plan de este perfil?" -- combina `permisos(p).catalogoCompleto`
+    con las 3 rutinas del Free Trial. Usar esto para cualquier chequeo
+    sobre una rutina específica, no `permisos(p).catalogoCompleto` solo.
+  - `esGoldenTier(p)`: SOLO para decidir si mostrar un upsell de "pasate a
+    Golden" (Inicio, la página de venta de Golden) -- golden_perpetuo O
+    premium_origen golden/mentoria. **NUNCA usarla para gatear una
+    feature puntual**, para eso `permisos()`.
+  - `esMentoria(p)`: SOLO premium_origen = 'mentoria'. Usar solo para
+    beneficios exclusivos de mentoría fuera de `permisos()` (ej. el texto
+    condicional dentro de `/alimentacion/guia`).
+  - `diasRestantesTrial(p)`: SOLO Free Trial (lista positiva,
+    `premium_origen === 'trial'`) -- nunca la uses para saber si a alguien
+    "le quedan días" en sentido amplio, Compra suelta también tiene
+    `premium_hasta` pero no es trial.
+  - `obtenerSuscripcion(p, sub)`: para mostrar el badge de estado en
+    Inicio/Perfil.
+- `exercise_definitions`: ejercicio canónico y reutilizable (nombre,
+  categoria, imagen_url, video_url, video_url_fem, como_hacerlo,
+  tipo_esfuerzo, unilateral, alternativa_id). Un mismo ejercicio (ej.
+  "Sentadillas") se reutiliza entre rutinas distintas para no cortar el
+  historial de fuerza de ese movimiento. Categorías usadas: Legs, Pull,
+  Push, Torso (así, sin categoría separada para abdominales/glúteos --
+  van dentro de Legs).
+- `routine_exercises`: la fila de "scheduling" (qué ejercicio, qué día,
+  en qué orden, con qué `series_reps` sugeridas tipo "4 x 8-12") dentro de
+  una rutina. Apunta a `exercise_definitions` por FK.
+- `routines`: puede ser pública o **privada** (`es_privada = true`). Una
+  rutina privada exige una fila en `profile_routine_access` SIN IMPORTAR
+  si la cuenta es premium -- así se protegen tanto rutinas a medida
+  (mentoría, ej. "Kraken Split") como planes pagos específicos (ej.
+  "Grasa Sub-Cero") que no deben quedar gratis para cualquier Golden.
+  Rutinas públicas genéricas (los splits de 3/4/5 días del catálogo
+  general) se activan libremente con solo tener `esPremium`.
+- `workout_logs`: cada serie registrada (peso, reps, rir, lado, fecha) --
+  keyed por `exercise_definition_id`, no por rutina, para que el progreso
+  de un movimiento no se corte al cambiar de rutina.
+- `profile_routine_history`: qué rutina tuvo activa cada usuario y cuándo
+  (fecha_inicio/fecha_fin). El análisis de Progreso se scopea a la fecha
+  de inicio del stint ACTIVO, no a toda la vida del ejercicio.
+- `productos` / `compras` / `producto_rutinas`: planes sueltos (PDF +
+  rutina + `MESES_ACCESO_POR_COMPRA` = 3 meses de acceso). El checkout y
+  el webhook que acredita el acceso (`procesarCompraAprobada` en
+  `src/lib/compras.ts`) son **100% genéricos** -- agregar un producto
+  nuevo es una fila en `productos`, no código nuevo. `handle_new_user()`
+  (trigger de Postgres) también reclama compras hechas ANTES de
+  registrarse, dando los mismos 3 meses.
+- `suscripciones`: pagos recurrentes reales de Golden (Mercado Pago o
+  PayPal). Un Golden/mentoría otorgado a mano NO tiene fila acá.
+- `guias_alimenticias` (migración 050): `user_id` (PK, 1 fila por usuario) +
+  `pdf_storage_path` -- el PDF de guía alimenticia de un cliente de Mentoría,
+  cargado a mano por el coach en el bucket privado `guias-alimenticias` y
+  linkeado acá por email. Sin policy de insert/update para `authenticated`
+  (mismo patrón que `profile_routine_access`). La pantalla Alimentación →
+  Guía (`/alimentacion/guia`) muestra el botón de descarga si existe fila,
+  si no repite el placeholder "tu coach te la va a cargar acá".
+
+## "Crea tu rutina" (en construcción, arrancado 2026-09-21)
+
+Feature nueva dentro de Entrenar (debajo de "Cardio", ícono
+`crear-rutina.png`): el usuario arma su propio split -- días por semana (1
+a 7, letras A-G), qué grupos musculares toca cada día, qué ejercicios hace,
+series/reps/RIR objetivo -- y queda guardado como una rutina más que puede
+activar y entrenar igual que cualquiera armada por el coach.
+
+- **Migración 051**: agrega `routine_exercises.rir_objetivo` (numeric) y la
+  tabla `routine_dias` (`routine_id`, `dia`, `grupos_musculares text[]`) +
+  `routines.creada_por_usuario` (bool). 100% aditivo.
+- **Grupos musculares** (`src/lib/grupos-musculares.ts`): lista fija de 10
+  (Pecho, Espalda, Hombros, Bíceps, Tríceps, Cuádriceps, Isquiotibiales,
+  Glúteos, Pantorrillas, Abdominales), marcados por el usuario con
+  checkboxes por día. **A propósito NO se infiere de
+  `exercise_definitions.categoria`** -- esa categoría (Legs/Pull/Push/
+  Torso) es de scheduling, no de anatomía real ("Torso" mezcla empuje y
+  tracción), el usuario mismo lo identificó como un error conceptual y no
+  sirve como fuente de verdad para calcular frecuencia/recuperación.
+- **Patrón de escritura**: igual que `profile_routine_access` (migración
+  021) -- ninguna tabla nueva tiene policy de insert/update para
+  `authenticated`. El usuario nunca escribe estas tablas directo; todo pasa
+  por el server action `guardarRutinaCreada`
+  (`src/app/entrenamiento/crear-rutina/actions.ts`), que arma routine +
+  routine_exercises + routine_dias + profile_routine_access con el cliente
+  admin (`src/lib/supabase/admin.ts`, service role) y después llama a
+  `cambiarRutinaActiva()` (la función que YA existe, no una nueva) para
+  activarla -- así también queda reflejada en `profile_routine_history`
+  como cualquier cambio de rutina.
+- **Pentágono comparativo** (`src/lib/pentagono.ts`) -- ver la sección
+  **"Analizador de rutinas y pentágono (2026-09-22)"** más abajo, que
+  reemplaza por completo esta descripción original (el cálculo de Volumen e
+  Intensidad se reescribió, y el comparador contra otras rutinas -- que acá
+  decía "descartado por ahora" -- se construyó y ya funciona).
+- **Buscador de ejercicios del Paso 3**: ya no depende de que el usuario
+  escriba el nombre exacto (el usuario lo marcó como algo que "va a
+  fracasar" -- la mayoría no sabe qué ejercicio buscar). Es una grilla
+  navegable con imágenes; la búsqueda por texto es un filtro opcional
+  encima. **Ya NO filtra por `categoria`** (Legs/Pull/Push/Torso) -- el
+  usuario marcó esa categoría como conceptualmente rota para este uso
+  ("Torso" mezcla empuje y tracción, "una cosa incluye la otra"). Filtra
+  por `exercise_definitions.grupos_musculares` (migración 052, mismo tipo
+  que `routine_dias.grupos_musculares`), que **arranca vacío**. Mientras no
+  esté cargado, los tabs de grupo muscular van a devolver resultados
+  vacíos y solo "Todos" muestra algo -- es esperado, no un bug.
+
+## Auditoría del catálogo de ejercicios (2026-09-21) -- en curso
+
+Al usar "Crea tu rutina" por primera vez el usuario encontró ejercicios
+duplicados y GIFs rotos/mal asignados. Se hizo una auditoría real, no a
+ojo:
+
+- **Método**: descargar el `imagen_url` de los 126 ejercicios y comparar
+  por **hash MD5** (no por nombre) -- así se encuentran duplicados exactos
+  sin depender de que alguien los note a simple vista. Repetible: bajar
+  todos los gifs a un directorio, `md5sum *.gif`, agrupar por hash.
+- **Resultado**: 15 pares con el mismo archivo exacto. 11 eran el mismo
+  ejercicio con dos nombres (se fusionaron en `migration_053`, redirigiendo
+  `routine_exercises`/`workout_logs` del id que se borra al que queda). Los
+  otros 4 eran ejercicios DISTINTOS que compartían el gif por error (ej.
+  "Giro ruso" y "Giro oblicuo acostado" tenían el mismo GIF de crunch
+  genérico, no el de ninguno de los dos) -- se les buscó una imagen real y
+  distinta en la biblioteca de referencia
+  (`D:\PROYECTO FITNESS\VIDEOS\RECURSOS\TECNICAS DE EJERCICIOS\EJERCICIOS\<GRUPO
+  MUSCULAR>\`). Además "Hack Squat" apuntaba a un archivo borrado del
+  bucket (404) -- se volvió a subir.
+- **Pendiente sin resolver**: "Elevación de rodillas sentado con apoyo de
+  manos" sigue con el GIF de la variante de pierna recta -- no se encontró
+  en la biblioteca una imagen de la variante con rodilla flexionada.
+- **Fuente de verdad para qué ejercicios TIENEN que existir**: el Excel
+  original `EntrenaOptimo 4 días - DEFINITIVA.xlsx`, hoja `Hoja2`
+  (`G:\Mi unidad\PROGRAMA SOULVANZ\1 FISICOCULTURISMO\Ejercitacion en el
+  GYM\EntrenaOptimo\Excel App\4 dias\`). El usuario fue explícito: todo lo
+  que está ahí "sin excepción" tiene que estar en el catálogo. Esa hoja usa
+  **imágenes incrustadas en la celda** (Excel "image in cell" / rich value,
+  no un `<drawing>` clásico) -- para extraerlas hace falta parsear
+  `xl/metadata.xml` (atributo `vm` de la celda → índice en
+  `futureMetadata`) → `xl/richData/rdrichvalue.xml` (→ índice en
+  richValueRel) → `xl/richData/richValueRel.xml` + su `.rels` (→ archivo en
+  `xl/media/`). Ya se extrajeron así **145 ejercicios con nombre completo +
+  imagen** de Hoja2 (columnas C=código corto, F=nombre completo, D/E=
+  imágenes).
+
+  **Regla reforzada explícitamente por el usuario (2026-09-21), no
+  "protocolo nuevo" -- ya regía desde antes y no hay que volver a
+  preguntarla**: del Excel **SOLO se usan los NOMBRES** (qué ejercicios
+  tienen que existir). **Nunca subir las imágenes incrustadas del Excel** --
+  son capturas estáticas sacadas de los mismos GIF de la biblioteca de
+  referencia en su momento (el Excel es "un boceto", no una fuente de
+  imágenes; de hecho esas imágenes de Excel no se usan en ningún lado de la
+  app). La imagen de CUALQUIER ejercicio nuevo sale siempre de
+  `D:\PROYECTO FITNESS\VIDEOS\RECURSOS\TECNICAS DE EJERCICIOS\EJERCICIOS\
+  <GRUPO MUSCULAR>\` (el GIF ilustrado blanco y negro), nunca de un video,
+  nunca de una captura de Excel, nunca de otra fuente -- ver también la
+  sección "GIF vs VIDEO" más arriba.
+
+  Comparado el listado de 145 nombres contra los 126 de la base, la
+  mayoría de las coincidencias por similitud de texto son FALSAS (ej.
+  "Sentadilla Goblet" no es "Sentadilla isométrica") -- el criterio final
+  que dio el usuario: **agarre distinto o implemento distinto (barra vs.
+  mancuerna vs. polea vs. máquina) SIEMPRE es un ejercicio separado**,
+  aunque el movimiento se parezca.
+- **Migración 054 (2026-09-21)**: 65 ejercicios nuevos agregados con este
+  criterio, cada uno con su GIF real de la biblioteca de referencia
+  (varios encontrados en subcarpetas de la biblioteca que ya estaban
+  nombradas casi igual que el Excel -- ej. `PECTORALES\PRESS DE PECHO
+  INCLINADO EN MÁQUINA HAMMER\`). Confirmados SIN GIF real disponible
+  (quedaron afuera a propósito, no hay reemplazo inventado): Sentadilla
+  con cinturón (belt squat -- solo había una ilustración 3D genérica),
+  Curl femoral con mancuerna, Estocadas para glúteos landmine, Sentadilla
+  asistida (solo existía una foto estática `.jfif`, no un GIF real).
+  **Regla confirmada por el usuario sin excepción**: la imagen final
+  SIEMPRE tiene que ser un `.gif` -- si la biblioteca solo tiene un
+  `.webp` animado, convertirlo a `.gif` (con PIL, `ImageSequence` +
+  `save_all`) antes de subirlo, nunca subir el `.webp` ni una foto
+  estática como reemplazo.
+- **Bug encontrado 2026-09-22 y migración 055**: la migración 054 solo le
+  puso `grupos_musculares` a los 65 ejercicios NUEVOS -- los 115 que ya
+  existían antes se quedaron con el array vacío, sin nadie darse cuenta
+  hasta que el usuario probó "Crea tu rutina" y vio Abdominales/Gemelos/
+  Cuádriceps casi vacíos aunque el catálogo sí tenía esos ejercicios.
+  Corregido clasificando los 115 uno por uno. **Regla del usuario, sin
+  excepción**: el grupo muscular de un ejercicio es SIEMPRE el nombre de
+  la carpeta de la que salió su GIF en la biblioteca de referencia -- la
+  lista fija (`GRUPOS_MUSCULARES` en `src/lib/grupos-musculares.ts`) tiene
+  que calcar 1 a 1 esas carpetas. Se amplió de 10 a 14 grupos agregando
+  **Trapecio, Abductores, Antebrazos, Cuello** (existían como carpetas
+  reales -- `CARDIO` se excluye a propósito, no es un grupo muscular). De
+  paso se corrigieron 5 ejercicios de la migración 054 que habían quedado
+  mal clasificados por no tener estos 4 grupos todavía (encogimientos de
+  hombros iban a Espalda en vez de Trapecio; las 3 abducciones iban a
+  Glúteos en vez de Abductores).
+  **Cuando se agregue cualquier ejercicio nuevo de acá en adelante, poner
+  el grupo muscular en el mismo momento -- no dejarlo para después.**
+- **Bug encontrado 2026-09-22 y migración 056 -- segunda ronda de
+  duplicados**: el usuario encontró en "Crea tu rutina" que "sentadilla con
+  barra y sentadilla" (y variantes similares) seguían apareciendo repetidas
+  pese a la limpieza de la 053. Causa real: la 053 comparó los 126
+  ejercicios originales por hash exacto de archivo; la 054 agregó 65
+  ejercicios nuevos DESPUÉS de esa limpieza y nunca se los comparó contra
+  el catálogo ya existente (solo se chequeó que no se repitieran entre
+  ellos) -- así volvieron a entrar, con nombre distinto, 7 GIFs que eran el
+  mismo ejercicio que uno ya existente: Estocadas/Estocadas para glúteos,
+  Extensión de tríceps en polea/Tríceps en polea alta a un brazo, Press de
+  banco/banca con mancuernas, Sentadilla en máquina Smith/Sentadilla Smith,
+  Elevación de talón sentado en máquina/de talones sentado, Sentadilla con
+  mancuerna/Sentadilla Goblet, Elevación de rodillas al pecho/Crunch
+  inverso. Detectados esta vez con **perceptual hash de varios frames de la
+  animación** (no MD5 de archivo exacto -- dos re-exports del mismo GIF casi
+  nunca son bit-a-bit idénticos, por eso el método de la 053 no alcanzaba
+  para esta ronda) -- descargar todos los GIFs, comparar frame por frame
+  con `PIL.ImageSequence`, distancia de Hamming ~0 en todos los frames
+  muestreados = mismo GIF. Corregido en `migration_056_deduplicar_catalogo_
+  ronda2.sql`, mismo patrón de redirect+delete que la 053.
+  **Regla de proceso nueva, para no repetir esto una tercera vez: cualquier
+  ejercicio que se agregue al catálogo de acá en adelante (uno solo o en
+  tanda) se compara por contenido de imagen contra TODO el catálogo
+  existente en ese momento, no solo contra los que se están agregando en la
+  misma tanda.**
+- **Migración 057 (2026-09-22)**: Antebrazos y Cuello eran los únicos 2
+  grupos de `GRUPOS_MUSCULARES` con 0 ejercicios (no por bug -- simplemente
+  no existía ninguno todavía). A pedido del usuario se cargaron 4 básicos
+  de cada uno (no el listado completo), cada GIF comparado por contenido
+  contra los 188 ya existentes antes de subirlo (regla de la 056, ya
+  aplicada). Antebrazos: Curl de muñeca con barra, Curl de muñeca invertida
+  con mancuernas, Curl con barra agarre invertido, Prensión manual. Cuello:
+  Extensión/Flexión de cuello acostado con peso, Extensión/Flexión de
+  cuello en polea con arnés.
+- **Migración 058 (2026-09-22)**: 3 correcciones más encontradas por el
+  usuario probando "Crea tu rutina":
+  1. "Abducción de cadera en polea" y "Abductores externos en polea" eran
+     el mismo ejercicio con el mismo GIF filmado con dos modelos distintos
+     (hombre / mujer) -- se fusionaron, queda la versión con el hombre.
+  2. "Peso muerto rumano" tenía cargado por error el mismo GIF de "Peso
+     muerto" (peso muerto convencional, no rumano) filmado desde otro
+     ángulo -- mala clasificación original desde la carpeta FEMORALES de la
+     biblioteca. Se reemplazó por un GIF real de peso muerto rumano (con
+     mancuernas en la biblioteca, pero el usuario confirmó que la
+     biomecánica es idéntica a la variante con barra) -- **por eso el
+     nombre de un ejercicio de este tipo no debe especificar el implemento
+     cuando el movimiento es el mismo con barra o mancuernas: un solo GIF
+     alcanza para representar ambas variantes.**
+  3. "Sentadilla con barra" y "Sentadillas" eran el mismo ejercicio
+     (sentadilla trasera con barra) con dos ilustraciones -- se fusionaron,
+     queda "Sentadilla con barra" (nombre más descriptivo).
+- **Selector de grupos musculares por día**: pasó de chips sueltos a un
+  desplegable (pedido explícito del usuario) -- se abre/cierra con
+  `gruposAbierto`, y cambiar de día (`irADia`) lo cierra automáticamente.
+- **Gate de acceso decidido 2026-10-13**: cualquier Golden tiene acceso a
+  "Crea tu rutina" y al análisis sobre su propia rutina; no es exclusivo de
+  ningún tier.
+- **Bug encontrado y corregido en el primer test real (2026-09-21)**: al
+  guardar con "Crea tu rutina" la nueva rutina se activa sola (sin opción
+  de solo guardar sin usar) -- y el botón para volver a cambiar de rutina
+  ("Cambiar a esta rutina") vivía SOLO dentro de `/rutinas/[id]/[dia]`
+  (un día puntual), no en `/rutinas/[id]` (la pantalla de la rutina). Un
+  usuario que crea una rutina de prueba quedaba sin forma visible de volver
+  a la anterior. Corregido moviendo el botón también a `/rutinas/[id]`.
+- **Tercera ronda de duplicados (2026-10-30, migración 112) y validaciones
+  de "Crea tu rutina"**: ver la sección **"Diagnóstico general, catálogo
+  duplicado y 'Crea tu rutina'"** al final del documento. Incluye el detector
+  `scripts/detectar-ejercicios-duplicados.mjs` (correrlo con `--candidato`
+  ANTES de cargar cualquier ejercicio nuevo) y la lista de lo que se dejó
+  separado a propósito.
+
+## Nuevo protocolo para clientes de Mentoría / entrenamiento privado (2026-09-20)
+
+Antes se armaba UN SOLO PDF combinado (entrenamiento + alimentación) por
+cliente. **Ya no.** El nuevo protocolo, para toda mentoría 1:1 de acá en
+adelante:
+
+- **Entrenamiento**: vive exclusivamente en la app, como una rutina privada
+  armada a medida para ese cliente puntual (`routines.es_privada = true`,
+  ver migración 035 -- "Kraken Split" es el ejemplo ya existente, aunque esa
+  es la rutina personal del propio coach, no de un cliente). El PDF **ya no
+  lleva la parte de entrenamiento** para estos clientes.
+- **Alimentación**: sigue siendo un PDF (mismo estilo/formato ya establecido:
+  disclaimer, tabla de comidas con macros, pesos en crudo, proteínas
+  rotativas -- ver la memoria de Claude `client_training_pdf_workflow.md`
+  fuera de este repo, en la sesión de asesorías), pero ahora es **solo**
+  guía alimenticia, sin entrenamiento, y se entrega adentro de la cuenta del
+  cliente vía `guias_alimenticias` (ver arriba) en vez de mandarse suelto.
+- Para que la pantalla de Guía Alimenticia sea visible hace falta además
+  marcar la cuenta como Mentoría: `profiles.premium_origen = 'mentoria'`.
+  Con clientes de mentoría/entrenamiento privado el coach directamente les da
+  el "golden pass" perpetuo (`golden_perpetuo = true`), no un `premium_hasta`
+  con vencimiento -- son cuentas que el coach gestiona a mano mientras dure
+  la relación comercial, no una suscripción con fecha de corte automática.
+
+### Alta de un cliente nuevo = UN SOLO COMANDO, no una migración por cliente
+
+**No escala pedirle al coach que suba GIFs por el Dashboard y el PDF al
+bucket a mano por cada cliente** (confirmado explícitamente por el coach
+2026-09-20, con 10+ clientes esperando) -- eso quedó reemplazado por
+`scripts/alta-cliente.js`:
+
+```
+node scripts/alta-cliente.js "clientes/nombre-cliente.json"
+```
+
+Ese único comando hace TODO: reusa ejercicios existentes por nombre o los
+crea (subiendo su GIF si `gif_local_path` viene en el JSON), crea/reusa la
+rutina privada y sus `routine_exercises`, otorga el golden pass +
+`profile_routine_access` por email, y sube + linkea la guía alimenticia en
+PDF -- todo con `SUPABASE_SERVICE_ROLE_KEY` (una sola vez en `.env.local`,
+nunca por chat, igual que `asignar-gifs.js`).
+
+- El formato del JSON de un cliente está documentado en
+  `clientes/EJEMPLO.json`. `clientes/*.json` y `gifs-*/` NO se commitean
+  (datos personales de clientes) -- ver `.gitignore`.
+- El flujo de contenido/aprobación **no cambia**: el coach pasa el
+  formulario ("Puesta en Marcha — Asesoría Online", Google Forms) + su
+  propio criterio, Claude arma el plan (entrenamiento + PDF de guía
+  alimenticia) como siempre, el coach lo aprueba por chat -- lo único nuevo
+  es que, aprobado, la carga a la base pasa por este script en vez de
+  Dashboard + SQL Editor a mano.
+- **La guía alimenticia se carga SIEMPRE por default, para todo cliente
+  nuevo** (confirmado explícitamente 2026-09-20: "lo extraño sería que yo no
+  lo pida") -- no esperar a que el coach la pida cada vez. La única
+  excepción es que él diga explícitamente que este cliente puntual NO lleva
+  guía (pasó una vez, con Rocío Pace, por ser un caso de solo-entrenamiento).
+  Si el cliente no tiene un plan de alimentación propio armado todavía,
+  preguntarle antes de omitir la guía -- no asumir que no la quiere.
+- El email del cliente SIEMPRE se compara case-insensitive (`buscar_usuario_por_email`
+  ya lo hace con `.toLowerCase()` desde el script) -- ver el bug documentado
+  más abajo.
+- Si el cliente todavía no se registró en la app con ese email, el script
+  avisa y no hace nada -- hay que esperar a que se registre y volver a
+  correrlo (no hay reclamo automático como sí existe para `compras`).
+- **Si el coach no tiene el email a mano pero sí el nombre completo**:
+  buscar en `profiles` por `nombre`/`apellido` (ilike) y resolver el
+  email con el endpoint admin `/auth/v1/admin/users/{id}` -- mismo
+  método documentado unas líneas arriba, confirmado funcionando
+  (2026-09-28, caso Vane Capuano / "Elena Vanesa Capuano").
+- **`profile_routine_access` otorga acceso, pero NO activa la rutina**
+  (bug encontrado dos veces a mano -- Santiago Pelotti 2026-09-20, Vane
+  Capuano 2026-09-28 -- antes de corregirlo en el script el
+  2026-09-28): si el cliente no tenía ninguna rutina activa antes,
+  quedaba con `profiles.routine_id = null` después del alta, y al
+  entrar a la app veía "Sin rutina activa, elegí tu rutina" en vez de su
+  plan armado. El script ahora activa la rutina automáticamente en el
+  paso 6b (cierra el stint abierto si había uno y abre uno nuevo en
+  `profile_routine_history`, + `profiles.routine_id`) -- pero SOLO si
+  el cliente no tenía ya otra rutina activa; si la tenía, no se la pisa
+  sola, queda a criterio del coach.
+- **No reusar un ejercicio existente "parecido" solo porque el nombre pega
+  aproximadamente -- verificar el agarre/variante exacta antes de asumir.**
+  (2026-09-21, caso Lorena Tobares): reusé "Jalón al pecho en polea alta"
+  (agarre prono/ancho) para unos "chin-ups en polea" que el cliente pidió
+  con agarre SUPINO. Tardé TRES intentos en llegar al GIF correcto --
+  primero un supino ancho (mal, el coach quería cerrado), después un chin-up
+  con AGARRE cerrado pero de **peso corporal** (mal, tiene que ser en polea/
+  máquina), y recién el tercero fue el correcto:
+  `ESPALDA\chin ups en polea.gif` (en la raíz de la carpeta ESPALDA, no en
+  ninguna subcarpeta -- ojo con eso, es fácil asumir que el archivo relevante
+  está en una subcarpeta con nombre parecido y no está). Mismo tipo de error
+  con "pájaro con mancuernas" (asumí el ejercicio con pecho apoyado en banco
+  inclinado, cuando el pájaro real es de pie/inclinado sin banco --
+  `03801301-Dumbbell-Rear-Lateral-Raise_Shoulders_720.gif`, confirmado por
+  el coach). **Regla: cuando el nombre del ejercicio que pide el coach
+  incluye un agarre/variante/equipo específico (supino, prono, cerrado,
+  unilateral, con banco, sin banco, en polea vs. peso corporal, etc.),
+  buscar esa combinación EXACTA en la biblioteca -- incluyendo la raíz de la
+  carpeta del grupo muscular, no solo las subcarpetas -- antes de reusar el
+  ejercicio genérico más parecido. Si no aparece ninguna coincidencia
+  exacta, preguntarle al coach en vez de asumir; no dar por buena la primera
+  coincidencia parcial que aparezca.**
+- **Para términos de ejercicio no estándar/coloquiales que no aparecen en la
+  biblioteca local, investigar (búsqueda web) antes de inventar una
+  interpretación -- pero la búsqueda web tampoco es infalible, confirmar
+  con el coach apenas sea posible.** "Caminata lunar" pasó por DOS
+  interpretaciones equivocadas antes de la correcta: primero caminata
+  lateral con banda (mal), después caminar hacia atrás en línea recta /
+  "retro walking" según una búsqueda web (también mal). **Es en realidad
+  zancadas caminando (walking lunges)** -- el coach mismo encontró y señaló
+  el GIF correcto: `EJERCICIOS EXPLICATIVOS\FUNCIONAL - HIIT\caminata
+  lunar.gif` (2026-09-21). Cuando el coach señala un archivo puntual, usar
+  ESE archivo tal cual -- aunque no sea del estilo ilustrado blanco y negro
+  de la biblioteca `TECNICAS DE EJERCICIOS\EJERCICIOS` (la preferencia por
+  ese estilo es el criterio por defecto cuando Claude elige solo, no una
+  regla que pese más que una instrucción explícita del coach sobre un
+  archivo específico).
+- **Si el coach no tiene el email a mano, se puede buscar la cuenta por
+  nombre/apellido** directo en `profiles` (con la service_role key ya
+  configurada) y resolver el email con `auth.admin.getUserById()` -- más
+  simple que pedirle el email de nuevo. `profiles.nombre` es solo el primer
+  nombre; `apellido` es una columna aparte (ver nota vieja sobre este mismo
+  gotcha en el historial de "3 días - Fullbody").
+- **Pendiente, evaluar cuando haya tiempo**: migrar de una vez TODA la
+  biblioteca de `TECNICAS DE EJERCICIOS` al catálogo de `exercise_definitions`
+  (no por cliente) para que la enorme mayoría de altas futuras reusen
+  ejercicios ya existentes y casi nunca necesiten `gif_local_path` -- es la
+  optimización de fondo que más reduce el trabajo por cliente a largo plazo.
+
+## GIF vs VIDEO de un ejercicio -- dos cosas DISTINTAS, no confundir
+
+Esto se prestó a confusión real en esta sesión (después de una
+compactación de contexto) -- por eso queda anotado bien explícito:
+
+- **`imagen_url` (gif)**: la miniatura que se ve SIEMPRE, sin tocar nada
+  -- en la grilla de ejercicios del día, en las tarjetas compactas de
+  "Rutinas adquiridas", como imagen del ejercicio activo. Es el "vistazo
+  rápido". Biblioteca de gifs de referencia (estilo ilustrado
+  anatómico, blanco y negro, YA HECHOS): `D:\PROYECTO FITNESS\VIDEOS\
+  RECURSOS\TECNICAS DE EJERCICIOS\EJERCICIOS\<GRUPO MUSCULAR>\`. El
+  usuario prefiere fuerte este estilo ilustrado -- NO usar un gif armado a
+  partir de un video real/Instagram salvo que no haya ningún ejercicio
+  parecido en esa biblioteca (y en ese caso, avisar que es un fallback).
+- **`video_url` / `video_url_fem`**: NO se ve solo -- recién aparece si el
+  usuario toca **"¿Cómo hacerlo?"** dentro de la tarjeta del ejercicio
+  activo, junto con el texto de técnica. Fuente: carpeta separada
+  `D:\PROYECTO FITNESS\VIDEOS\RECURSOS\TECNICAS DE EJERCICIOS\
+  EJERCICIOS EXPLICATIVOS\` (ojo, nombre parecido a la de arriba pero es
+  OTRA carpeta, con clips reales de video, no gifs ilustrados).
+- Regla vieja que sigue vigente: **nunca dejar `imagen_url`/`video_url` en
+  null**. Si no existe el archivo exacto para un ejercicio nuevo, buscar
+  primero en la biblioteca de gifs un ejercicio hermano lo bastante
+  parecido antes de dejarlo vacío o de generar uno desde un video.
+
+## Bug/gotcha: comparar email en SQL nunca a secas, siempre con `lower()`
+
+**Confirmado 2026-09-20**: `auth.users.email` no es case-insensitive a nivel
+de comparación con `=` en SQL directo (ni en la función
+`buscar_usuario_por_email`, que usa `where email = p_email`). El coach pasó
+el email de un cliente con la primera letra en mayúscula
+("Santiagoismaelpelotti@gmail.com") mientras la cuenta real estaba guardada
+en minúsculas ("santiagoismaelpelotti@gmail.com") -- la comparación exacta
+dio falso negativo ("no existe cuenta"), cuando la cuenta sí existía.
+
+**Regla**: cualquier WHERE o subquery que compare por email en una migración
+(alta de cliente, `profile_routine_access`, `guias_alimenticias`,
+`profiles.premium_origen`, etc.) tiene que usar
+`lower(email) = lower('email-que-pasó-el-coach')`, nunca `email = '...'` a
+secas. Ver `migration_051_santiago_pelotti.sql` como ejemplo ya corregido.
+
+## Bug de Supabase Storage: nombres de archivo con tilde
+
+**Cualquier nombre de archivo con tilde (á, é, í, ó, ú) falla al subirlo
+por el Dashboard de Supabase** con el error "File name is invalid" --
+pasa con .gif y con .mp4 por igual, subiendo de a uno o en lote. No es un
+problema de tamaño de lote ni de codificación (se verificó UTF-8 NFC
+correcto). Por eso los ejercicios viejos ya usaban nombres de archivo sin
+tilde (`cuadriceps-prensa.gif`, `curl-biceps-banco-inclinado-mancuernas.gif`).
+
+**Regla**: el nombre del ARCHIVO en Storage nunca lleva tilde (sacarla,
+sin reemplazar por nada), pero el `nombre` de la columna en
+`exercise_definitions` sigue con tilde, como corresponde en español
+correcto -- solo cambia el nombre de archivo, nunca lo que se le muestra
+al usuario. Si se sube por `scripts/asignar-gifs.js` (que usa la
+`SUPABASE_SERVICE_ROLE_KEY`, no el Dashboard) este problema no aparece --
+pero el Dashboard es el método que usa el coach normalmente.
+
+## Convenciones para migraciones que reasignan ejercicios de una rutina
+
+- Si una migración reemplaza el `exercise_definition_id` de una fila de
+  `routine_exercises` (por un cambio de rutina pedido por el cliente) Y
+  además hay que borrar el historial de `workout_logs` de esa rutina, el
+  DELETE va **antes** del/de los UPDATE que reasignan, no después. Motivo:
+  `workout_logs` no tiene columna de rutina -- el único join posible para
+  "todos los logs de esta rutina" es a través de `routine_exercises`, y si
+  el ejercicio viejo ya fue reemplazado por el nuevo en esa fila, el join
+  ya no lo encuentra y ese historial queda sin borrar (huérfano). Ver
+  `migration_049_kraken_split_rediseno.sql` como ejemplo del orden correcto
+  (paso 0: DELETE con el estado viejo, después los UPDATE).
+- Cuando un ejercicio cambia de postura pero no de movimiento biomecánico
+  (ej. elevación lateral con mancuernas parada vs. sentada, curl martillo
+  sentado vs. parado) **no siempre** hace falta un `exercise_definition_id`
+  nuevo: si la rutina solo necesita anotar la postura para ese día
+  puntual, alcanza con anotarlo en el texto de `series_reps` de esa fila
+  de `routine_exercises` (ej. `'... (sentado)'`), reutilizando el mismo
+  ejercicio canónico. Un `exercise_definition_id` nuevo se justifica solo
+  cuando el equipo/movimiento cambia de verdad (ej. mancuerna -> polea).
+- "Vuelo lateral con polea" ya existe en el catálogo como elevación
+  lateral **unilateral** en polea (`unilateral = true`) -- no crear un
+  ejercicio nuevo para "elevación lateral unilateral en polea", ya es este.
+
+## Categorías de acceso de usuario (premisa 2026-09-21, todavía por refinar)
+
+El usuario planteó explícitamente que hace falta poder diferenciar y
+reportar en qué categoría está cada cliente. Todavía no hay una pantalla
+para esto (se puede pedir más adelante), pero la categorización sale de
+columnas que ya existen, sin cambiar el esquema:
+
+**Regla permanente (pedida por el coach 2026-10-02, después de encontrar el
+bug real de Anti-Flakardo/Golden más abajo)**: cualquier feature nueva que
+se agregue a la app -- una pantalla, un dato, una rutina, un producto --
+tiene que pasar por esta matriz ANTES de escribir código: preguntarle al
+coach explícitamente, categoría por categoría (Founder / Golden mensual-anual
+/ Mentoría Online / Mentoría Privada / Compra Suelta / Free Trial), si esa
+cosa nueva queda incluida o bloqueada, y recién ahí sumarla a `permisos()`
+en `src/lib/premium.ts` (o a `rutinaIncluidaEnPlan`/`profile_routine_access`
+si es una rutina puntual). No asumir por analogía con una categoría
+parecida ni dejarlo "implícito" -- ese supuesto es la causa raíz de los tres
+bugs reales ya encontrados en esta matriz (Vane Capuano con mentoría,
+"Golden · Founder" mal etiquetado, y Anti-Flakardo accesible gratis para
+Golden).
+
+- **Golden Founder** (`premium_origen = 'founder'`, desde migración 083):
+  SOLO las 2 cuentas propias del coach (Android e iOS) --
+  `ezequiel.arce@outlook.com` y `ar.cs@hotmail.es`. Son las ÚNICAS con
+  acceso incondicional a TODO, incluido navegar y cambiarse libremente a
+  cualquier rutina pública del catálogo (`tieneCatalogoCompleto()` en
+  `src/lib/premium.ts`). Nunca ponerle este `premium_origen` a un cliente
+  real, aunque tenga acceso completo -- se detectó y corrigió un error
+  donde 4 cuentas de mentoría tenían `golden_perpetuo = true` de más (ver
+  bug de abajo).
+  - **`golden_perpetuo = true` por sí solo YA NO identifica a Founder** --
+    es compartido con toda cuenta de mentoría (el coach les da golden pass
+    perpetuo como parte del servicio, ver sección de arriba). El
+    distintivo real de Founder es `premium_origen = 'founder'`.
+  - **Bug real encontrado 2026-09-28 (reportado por Vane Capuano, cliente
+    de mentoría)**: como el único criterio de acceso "a todo el catálogo"
+    era `esPremium`/`esGoldenTier` (que solo miran `golden_perpetuo`/
+    `premium_origen` golden|mentoria, sin distinguir Founder de mentoría),
+    CUALQUIER cuenta de mentoría veía TODAS las rutinas públicas como
+    desbloqueadas y podía cambiarse a cualquiera -- incluido un plan
+    autoguiado pago que no había comprado ("Anti-Flakardo Fullbody"). No
+    era solo un bug visual: el server action `cambiarRutinaActiva`
+    (`src/app/entrenamiento/actions.ts`) lo permitía de verdad. Mismo bug
+    hermano en `obtenerSuscripcion()`: cualquier cuenta de mentoría veía
+    la etiqueta "Golden · Founder" en su propio perfil (por chequear
+    `golden_perpetuo` antes que nada), en vez de "Mentoría · hasta...".
+  - **Fix**: se agregó el valor `'founder'` a `premium_origen`
+    (`migration_083_premium_origen_founder.sql`, amplía el check
+    constraint y marca las 2 cuentas por email) y una función nueva,
+    `tieneCatalogoCompleto(p)` en `premium.ts` -- MÁS ESTRICTA que
+    `esPremium`/`esGoldenTier`: solo `premium_origen` founder/golden/trial
+    desbloquea el catálogo completo; mentoría y compras sueltas solo ven
+    SU/S rutina/s vía `profile_routine_access`, igual que cualquier
+    rutina privada. Se reemplazó en los 6 puntos de la UI que listaban/
+    mostraban el catálogo (`entrenamiento/page.tsx`,
+    `entrenamiento/analizador/page.tsx`, `entrenamiento/rutinas/page.tsx`,
+    `entrenamiento/rutinas/[id]/page.tsx`,
+    `entrenamiento/rutinas/[id]/[dia]/page.tsx`,
+    `entrenamiento/rutinas/[id]/analisis/page.tsx`) + la verificación
+    real del server action. `esPremium`/`esGoldenTier` NO se tocaron para
+    nada más (siguen siendo el criterio correcto para acceso general a la
+    app y para features tipo calculadora/guía). `obtenerSuscripcion()`
+    también se corrigió: la etiqueta "Golden · Founder" ahora exige
+    `premium_origen === 'founder'`, no alcanza con `golden_perpetuo`.
+  - **Regla de acá en adelante**: para "¿puede ver/cambiarse a ESTA rutina
+    puntual?" usar siempre `rutinaIncluidaEnPlan(profile, rutina)` (nunca
+    `esPremium`/`esGoldenTier`/`tieneCatalogoCompleto` sueltos) -- ya
+    combina Founder/Golden (catálogo completo), Free Trial (solo sus 3
+    rutinas estandarizadas) y rutinas privadas (siempre false, dependen de
+    `profile_routine_access`). `tieneCatalogoCompleto()` sigue existiendo
+    para el caso puntual de "¿esta cuenta ve TODO el catálogo sin
+    excepción?" (ej. para pintar el catálogo entero como desbloqueado en un
+    listado), pero para chequear una rutina específica siempre
+    `rutinaIncluidaEnPlan`.
+- **Mentoría 1:1** (`premium_origen = 'mentoria'`, definido con el coach
+  2026-09-30): **online y presencial/privada dan exactamente el mismo
+  acceso** en la app (`permisos()` no las distingue, ni tiene por qué).
+  **Corrección del mismo día**: primero se asumió que por eso no hacía
+  falta distinguirlas en absoluto -- mal, el coach aclaró después que la
+  ETIQUETA de "Tu plan" sí tiene que decir cuál es de las dos ("Mentoría
+  1:1 · Privada" o "Mentoría 1:1 · Online"), aunque el acceso sea idéntico.
+  Se agregó `profiles.modalidad_mentoria` (`'online'` | `'presencial'`,
+  migración 086) solo para esto -- `obtenerSuscripcion()` arma el texto a
+  partir de ahí, cae al genérico "Mentoría · hasta [fecha]" si una cuenta
+  vieja todavía no la tiene cargada. Backfill de la migración: Santiago
+  Pelotti es el único online confirmado, el resto de las cuentas de
+  mentoría actuales quedan como presenciales. Acceso completo vía
+  `permisos()` en `premium.ts`: Rutinas
+  adquiridas, Cardio, Análisis completo (Medidas/Entrenamiento/Salud/
+  Historial), Perfil completo (Mi evolución + Mis PDFs), Calculadora de
+  calorías Y Guía alimenticia (su exclusivo). **Sin catálogo completo**
+  (solo ve SU rutina a medida vía `profile_routine_access`, igual que
+  Compra suelta -- ver bug de Vane Capuano más abajo) **y sin Crea tu
+  rutina** (`limiteRutinasCreadas: 0`, corregido 2026-09-30 -- antes
+  estaba sin límite por error): la rutina la arma el coach, no tiene
+  sentido que el cliente tenga esa herramienta ("para eso estoy yo").
+  - **Mentoría Privada**: vencimiento 100% manual a propósito, sin cambios
+    -- el coach ve al cliente en persona y decide quién sigue activo.
+    Automatizarla queda pausado hasta que tenga su propio gimnasio
+    comercial (su propia palabra: "por el momento seré yo quien defina").
+    **Confirmado 2026-10-02**: el coach SÍ quiere automatizarla en el
+    futuro, cuando redefina el formato de ese negocio hacia suscripción
+    mensual (hoy la privada no se cobra como suscripción recurrente). No es
+    un "nunca", es un "todavía no". Cuando llegue ese momento, reusar el
+    mismo pipeline ya armado para Mentoría Online (`acreditarCobroMentoriaOnline`,
+    checkout routes, webhooks) en vez de construir uno nuevo -- la única
+    pieza nueva sería el lado de cobro para la modalidad presencial; el
+    acceso en `permisos()` no cambia (ya es idéntico a la online).
+  - **Mentoría Online -- débito automático (construido 2026-10-01)**: a
+    diferencia de la privada, acá sí había un riesgo real ("si una persona
+    deja de pagar, puede que nunca me entere"). Se resolvió reusando el
+    MISMO mecanismo que ya factura Golden (PayPal billing subscriptions,
+    webhook, `premium_hasta` se extiende en cada cobro confirmado) pero en
+    código 100% separado -- nunca se tocó ni una línea del código de
+    Golden, para no arriesgar esa facturación real por una regresión.
+    - **Dos planes, precio mensual plano, sin puesta en marcha** (el sitio
+      web mostraba Basic US$49 + US$39/mes y VIP US$149 + US$100/mes; el
+      coach lo simplificó a Basic US$39/mes y VIP US$99/mes parejo, "no
+      generemos fricciones innecesarias por poco dinero" -- **si el sitio
+      web todavía muestra la puesta en marcha vieja, hay que actualizarlo**
+      para que coincida). Basic y VIP dan el MISMO acceso en la app --la
+      diferencia es puramente atención humana fuera de la app (contacto
+      diario, revisión de técnica, descuentos en consultorías para VIP).
+    - **PayPal/USD y Mercado Pago/ARS, igual que Golden** (MP agregado
+      2026-10-01) -- `precio_ars` quedó en null a propósito en los
+      productos nuevos (mismo criterio que Anti-Flakardo: no se adivina un
+      precio con plata real) hasta que el coach lo cargue; sin ese precio
+      el checkout de MP devuelve 503 en vez de romper.
+    - **Piezas nuevas, todas espejo de las de Golden pero separadas**:
+      `codificarReferenciaMentoriaOnline`/`decodificarReferenciaMentoriaOnline`/
+      `acreditarCobroMentoriaOnline` en `src/lib/suscripciones.ts` (la
+      referencia usa el prefijo `"mentoria:"` tanto en el `custom_id` de
+      PayPal como en el `external_reference` de MP, formato distinto al de
+      Golden -- así ningún webhook puede confundir una referencia con la
+      otra); `crearPlanMentoriaOnlinePaypal`/`crearSuscripcionMentoriaOnlinePaypal`
+      en `src/lib/paypal.ts`, `crearSuscripcionMentoriaOnline` en
+      `src/lib/mercadopago.ts`; rutas
+      `src/app/api/checkout/mentoria-online/paypal/route.ts` (+ `/retorno`)
+      y `src/app/api/checkout/mentoria-online/mercadopago/route.ts`
+      (ambas `?tier=basic|vip`). Los dos webhooks compartidos
+      (`src/app/api/webhooks/paypal/route.ts` y `.../mercadopago/route.ts`)
+      chequean primero si la referencia es de mentoría antes de asumir que
+      es Golden -- si no matchea, siguen exactamente el camino de Golden
+      de siempre, cero cambio de comportamiento ahí.
+      `marcarSuscripcionActiva`/`pausarGolden`/`cancelarGolden` SÍ se
+      reusan tal cual para mentoría (son genéricas pese al nombre, no
+      hacen nada Golden-específico). Migración 087: productos
+      `mentoria-online-basic`/`mentoria-online-vip`.
+    - **Probado contra la API real de PayPal sandbox** (crear producto →
+      plan → suscripción con el `custom_id` nuevo) 2026-10-01, funcionó
+      de punta a punta. El lado de Mercado Pago NO se probó contra la API
+      real todavía (solo build + lectura de código). Ninguno de los dos
+      tuvo una compra real de principio a fin en el navegador -- el coach
+      decidió explícitamente no hacer esa prueba ("no creo que vengan en
+      masa 100 personas... se va a autochequear solo una vez que empiece a
+      tener clientes").
+    - **Entrada del checkout: el sitio web, NO la app** (decidido
+      2026-10-01). Agregado un botón "Empezar ahora" en
+      `kraken-fitness-web` (repo y chat de Code aparte, NUNCA tocar ese
+      repo desde esta sesión sin que el coach lo pida explícitamente --
+      pasó una vez por error, corregido) junto al botón de WhatsApp que ya
+      tenía cada tarjeta (Basic/VIP), linkeando directo a
+      `/api/checkout/mentoria-online/paypal?tier=basic|vip`. El link
+      "Mentoría personalizada" de Inicio en la app también apunta ahí
+      (`#mentorias` del sitio) en vez de ir directo a WhatsApp.
+      **Corregido 2026-10-13 (el coach lo aclaró)**: el sitio YA ofrece
+      PayPal y Mercado Pago en las mentorías; la nota vieja de "falta Mercado
+      Pago" estaba desactualizada. El sitio lo lleva el chat de Code del sitio
+      web, no esta sesión.
+    - **Fricción conocida, sin resolver**: si alguien sin cuenta en la app
+      toca "Empezar ahora" desde el sitio, lo manda a `/login` y después
+      de loguearse/registrarse NO vuelve solo al checkout (aterriza en
+      Inicio) -- tiene que tocar el link de nuevo. No se resolvió porque
+      no se pidió, es chico pero real.
+- **Golden Anual / Golden Mensual** (`premium_origen = 'golden'`, definido
+  con el coach 2026-09-29): dan **exactamente el mismo acceso**, sin
+  ninguna distinción funcional -- catálogo completo de rutinas públicas,
+  Cardio, Crea tu rutina, Análisis, Perfil completo (evolución/PDFs) y la
+  calculadora de calorías. La ÚNICA diferencia entre mensual y anual es
+  precio/duración, reflejada solo en la etiqueta de "Tu plan" en Inicio
+  (`obtenerSuscripcion()` en `premium.ts`, usa `suscripciones.frecuencia`)
+  -- "Golden mensual · renueva [fecha]" o "Golden anual · renueva [fecha]".
+  Lo único que Golden NO tiene, sea mensual o anual, es la Guía
+  alimenticia -- esa sigue siendo exclusiva de Mentoría (`esMentoria()`),
+  ya estaba bien implementado así (`/alimentacion/guia` verificado).
+  - **Bug real encontrado en la misma revisión (2026-09-29)**: antes de
+    hoy, `obtenerSuscripcion()` chequeaba si había una fila en
+    `suscripciones` ANTES de chequear `esMentoria()` -- un cliente que
+    arrancó pagando Golden y después pasó a mentoría (sin que nadie
+    cancele esa suscripción vieja) seguía mostrando "Golden" en vez de
+    "Mentoría" en su perfil. Confirmado en producción con 2 cuentas
+    reales de mentoría que tenían una `suscripciones` vieja de cuando
+    eran Golden. Se corrigió reordenando: Founder → Mentoría → Golden
+    (con `sub`) → Golden manual → Trial.
+- **Compra suelta** (`premium_origen = 'compra'`, plan autoguiado tipo
+  Anti-Flakardo -- definido con el coach 2026-09-29): 90 días de acceso
+  (`MESES_ACCESO_POR_COMPRA = 3` en `src/lib/compras.ts`). Mismo trato que
+  Golden en TODO menos dos cosas:
+  - **Sin catálogo completo**: solo ve la/s rutina/s de SU producto (ej.
+    Anti-Flakardo da el combo Fullbody + Torso Pierna) vía
+    `profile_routine_access`, no puede navegar ni cambiarse al resto del
+    catálogo público -- igual que mentoría.
+  - **Crea tu rutina bloqueado por completo** (no es el mismo caso que el
+    trial, que sí puede crear 1 para probar): "compraste tu plan, seguís
+    tu plan". El resto -- Cardio, Análisis completo (incluido Historial),
+    Perfil completo (Mi evolución + Mis PDFs), Calculadora de calorías --
+    todo desbloqueado. Guía alimenticia sigue bloqueada (exclusiva de
+    Mentoría, necesita un plan superior).
+  - **Se probó en vivo simulando una compra real** (misma función que usa
+    el webhook, `procesarCompraAprobada` en `compras.ts`) con una cuenta
+    de prueba: quedó "Acceso por compra · hasta [fecha]" con la fecha
+    correctamente extendida desde el `premium_hasta` que ya tenía (los
+    días de Free Trial que le quedaban NO se pierden al comprar -- se
+    suman los 90 días desde ahí, no desde hoy), acceso a las 2 rutinas del
+    combo, el PDF en Mis PDFs, Cardio disponible, Crea tu rutina
+    bloqueado, Calculadora disponible, Guía bloqueada.
+  - **Bug real encontrado en la misma prueba, ya corregido**: el flujo
+    real de compra otorgaba `profile_routine_access` pero nunca activaba
+    ninguna rutina (mismo patrón que el bug de altas de mentoría --
+    Santiago Pelotti, Vane Capuano -- que en su momento solo se corrigió
+    en `scripts/alta-cliente.js`, nunca acá). El comprador entraba a la
+    app recién comprada y veía "Sin rutina activa, elegí tu rutina" en vez
+    de arrancar con su plan. Se agregó el mismo patrón de auto-activación
+    (solo si no tenía ya una rutina activa, sin pisar ninguna existente) a
+    `procesarCompraAprobada` -- cuando el producto da varias rutinas (ej.
+    el combo de Anti-Flakardo), activa la de `routine_id` más bajo, sin
+    ningún criterio de "cuál es la principal" más allá de eso.
+  - **Bug hermano encontrado en la misma revisión**: `diasRestantesTrial()`
+    (banner de arriba + pantalla de venta de Golden) excluía golden/
+    mentoría pero NO 'compra' -- un cliente que compró un plan veía
+    "Prueba gratis · te quedan 91 días" en el banner y "Tu prueba gratis
+    terminó" en `/golden`, ninguna de las dos cosas ciertas. Se cambió de
+    lista negativa a lista POSITIVA (`premium_origen === 'trial'` y nada
+    más) para que no se repita con la próxima categoría nueva que se
+    agregue -- y `obtenerSuscripcion()` se reordenó para que la etiqueta
+    de "Acceso por compra" no dependa de `diasRestantesTrial` (que ahora
+    es estrictamente trial-only).
+  - **Todo lo de arriba pasa por `permisos(profile)` en `premium.ts`**
+    -- la matriz única de qué incluye cada categoría (Founder, Mentoría,
+    Golden, Compra, Trial), agregada en la misma revisión para reemplazar
+    ir sumando funciones booleanas sueltas por cada feature nueva (patrón
+    que ya causó varios bugs reales, ver arriba). Cualquier feature nueva
+    que dependa del plan del usuario va acá, como un campo más de
+    `Permisos`, no como un chequeo inline en la pantalla.
+- **Free Trial** (`premium_origen = 'trial'`, `esTrial()` en
+  `premium.ts`): 14 días para probar la app en serio sin regalarle el
+  producto completo. Definido con el coach 2026-09-28, usa el ícono
+  `public/section-icons/bloqueado.png` (candado cerrado) para marcar
+  visualmente lo bloqueado en cada hub, en vez de solo ocultarlo:
+  - **Bloqueado por completo** (pantalla propia con `PantallaBloqueada`,
+    `src/components/pantalla-bloqueada.tsx`, más el ícono de candado en la
+    tarjeta del hub): Alimentación (calculadora + guía -- esto ya lo
+    bloqueaba `esGoldenTier` de antes, sin cambios), Mi evolución, Mis
+    PDFs, Historial (dentro de Análisis), Cardio (dentro de Entrenamiento).
+  - **Limitado, no bloqueado**: "Crea tu rutina" -- máximo 1 rutina creada
+    por el usuario (`LIMITE_RUTINAS_TRIAL` en
+    `src/app/entrenamiento/crear-rutina/page.tsx` y `actions.ts`, contado
+    con `contarRutinasCreadasPorUsuario()` en
+    `src/lib/limite-rutinas-creadas.ts`); al llegar al límite se muestra
+    `PantallaBloqueada` en vez del wizard, y `guardarRutinaCreada` lo
+    revalida server-side por si acaso.
+  - **Catálogo de rutinas públicas limitado a 3**: `RUTINAS_PUBLICAS_TRIAL`
+    en `premium.ts` -- exactamente "3 días - Fullbody", "Torso-Pierna" y
+    "Push Pull Legs" (nombres tal cual en `routines.nombre`). Antes de esta
+    definición, `tieneCatalogoCompleto()` incluía `trial` como si viera el
+    catálogo COMPLETO -- eso quedó corregido: `trial` se sacó de
+    `tieneCatalogoCompleto` y el chequeo correcto para cualquier rutina
+    puntual pasó a ser `rutinaIncluidaEnPlan(profile, rutina)` (ver bullet
+    de arriba).
+  - **Sin restricción**: Datos personales, Mis medidas, y dentro de
+    Análisis: Medidas/Entrenamiento/Salud -- a propósito, para que el
+    usuario vea valor real durante los 14 días antes de decidir si sigue.
+  - **Bug encontrado probando esto en vivo 2026-09-29**: "3 días -
+    Fullbody" (una de las 3 de `RUTINAS_PUBLICAS_TRIAL`) ya no existía en
+    la base -- fue renombrada a "Anti-Flakardo Fullbody" en la migración
+    062 y su contenido reemplazado por el plan del producto pago. El
+    trial se quedó viendo solo 2 de sus 3 rutinas. Fix: migración 084
+    recrea "3 días - Fullbody" como rutina pública genérica nueva (no
+    toca Anti-Flakardo Fullbody) -- ver la migración para el detalle.
+- **Cuentas de prueba para verificar categorías de acceso** (creadas
+  2026-09-29/30, no son clientes reales; Datos personales de las dos:
+  masculino, 06/01/1995, Mantenimiento, Actividad ligera). Usarlas para
+  probar visualmente cualquier cambio futuro a estas categorías en vez de
+  crear cuentas nuevas cada vez. Ninguna contraseña se guarda en este
+  archivo (se commitea a un repo público) -- si se perdió, resetearla con
+  `supabase.auth.admin.updateUserById(...)` vía el cliente admin (mismo
+  patrón que cualquier otro script de este repo con service role):
+  **Regla, aprendida a las malas 2026-09-30**: estas cuentas quedan SIEMPRE
+  en su estado de referencia -- no resetearlas a mitad de una verificación
+  y menos sin avisarle al coach (pasó una vez: dejó "Prueba Compra" en
+  trial limpio para probar otra cosa y el coach la vio así, pensó que era
+  un bug real). Si hace falta simular una compra/alta desde cero para
+  probar algo puntual, crear una cuenta descartable nueva para eso, nunca
+  reutilizar ni tocar el estado de estas tres.
+  - `prueba.freetrial.kraken@gmail.com` -- Free Trial limpio, no tocar su
+    `premium_origen`.
+  - `prueba.compra.kraken@gmail.com` -- Compra Suelta con el plan
+    Anti-Flakardo ya cargado (acceso a Anti-Flakardo Fullbody + Torso
+    Pierna vía `profile_routine_access`, sin ninguna activada -- el
+    usuario elige la suya, ver "Compra suelta" más abajo -- PDF en Mis
+    PDFs, `premium_hasta` extendido).
+  - `prueba.mentoria.kraken@gmail.com` -- Mentoría 1:1, `golden_perpetuo =
+    true` (mismo patrón que un alta real de mentoría), rutina "Kraken
+    Standard M" (id 23) activada por el coach.
+- **Cuentas de testeo del coach** (`kraken.test.qa@gmail.com`,
+  `kraken.test.qa2@gmail.com`): no son clientes, excluir de cualquier
+  reporte/categorización de clientes reales.
+- **Bug corregido 2026-09-21**: 4 cuentas de mentoría (Lorena Tobares,
+  Santiago, tallernoc, belu122806) tenían `golden_perpetuo = true` puesto
+  a mano por error al darlas de alta -- causaba que la app les mostrara
+  "Golden · Founder" en vez de "Mentoría · hasta [fecha]"
+  (`obtenerSuscripcion()` en `premium.ts` chequea `golden_perpetuo`
+  primero). Se corrigió a `false` en las 4. Si se da de alta un cliente de
+  mentoría nuevo, el acceso se da con `premium_origen = 'mentoria'` +
+  `premium_hasta`, **nunca** con `golden_perpetuo`.
+- **Idea a futuro, explícitamente pausada**: que un usuario pueda armarse
+  su propia rutina desde la app (autogestión total). El usuario la
+  mencionó como algo que "sería fascinante" pero pidió dejarla para más
+  adelante -- no es parte del alcance actual.
+
+## Decisiones de negocio ya tomadas a propósito (no "corregir" sin preguntar)
+
+- **Sin cross-sell de "Adquirir otras rutinas" dentro de Entrenamiento**
+  (eliminado 2026-09-29): el hub de Entrenamiento tenía una tarjeta con
+  candado + botón "Adquirir" para cualquier rutina pública que el usuario
+  no tuviera desbloqueada (ej. Anti-Flakardo Fullbody/Torso Pierna),
+  construida en una sesión anterior (commits 2026-09-08/15) sin que el
+  usuario la hubiera pedido -- la sacó al notarla porque además no tenía
+  sentido de producto: esos planes se venden como combo (Fullbody + Torso
+  Pierna + PDF juntos) a través del plan autoguiado en el sitio web, no
+  como rutinas sueltas comprables desde adentro de la app. Se borró la
+  sección completa de `src/components/rutina-hub.tsx` (que quedó solo con
+  la tarjeta de "Tu rutina activa" / "Elegí tu rutina") y las queries/props
+  que ya no hacían falta en `entrenamiento/page.tsx`. **No reintroducir
+  ningún tipo de upsell "comprá esta rutina" dentro del hub de
+  Entrenamiento sin que el usuario lo pida explícitamente de nuevo.**
+- **Colores de los botones de pago**: Mercado Pago = amarillo, PayPal =
+  celeste -- es lo OPUESTO a los colores de marca reales de cada uno. El
+  usuario lo pidió así explícitamente, dos veces.
+- **PWA, no app nativa (todavía)**: decisión consciente por velocidad/costo.
+  Limitaciones reales ya identificadas:
+  - iOS Safari **nunca** implementó bloqueo de orientación -- resuelto con
+    overlay CSS que tapa la pantalla en landscape
+    (`src/components/orientation-guard.tsx`).
+  - Instalar la PWA vía **Samsung Internet** puede disparar un bloqueo de
+    Play Protect ("app insegura") por cómo ese navegador arma el WebAPK --
+    Chrome no tiene ese problema. Workaround: instalar desde Chrome.
+  - **"KRAKEN Entrena requiere la siguiente app: Chrome"** (cartel con
+    botones Cerrar/Instalar, en loop, aunque Chrome ya esté actualizado):
+    confirmado en producción (cuenta del coach) el 2026-09-19. NO es un
+    bug de nuestro manifest/service worker (se revisaron los dos, están
+    bien) -- es que el WebAPK que arma Android para la PWA queda atado a
+    la versión de Chrome que lo generó, y una actualización de Chrome en
+    segundo plano puede romper esa asociación interna. Es un bug conocido
+    de Android/WebAPK, no exclusivo de esta app. **Arreglo confirmado que
+    funcionó**: reiniciar el celular. Si no alcanza: Ajustes → Apps →
+    Chrome → Almacenamiento → Borrar caché (NO "Borrar datos"); si sigue,
+    desinstalar el ícono de KRAKEN Entrena y volver a instalarlo desde
+    Chrome; como último recurso, desinstalar las actualizaciones de Chrome
+    y dejar que Play Store la reinstale. Es un arreglo que hay que repetir
+    cada vez que reaparece (no hay forma de prevenirlo desde el código de
+    la app) -- la única forma de eliminarlo de raíz es publicar como app
+    nativa real en Play Store, no como PWA/WebAPK.
+  - `-webkit-touch-callout: none` (en `globals.css`) es Safari/iOS-only --
+    en Android/Chrome hace falta además cancelar el evento `contextmenu`
+    (ver `register-sw.tsx`) para evitar el menú nativo de "mantener
+    presionado" sobre un link.
+  - Pasar a Play Store/App Store (Capacitor) resolvería esto de raíz, pero
+    es un proyecto aparte, no urgente (~1-2 semanas Android vía TWA, ~3-5
+    semanas iOS vía Capacitor, necesita Mac).
+- **Alimentación**: calculadora de calorías = beneficio de Golden, Compra
+  suelta, Mentoría y Founder (`permisos(p).calculadora`, NUNCA
+  `esGoldenTier` -- Compra suelta no pasa esGoldenTier pero sí tiene
+  calculadora, ver "Categorías de acceso de usuario"). Guía alimenticia =
+  beneficio EXCLUSIVO de Mentoría (`permisos(p).guiaAlimenticia` /
+  `esMentoria`, más estricto). Ambas pantallas exigen un pop-up de
+  disclaimer legal con "Sí, entiendo" antes de mostrar contenido, guardado
+  por usuario (`profiles.disclaimer_calculadora_aceptado_at` /
+  `disclaimer_guia_aceptado_at`) -- ver `src/components/disclaimer-gate.tsx`.
+  No mostrar nunca estas pantallas sin ese gate.
+- **Rutinas multi-día nuevas (Sayayin, variantes de 3 días)**: **rechazadas
+  explícitamente, "no las quiero hasta nuevo aviso"** -- no proponerlas de
+  nuevo salvo que el usuario las pida.
+- **Comparador de rutinas (movido 2026-10-02)**: antes era un link
+  ("Analizar rutinas adquiridas") escondido dentro de Crea tu rutina;
+  ahora es una tarjeta propia en el hub de Entrenar, entre "Rutinas
+  adquiridas" y "Cardio" (`src/app/entrenamiento/page.tsx`) -- tiene
+  sentido ahí porque compara CUALQUIER rutina que el usuario tenga
+  desbloqueada, no solo las creadas por él. Renombrado de "Analizador" a
+  "Comparador" (hub + H1 de `/entrenamiento/analizador`) para que el
+  nombre describa la función real ("elegí hasta 3 rutinas para comparar su
+  pentágono"); la ruta y el nombre del componente (`AnalizadorCliente`)
+  quedaron igual a propósito, son detalles internos. Su `BackLink` ahora
+  vuelve a `/entrenamiento` (el hub), no a `/entrenamiento/crear-rutina`
+  como antes. Ícono nuevo: `public/section-icons/comparador-rutinas.png`
+  (recortado a cuadrado + reescalado a 160x160 desde `53.png` en
+  `G:\Mi unidad\PROGRAMA SOULVANZ\1 FISICOCULTURISMO\Ejercitacion en el
+  GYM\EntrenaOptimo\Iconos editados\`, la carpeta de íconos editados del
+  coach -- mismo criterio que el resto de `section-icons/`).
+  **Orden final (ajustado 2026-10-03)**: Rutinas adquiridas, Comparador de
+  rutinas, Crea tu rutina, Cardio -- Cardio se corrió al final a pedido
+  del coach. `crear-rutina.png` también se actualizó ese día, desde
+  `52.png` de la misma carpeta de íconos editados (mismo recorte+resize a
+  160x160).
+  **`comparador-rutinas.png` se regeneró de nuevo el 2026-10-05**: el
+  coach retocó el `53.png` original (naranja más oscuro, lupa más sólida)
+  -- cuando pida "actualizar tal ícono con el XX.png", siempre regenerar
+  desde el archivo tal cual está en el momento, no asumir que ya está
+  hecho por una vez anterior en la sesión (el archivo fuente puede haber
+  cambiado).
+- **Planes autoguiados** (Grasa Sub-Cero, Híbrido, En Casa, Minimalista):
+  rutinas `es_privada = true`, exclusivas de quien compró ese producto
+  puntual -- NO deben quedar accesibles para Golden/trial en general.
+  **Bug real encontrado 2026-10-02** (el coach lo señaló como precaución
+  general y resultó ser un caso real, no hipotético): "Anti-Flakardo
+  Fullbody" y "Anti-Flakardo Torso Pierna" nacieron como rutinas públicas
+  ("3 días - Fullbody" / "Entreno 4 días") y al convertirse en el contenido
+  real del plan autoguiado (migraciones 061/062) nadie les puso
+  `es_privada = true` -- quedó la misma categoría de bug que Vane Capuano,
+  pero del lado de Golden: cualquier cuenta Golden mensual/anual
+  (`catalogoCompleto = true`) veía estas dos como parte del catálogo
+  general y podía cambiarse a ellas sin comprar Anti-Flakardo. Corregido en
+  migración 089. Compra Suelta de Anti-Flakardo no se vio afectada -- su
+  acceso siempre pasó por `profile_routine_access` explícito, nunca por
+  `catalogoCompleto`.
+  **Regla permanente derivada de este bug**: cualquier plan autoguiado
+  nuevo (Anti-Flakardo, Sub-Cero, Híbrido, etc., incluyendo los que el
+  coach mencione aunque "todavía no estén hechos") tiene que nacer con
+  `es_privada = true` desde el primer INSERT -- no asumir que viene por
+  default ni agregarlo "después". Verificar esto explícitamente en la
+  migración de alta de cualquier rutina ligada a un producto de venta
+  individual.
+- ~~Diferenciación de funciones entre trial / Golden mensual / Golden
+  anual: pendiente~~ -- **resuelto 2026-09-29**, ver "Golden Anual / Golden
+  Mensual" y "Free Trial" más arriba en esta misma sección: mensual y
+  anual dan exactamente el mismo acceso (solo cambia precio/etiqueta), y
+  el trial tiene su propia fila completa en `permisos()`. Nota dejada acá
+  tachada en vez de borrada para que quede el rastro de que esto SÍ se
+  terminó de definir, por si en algún momento se vuelve a dudar.
+- **Login con Google/Facebook (construido 2026-10-07)**: botón "Continuar
+  con Google" en `/login` y `/registro` (`src/components/botones-sociales.tsx`,
+  en un `<form>` propio para que los `required` del de email no lo
+  bloqueen; con OAuth entrar y crear cuenta son lo mismo). Flujo PKCE:
+  server action `loginConProveedor` (`src/app/login/actions.ts`) arma la URL
+  del proveedor -> el proveedor vuelve a Supabase -> Supabase vuelve a
+  `/auth/callback` (`src/app/auth/callback/route.ts`, Route Handler: solo ahí
+  se pueden fijar las cookies al canjear el `?code=`) -> si la cuenta es
+  nueva (sin `profiles.nombre`) va a `/perfil/datos`, si no a `next` o `/`.
+  `/auth/callback` está en `PUBLIC_PATHS` y `PATHS_SIN_PREMIUM` del proxy.
+  Las cuentas nuevas reciben el trial y el "reclamo de compras por email"
+  igual que por email porque ambos cuelgan del trigger `handle_new_user()`.
+  - **Credenciales**: Client ID/Secret de Google y App ID/Secret de Facebook
+    están cargados en Supabase (Authentication -> Providers, vía Management
+    API); **NUNCA escribirlos en este archivo ni en el repo** (es público).
+    Site URL de Supabase pasó de `localhost:3000` a
+    `https://appfit.krakenbrand.com` y `uri_allow_list` suma
+    `/auth/callback` de producción, vercel.app y localhost.
+  - **Google: verificado de punta a punta hasta el login** (botón -> Supabase
+    -> pantalla "Inicia sesión: Cuentas de Google" con el Client ID y el
+    redirect correctos). Falta que el coach pruebe con su cuenta real y
+    confirme que la app de Google esté **publicada** ("En producción") --
+    en modo "Testing" solo dejan entrar los usuarios de prueba listados.
+  - **Facebook: verificado igual que Google, hasta el login** (botón ->
+    Supabase -> pantalla real de login de Facebook con el `app_id` correcto
+    y el retorno a Supabase). Costó una vuelta: el primer App ID cargado
+    tenía **un dígito mal copiado** y Facebook respondía código 101 "Cannot
+    get application info" en la Graph API (un App ID válido con secret
+    falso responde código 1 "Error validating client secret") y "No se
+    encontró el contenido" en el diálogo -- esa diferencia de códigos es la
+    forma rápida de distinguir "ID inexistente" de "secret incorrecto"
+    (`GET graph.facebook.com/oauth/access_token?client_id=..&client_secret=..&grant_type=client_credentials`
+    devuelve el token solo si ID y secret son válidos). Después de cambiar
+    credenciales en Supabase, el servicio de auth puede tardar unos segundos
+    en usar las nuevas (se verifica con `/auth/v1/authorize?provider=..`).
+    **Estado al 2026-10-07 (botón OCULTO otra vez, `FACEBOOK_ACTIVO = false`
+    en `botones-sociales.tsx`)**: la app está en modo Desarrollo y solo deja
+    entrar a quienes tienen rol en ella; un cliente que tocara el botón vería
+    un error de Meta, por eso se esconde hasta poder publicar. Configuración
+    básica de Meta COMPLETA (privacidad, eliminación de datos, dominio,
+    correo, ícono, categoría; términos opcional) y "Acciones requeridas"
+    vacío, pero el botón "Publicar" del panel sigue APAGADO. En el panel nuevo
+    de Meta (basado en "casos de uso") los permisos `email` y `public_profile`
+    figuran en **"Listo para prueba"** con 0 llamadas a la API, y la doc
+    oficial dice que "Listo para modo activo" = aprobado en App Review; para
+    `public_profile` hay un botón "Aumentar acceso" (Acciones) para servir a
+    usuarios sin rol. Hipótesis sin confirmar (la pantalla no dice el motivo):
+    hace falta aumentar el acceso, lo que probablemente pide **verificación de
+    la empresa** (el portfolio "Ezequiel Arce" figura "Sin verificar"; Meta
+    acepta "particular", con documento de identidad) y **llamadas de prueba
+    a la API** de cada permiso (se pueden generar con el Graph API Explorer o
+    entrando con Facebook con la cuenta del coach; el contador puede tardar
+    ~2 días). Siguiente paso: ver qué opciones/requisitos muestra "Acciones"
+    en cada permiso. Facebook es opcional: Google + email ya cubren a casi
+    todos, así que no bloquea nada.
+  - **Dos trampas encontradas al construirlo, no repetirlas**: (1) en un
+    `<button formAction={serverAction}>` React PISA el atributo `name` con su
+    propio id de acción, así que `name="provider" value="google"` nunca le
+    llega al servidor -- el proveedor va atado con
+    `loginConProveedor.bind(null, "google")`; (2) `rutaSiguienteSegura`
+    dejaba pasar `next` con tabulación/salto de línea/barra invertida
+    (`"/<TAB>/evil.com"` se resuelve a `//evil.com` = open redirect, comprobado
+    con `new URL`) -- ahora rechaza barra invertida y caracteres de control.
+- **Recuperar contraseña (construido 2026-10-02, versión final con código
+  de 8 dígitos -- no con link)**: flujo completo -- `/olvide-password`
+  (pide el email, llama `resetPasswordForEmail`) -> mail de Supabase con
+  un código -> `/restablecer-password?email=...` (carga el código +
+  contraseña nueva) -> `/login` con mensaje de éxito. Link "¿Olvidaste tu
+  contraseña?" agregado en `/login`. Costo: **$0**, usa el email provider
+  que trae Supabase por default (ver límite de volumen más abajo).
+
+  **Historia completa de los 3 intentos -- dejar esto documentado porque
+  cada vuelta encontró un problema real distinto, no hipotético:**
+
+  1. *Primer intento, asumiendo PKCE*: se armó con un Route Handler
+     haciendo `exchangeCodeForSession(?code=)`, el patrón que documentan
+     los ejemplos más recientes de Supabase para Next.js App Router.
+     Probando en vivo contra el proyecto real (generando un link con
+     `admin/generate_link` y siguiendo la redirección con `curl`) se
+     confirmó que **este proyecto entrega el link con el flujo implícito
+     clásico**: los tokens vienen en el FRAGMENTO de la URL
+     (`#access_token=...&type=recovery`), que nunca llega al servidor --
+     el Route Handler jamás iba a recibir nada. No asumir el patrón
+     "estándar" de la documentación sin probarlo contra el proyecto real.
+  2. *Segundo intento, con el link implícito*: se rehizo como componente
+     cliente leyendo `window.location.hash` + `setSession(...)`. Andaba
+     perfecto generando el link a mano (vía API admin + `curl`, sin pasar
+     por un mail real) -- pero probando con un mail REAL a
+     `ezequiel.arce@outlook.com`, el link daba "inválido" sistemáticamente,
+     incluso generando uno nuevo y mandándoselo directo sin pasar por el
+     mail de Supabase. Se descartó Safe Links de Microsoft reescribiendo
+     el link (el coach confirmó con un long-press que el dominio mostrado
+     era el de Supabase sin modificar). **Causa real**: algún mecanismo de
+     preview automático (de la app de mail, del sistema operativo, o de
+     donde sea que el link se muestre) visita el link en segundo plano
+     para generar una vista previa -- como el link es de un solo uso, ese
+     preview silencioso lo consume antes de que la persona lo toque de
+     verdad. Pasa sin dejar rastro visible (no reescribe el dominio), así
+     que generar el link a mano y seguirlo con `curl` (que *es* ese único
+     uso) siempre "funcionaba", mientras que cualquier entrega real por
+     mail fallaba.
+  3. *Solución final*: se abandonó el link clickeable por completo.
+     Supabase genera, junto con el link, un código corto (`email_otp` en
+     la respuesta de `generate_link`) pensado para tipear a mano -- un
+     código no se puede "pre-visitar" automáticamente, es inmune al
+     problema de raíz. **Importante: son 8 dígitos, no 6** (confirmado
+     dos veces generando códigos reales -- no asumir el típico OTP de 6
+     dígitos de otros servicios). El código final:
+     `src/components/restablecer-password-cliente.tsx` pide email + código
+     + contraseña nueva, llama `supabase.auth.verifyOtp({ email, token:
+     codigo, type: "recovery" })` client-side y, si es válido, sigue con
+     `updateUser({ password })` -- todo sin Route Handler ni Server Action,
+     la sesión de recuperación vive y se resuelve enteramente en el
+     cliente. `/restablecer-password` está en `PUBLIC_PATHS` de
+     `src/lib/supabase/middleware.ts` simplemente porque ahí se escribe el
+     código ANTES de tener sesión (misma razón que `/login`).
+  4. *Ajuste de UX, probado por el coach en producción (2026-10-03)*: la
+     primera versión pedía código + contraseña nueva en un solo paso y
+     recién validaba todo junto al tocar "Guardar" -- si el código estaba
+     mal, la persona ya había tipeado la contraseña nueva dos veces para
+     nada. Se separó en dos pasos dentro del mismo componente (estado
+     `paso: "codigo" | "password"`): primero `verifyOtp` solo, con su
+     propio botón "Verificar código"; recién si es válido aparecen los
+     campos de contraseña nueva, con un cartel de confirmación visible
+     ("Código verificado"). El `updateUser` del segundo paso reusa la
+     sesión que ya dejó `verifyOtp`, no hace falta volver a mandar el
+     código.
+
+  **Otro ajuste del mismo día**: los íconos de ojo abierto/tachado en TODOS
+  los campos de contraseña de la app (`src/components/password-input.tsx`,
+  usado en login/registro, y el control equivalente dentro de
+  `restablecer-password-cliente.tsx`) tenían la convención invertida desde
+  siempre -- mostraban el ojo tachado cuando el texto SÍ se veía, y el ojo
+  abierto cuando estaba oculto (es una convención real, la usa GitHub: el
+  ícono representa "la acción al tocarlo", no el estado actual). El coach
+  lo notó confuso probando esta pantalla y se invirtió en los dos lugares
+  para que el ojo abierto signifique "se está viendo" y el tachado "está
+  oculto" -- más intuitivo, y ahora consistente en toda la app.
+
+  **(2026-10-13: el coach probó el flujo de reseteo y funciona bien; la nota
+  de abajo es el contexto original de la plantilla del mail.)**
+  Acción que había quedado pendiente del coach en el dashboard de Supabase (no es
+  código): la plantilla del mail "Reset Password" (Authentication ->
+  Emails) todavía es la que trae Supabase por default, en inglés y con el
+  link de siempre -- hay que reemplazarla por una que muestre el código
+  (`{{ .Token }}`) en texto plano, SIN ningún link ni botón (si queda un
+  link ahí, el mismo problema de preview automático lo seguiría
+  consumiendo, dejando el código generado para esa misma solicitud
+  inválido también, porque el link y el código representan el mismo
+  token de un solo uso). Mismo criterio de las dos URLs de
+  `/restablecer-password` ya agregadas a Redirect URLs (Authentication ->
+  URL Configuration) -- ya no son estrictamente necesarias para ESTE
+  flujo (no hay redirect por link), pero no está de más dejarlas.
+
+  Probado de punta a punta con códigos reales generados vía
+  `admin/generate_link` contra `prueba.freetrial.kraken@gmail.com`
+  (`email_otp` real, sin pasar por ningún mail) -- password restaurada a
+  la de referencia (`PruebaTrial2026`) después de cada prueba, sin dejar
+  la cuenta en otro estado. Confirmado también en producción con la
+  cuenta real del coach que el código llega por mail.
+
+  **Actualización 2026-10-03 -- ya se resolvió el límite de volumen y la
+  plantilla, con dominio propio + Resend**: lo de abajo ("Límite de
+  volumen") quedó superado por esto. Ver sección completa "Dominio propio
+  + Resend (2026-10-03)" más abajo en este archivo para el detalle de cómo
+  se armó.
+- **Fila de 3 accesos en Inicio** (agregada 2026-09-30, debajo de "¿Buscás
+  más?"): Sitio web (se movió del ícono chico arriba a la derecha, que ya
+  no existe), Soporte (WhatsApp directo al coach, reusa el mismo número de
+  `WHATSAPP_MENTORIA` con otro mensaje pre-armado -- si el coach quiere un
+  número distinto para soporte, avisar) y Compartir
+  (`src/components/compartir-app-boton.tsx`, `navigator.share` con
+  fallback a copiar el link al portapapeles y por último abrir la URL).
+  Por ahora comparte el link de la PWA (`URL_APP` en ese componente); el
+  día que la app esté en Play Store/App Store, ese es el único lugar que
+  hay que tocar para que comparta el link de la tienda en su lugar.
+
+## Dominio propio + Resend (2026-10-03)
+
+Surgió directamente del límite de "Recuperar contraseña" de más arriba: no
+se podía editar la plantilla de mail de Supabase sin SMTP propio, y un
+SMTP propio en serio (mandar a cualquier cliente, no solo a cuentas de
+prueba) necesita un dominio propio verificado por DNS. El coach decidió
+resolverlo de raíz comprando un dominio, con una condición explícita y
+ahora permanente (ver [[feedback_minimizar_gastos_recurrentes]] en la
+memoria de Claude): **gastar lo mínimo posible, un solo dominio para todo
+el ecosistema KRAKEN** (fitness, DJ, lo que venga), nunca uno por marca.
+
+- **Dominio comprado**: `krakenbrand.com` (gestionado por la OTRA sesión
+  de Claude Code, la del sitio web -- acá solo se documenta porque la app
+  también depende de él). DNS en **Cloudflare** (no en el registrador),
+  nameservers `austin.ns.cloudflare.com` / `lucy.ns.cloudflare.com`.
+- **Subdominio de la app**: `appfit.krakenbrand.com` (elegido por el coach
+  en vez de `app.krakenbrand.com` porque "capaz creo más apps" -- el
+  patrón que dejó es `app` + algo que identifique cada proyecto). Conectado
+  al proyecto `kraken-entrena-app` de Vercel. La URL vieja
+  (`kraken-entrena-app.vercel.app`) sigue funcionando en paralelo --
+  Vercel no la desactiva al agregar un dominio propio.
+- **Resend** (gratis, 3000 mails/mes) conectado como SMTP de Supabase.
+  Dominio de envío: `krakenbrand.com` (sender real: `no-reply@krakenbrand.com`,
+  nombre mostrado "KRAKEN Entrena"). Domain id en Resend:
+  `8ac823ea-2bbb-4823-8167-1bbdba887af4`.
+- **Plantilla de "Reset Password" reescrita** en Supabase (español, marca
+  KRAKEN, muestra `{{ .Token }}` en texto plano, sin ningún link -- ver la
+  razón en "Recuperar contraseña" más arriba). Probado de punta a punta
+  con un mail real a la cuenta del coach: Resend lo marca `delivered`.
+- **`uri_allow_list` de Supabase** ahora tiene las 3 URLs de
+  `/restablecer-password` (vercel.app, localhost, y
+  `appfit.krakenbrand.com`).
+- **`compartir-app-boton.tsx`** actualizado a la URL nueva.
+
+**Patrón nuevo de esta sesión, vale la pena repetirlo a futuro**: para
+toda esta configuración (Vercel, Cloudflare, Resend, Supabase Management
+API) el coach generó tokens de API de corta duración (1 día o menos) en
+vez de compartir contraseñas o loguear a Claude en los paneles -- eso SÍ
+está permitido y es el camino preferido (ver reglas de seguridad de
+Claude: nunca contraseñas, sí tokens de API acotados). Mismo patrón que
+ya se venía usando con el `service_role` de Supabase. Si hay que volver a
+tocar DNS/dominio/SMTP en el futuro, pedir un token nuevo de cada
+servicio en vez de pedirle al coach que haga los clicks a mano.
+
+## Backups gratuitos a Google Drive (2026-10-07)
+
+El plan gratis de Supabase NO hace backups (el panel dice "Last backup: No
+backups"), y con clientes pagando perder la base es grave. Se resolvió a
+**costo $0** (regla de [[feedback_minimizar_gastos_recurrentes]]; el plan Pro
+sale US$25/mes) con un script que corre en la compu del coach:
+- **Tamaño real medido**: toda la base pesa 14 MB (las tablas de la app < 2
+  MB); el backup comprimido pesa ~2,7 MB. Los buckets públicos
+  (`ejercicios` 204 MB de GIFs, `ejercicios-video` 162 MB) NO se copian, solo
+  se listan: son reemplazables desde las carpetas locales `gifs-*`/`videos-*`.
+  Los privados (`productos`, `Anti Flakardo`, `guias-alimenticias`,
+  `progress-photos`) sí se descargan completos.
+- **`scripts/backup-supabase.mjs`**: lee la service role key de `.env.local`
+  (nunca se copia), vuelca cada tabla de `public` a JSON **verificando que las
+  filas bajadas coincidan con el conteo de la base**, lista los usuarios de
+  Auth, descarga los archivos privados, arma un `.zip` (con el `tar.exe` de
+  Windows por ruta absoluta -- el `tar` de Git confunde `G:\` con un host
+  remoto) y lo deja en `G:\Mi unidad\KRAKEN BACKUPS APP\` (si Drive no está
+  montado cae a `~\KRAKEN BACKUPS APP` y lo avisa). Conserva 30 días + el
+  backup del día 1 de cada mes para siempre. No repite si ya hay uno de las
+  últimas 20 h (`--forzar` para saltear eso). Cada corrida escribe
+  `ULTIMO_BACKUP.txt` en esa carpeta (`OK ...` o `ERROR ...`) y un log en
+  `%LOCALAPPDATA%\kraken-backup.log`.
+- **Programado** con una tarea de Windows ("KRAKEN Backup Supabase", usuario
+  actual, sin admin): al iniciar sesión + todos los días 13:00, con "iniciar
+  apenas sea posible" si la compu estaba apagada. Lanza `cmd.exe /c node ...`
+  redirigiendo la salida a `%LOCALAPPDATA%\kraken-backup-tarea.txt`. Se
+  probaron y descartaron dos variantes: `powershell -WindowStyle Hidden`
+  (la tarea figuraba "OK" pero el script nunca corría) y `conhost --headless`
+  (tampoco corría). Sí se ve una ventana negra un segundo al ejecutarse.
+- **Limitación conocida**: la API de Auth no expone los hashes de contraseña,
+  así que el backup tiene usuarios (ids, emails, proveedor) pero no sus
+  claves -- tras una restauración entran con "Olvidé mi contraseña" o con
+  Google/Facebook. El `LEEME.txt` dentro de cada zip explica cómo restaurar.
+  **Ningún restore se probó todavía** (no hay un segundo proyecto donde
+  hacerlo); lo verificado es que el zip está completo y que los conteos
+  coinciden.
+- Revisar de vez en cuando `ULTIMO_BACKUP.txt` en esa carpeta de Drive: si dice
+  ERROR o la fecha es vieja, el backup dejó de funcionar sin que nadie se
+  entere (la compu apagada muchos días, Drive desconectado, etc.).
+
+## Rutina "Kraken Split" reescrita completa (2026-10-05, migración 090)
+
+El coach pasó un programa nuevo de 5 días (A-E) para su propia rutina
+personal ("Kraken Split", `routines.id = 7`, privada, solo la usa
+`ezequiel.arce@outlook.com`) -- a diferencia de "Kraken Standard M", esta
+NO es una rutina estandarizada compartida entre clientes de mentoría, así
+que sí se puede editar in-place sin romper nada de nadie más (confirmado
+antes de tocarla: ninguna otra fila de `profiles`/`profile_routine_access`
+apunta a `routine_id = 7`).
+
+- **Ejercicio nuevo creado**: "Tríceps katana" no existía en el catálogo
+  -- se creó con el gif prestado de "Extensión de tríceps sobre la cabeza
+  en polea" (mecánica más parecida) hasta que el coach suba material
+  propio, mismo criterio de siempre (nunca dejar `imagen_url` en null).
+- **Bug real encontrado y corregido fuera de la migración** (directo vía
+  API admin, no por SQL, porque es un upload de archivo + un solo campo,
+  no una migración de esquema/contenido): "Sentadilla con barra"
+  (`exercise_definitions.id = 123`) no mostraba video en "Cómo
+  realizarlo" pese a que el coach creía que sí lo tenía. Causa real: el
+  archivo (`Sentadillas.mp4`, carpeta local `videos-kraken-entrena/`)
+  nunca se había subido a Supabase Storage -- se subió como
+  `ejercicios-video/Sentadilla con barra.mp4` y se vinculó. Vale la pena
+  recordar esto: si un cliente dice "este ejercicio debería tener video y
+  no aparece", antes de asumir que hay que filmar uno nuevo, chequear si
+  ya existe en alguna carpeta `videos-*` de staging del repo sin subir.
+- **Interpretación de nombres coloquiales** (el coach los pasó en texto
+  libre, no con los nombres exactos del catálogo) -- avisarle si alguna
+  no es la que tenía en mente, no se le preguntó antes de cargar:
+  "vuelo con mancuernas" → "Elevación lateral con mancuernas" (el
+  catálogo reserva "vuelo" para hombro, nunca para pecho -- eso es
+  siempre "apertura" acá); "extensión de tríceps en polea unilateral" →
+  "Tríceps en polea alta a un brazo"; "elevación frontal en polea
+  unilateral" → "Elevación frontal en polea baja a un brazo"; "bíceps
+  unilateral en Scott" → "Curl en polea a un brazo en banco Scott";
+  "gemelo parado en Smith" → "Elevación de talón en máquina Smith";
+  "curl femoral tumbado" → "Curl femoral" (es la variante tumbada por
+  default en este catálogo).
+- Migración: `supabase/migration_090_kraken_split_rutina_nueva.sql` --
+  **ya corrida por el coach, 2026-10-05**.
+- **Corrección el mismo día**: "Tríceps katana" en realidad es una
+  **extensión tras nuca unilateral**, no el trazo diagonal bilateral que
+  se había asumido al crearlo. Corregido directo vía API admin (no por
+  migración -- es solo actualizar `imagen_url`/`como_hacerlo`/`unilateral`
+  de una fila ya creada, no un cambio de esquema ni de contenido masivo):
+  ahora usa el gif de "Extensión de tríceps sobre la cabeza en polea a un
+  brazo" (id 276, que también quedó como su `alternativa_id`) y
+  `unilateral = true`.
+
+## Cumplimiento legal (tanda del 2026-10-08)
+
+Referencia legal = las páginas del SITIO WEB (otro repo, no se tocan desde
+acá): `https://fit.krakenbrand.com/{privacidad,terminos,eliminar-datos,arrepentimiento,baja}`.
+Las URLs viven TODAS en `src/lib/legal.ts` (también `URL_PLANES`,
+`URL_MENTORIAS`, `URL_SITIO_WEB`); no hardcodear el dominio en pantallas.
+El sitio viejo `kraken-fitness-web.vercel.app` ya no se referencia en ningún
+lado.
+
+**Estado al 2026-10-08**: `/arrepentimiento` y `/baja` todavía devolvían 404
+en el sitio cuando se armó esto. NO desplegar la app hasta que existan: los
+dos botones obligatorios apuntarían a una página rota.
+
+### Botones obligatorios (Disposición 954/2025)
+`<FranjaLegal />` (`src/components/franja-legal.tsx`, montada en
+`layout.tsx`) es una franja fina `sticky top-0` con el texto exacto "BOTÓN DE
+ARREPENTIMIENTO" y "BOTÓN DE BAJA DE SERVICIO". Se ve sin loguearse ni
+scrollear en `/`, `/login`, `/registro`, `/golden` y `/compra/*` (lista
+`RUTAS` del componente; agregar ahí si se suma otra pantalla de venta). Son
+`<a>` externos al sitio: NO pasan por registro ni por ningún paso previo de
+la app, y esa es la condición legal -- no ponerles nada en el medio.
+Pie con Privacidad/Términos en `/login` y `/registro`, y con "Eliminar mis
+datos" además en Perfil (`<LinksLegales />`).
+
+### Aceptación de Términos y Privacidad
+- Tabla `aceptaciones_legales` (migración 092): `user_id, tipo, version,
+  aceptado_at, user_agent, ip`, único por (usuario, tipo, versión). RLS: el
+  usuario solo lee las suyas; las altas las hace el servidor con service role
+  (`registrarAceptacion()` en `src/lib/aceptacion-legal.ts`).
+- Versión vigente = `VERSION_LEGAL` en `src/lib/aceptacion-legal-version.ts`
+  (archivo sin imports para que el proxy lo lea). **Cambiarla obliga a todos
+  a aceptar de nuevo** en su próximo ingreso.
+- `/registro`: casilla obligatoria, validada TAMBIÉN en el servidor (`signup`
+  en `src/app/login/actions.ts`); al crear la cuenta guarda la aceptación.
+- Gate central en `src/lib/supabase/middleware.ts`: cualquier usuario
+  logueado sin la versión vigente va a `/aceptar-terminos?next=...` (cubre
+  Google/Facebook nuevos y cuentas existentes con el mismo código). Rutas
+  exentas: `PATHS_SIN_ACEPTACION`. `/api/checkout` NO está exenta a propósito
+  (no se puede pagar sin haber aceptado). **Falla abierto** si la consulta
+  da error (p.ej. migración sin correr): un error de base no deja afuera a
+  los clientes.
+- Orden de despliegue: correr la migración 092 ANTES de pushear el código.
+
+### PDF de planes autoguiados: solo lectura, sin descarga
+Objetivo (definido por el coach): el comprador LEE el PDF dentro de la app y
+no se lo puede llevar, así el arrepentimiento de 14 días aplica sin
+excepciones (si se revoca la compra, se revoca el acceso y no se queda con
+nada).
+- Mis PDFs (`perfil/recursos/page.tsx`) ya no tiene "Descargar PDF": cada
+  producto linkea a `/perfil/recursos/[slug]/leer` (`VisorPdf`,
+  `src/components/visor-pdf.tsx`, pdf.js sobre `<canvas>`, sin barra nativa,
+  sin descargar/imprimir, menú contextual y Ctrl+S/P bloqueados, `@media
+  print` oculto, marca de agua con el email del usuario DIBUJADA en el
+  canvas de cada página, links del PDF —videos de Drive— clickeables vía
+  overlay de `<a>`).
+- Los bytes salen de `perfil/recursos/[producto]/pdf/route.ts`: exige sesión,
+  `permisos().misPdfs` y compra `aprobado` del producto
+  (`productoPdfConAcceso()` en `src/lib/pdf-acceso.ts`), responde
+  `Cache-Control: no-store` y RECHAZA navegaciones directas
+  (`Sec-Fetch-Dest: document|iframe|embed|object` o cross-site), para que no
+  se pueda abrir la URL y hacer "Guardar como". El archivo NUNCA se expone
+  con URL pública ni firmada (se borró `obtenerLinkDescargaPdf` y
+  `descargar-pdf-boton.tsx`).
+- `public/sw.js` NO cachea esa ruta (antes cacheaba todo GET: los bytes del
+  PDF habrían quedado guardados en el dispositivo y seguido disponibles
+  offline después de una revocación).
+- **Límite honesto**: no se puede impedir una captura de pantalla ni que
+  alguien técnico reconstruya el archivo desde las peticiones del visor. El
+  objetivo es no ENTREGAR el archivo, no blindarlo.
+- `pdfjs-dist` (v6) es dependencia nueva; `destroy()` está en la tarea de
+  carga (`getDocument()`), no en el documento, y `render()` recibe `canvas`.
+- La Guía alimenticia de mentorías (`descargar-guia-boton.tsx`,
+  `alimentacion/actions.ts`) NO se tocó: sigue siendo descarga por URL
+  firmada de 5 min; es otro producto (servicio, no plan de pago único).
+- Comportamiento real del acceso al PDF (aclaración pedida 2026-10-08): el
+  comentario viejo de `lib/compras.ts` decía que el PDF "queda para siempre",
+  pero `permisos(misPdfs)` se corta cuando vence `premium_hasta` (3 meses en
+  una compra suelta; 14 días en trial no aplica, trial no tiene Mis PDFs):
+  pasado ese plazo Mis PDFs muestra la pantalla bloqueada. Antes de este
+  cambio la server action de descarga solo chequeaba `compras`, así que
+  alguien que la llamara a mano seguía pudiendo bajarlo; la ruta nueva
+  alinea el servidor con la UI. Comentario corregido.
+
+### Arrepentimiento y baja: registro + funciones server-only (migración 093)
+Reglas de negocio ya publicadas en `/terminos` (definidas por el coach):
+arrepentimiento = 14 días corridos desde la compra, 100% de devolución dentro
+del plazo, ninguna fuera; baja de suscripción = se frena la renovación y el
+acceso sigue hasta el fin del período pagado; si pide la baja antes de la
+renovación y igual se le cobra, se le devuelve ese cobro. Los pedidos llegan
+por WhatsApp (3417211050 (antes 3412672887, dado de baja el 2026-10-12)) o email y la automatización (otro Claude Code)
+responde con un código dentro de las 24 h.
+
+- Tabla `solicitudes_baja_arrepentimiento` (RLS sin policies: solo service
+  role). Código legible `ARR-2026-000123` / `BAJ-2026-000123` armado por un
+  trigger a partir del id. Estados: `recibida` → `codigo_enviado` →
+  `procesada` | `rechazada`. NO se borra al eliminar una cuenta: es el registro
+  que la norma obliga a llevar.
+- `src/lib/solicitudes.ts` (server-only): `registrarSolicitud`,
+  `actualizarSolicitud`, `cancelarSuscripcion`, `revocarCompra`,
+  `buscarUsuarioPorEmail`. Importables desde la automatización, o por HTTP:
+  `POST /api/admin/solicitudes` con `Authorization: Bearer $ADMIN_API_SECRET`
+  y cuerpo `{accion, ...}`:
+  - `registrar` `{tipo: "arrepentimiento"|"baja", medio: "whatsapp"|"email"|"app", contacto, emailCuenta?, productoSlug?, notas?}` → `{codigo, recibidaAt}`
+  - `actualizar` `{codigo, estado, notas?}` (`codigo_enviado` fija `codigo_informado_at`)
+  - `cancelar_suscripcion` `{email}` o `{suscripcionId}` → cancela en Mercado
+    Pago (preapproval) / PayPal (subscription), deja `estado='cancelada'` y
+    `cancelada_al = premium_hasta`. NO corta el acceso.
+  - `revocar_compra` `{email, productoSlug, compraId?}` → `compras.estado =
+    'revocado'` (el PDF deja de verse), quita `profile_routine_access` de las
+    rutinas que daba esa compra (salvo las que den otras compras aprobadas),
+    desactiva la rutina activa si ya no le corresponde y deshace el
+    `premium_hasta/premium_origen` que dio, SOLO si el acceso actual sigue
+    siendo `premium_origen='compra'` (no toca Golden/mentoría/Founder). Si
+    compró el mismo producto 2 veces revoca la más reciente.
+- `ADMIN_API_SECRET` (≥24 caracteres) tiene que existir en Vercel y en
+  `.env.local`; sin él `/api/admin/*` responde 503 (cerrado). `/api/admin` está
+  en `PUBLIC_PATHS` del proxy a propósito: el secreto es la única barrera.
+- **Reembolsos: SIEMPRE a mano** desde el panel de Mercado Pago / PayPal.
+  `lib/mercadopago.ts` y `lib/paypal.ts` no tienen reembolso por API a
+  propósito (mueve plata real y no se puede probar sin gastar). `revocarCompra`
+  devuelve `reembolsoManual` (proveedor, id de pago, monto) para hacerlo.
+- `compras` guarda `premium_aplicado/premium_previo_hasta/premium_previo_origen`
+  (los completa `procesarCompraAprobada`) para poder deshacer el acceso. Para
+  compras viejas o reclamadas por el trigger `handle_new_user` se resta
+  `MESES_ACCESO_POR_COMPRA` al vencimiento. Limitación: `profile_routine_access`
+  no distingue una rutina comprada de una asignada a mano por el coach.
+- Sin probar contra los proveedores reales (no hay sandbox cargado): la
+  cancelación en Mercado Pago/PayPal y la reversión de premium se verificaron
+  solo por tipos; probar con una suscripción/compra real chica antes de
+  confiar la automatización.
+
+### Borrado de cuenta (derecho de supresión) y permisos de Google/Facebook
+- `borrarCuentaCompleta({email, soloVerificar?})` en `src/lib/borrar-cuenta.ts`
+  (server-only, irreversible). HTTP: `POST /api/admin/cuentas` con
+  `Authorization: Bearer $ADMIN_API_SECRET`: `{accion:"verificar", email}` (no
+  borra: devuelve qué se borraría) y `{accion:"borrar", email, confirmarEmail}`
+  (`confirmarEmail` debe repetir el email exacto).
+- Orden: 1) cancela en el proveedor toda suscripción activa/pausada (si falla,
+  no borra nada: si no, seguiría pagando una cuenta inexistente) → 2) borra
+  fotos de evolución (`progress-photos/<user_id>/…`) y la guía alimenticia
+  (`guias-alimenticias`) → 3) borra las rutinas que armó ella misma
+  (`creada_por_usuario`) → 4) anonimiza `compras` (queda monto, moneda, fecha y
+  estado; email = `eliminado@eliminado.invalid`, sin usuario; esto además evita
+  que la compra se re-reclame si alguien se registra con ese email) → 5)
+  `auth.admin.deleteUser`, y el resto cae por `on delete cascade` (perfil,
+  mediciones, entrenamiento, cardio, historial y acceso a rutinas,
+  suscripciones, aceptaciones, guía).
+- NO se borra: `solicitudes_baja_arrepentimiento` (registro obligatorio por la
+  Disposición 954/2025) ni las rutinas privadas que el coach armó para esa
+  persona (se listan en `rutinasPrivadasDelCoach` para borrarlas a mano si se
+  quiere).
+- **Tokens de Google/Facebook: no hay nada que revocar.** Verificado
+  2026-10-08: Supabase Auth guarda por identidad solo perfil (email, nombre,
+  `picture`/`avatar_url`, id del proveedor), nunca `provider_token` ni
+  `provider_refresh_token`, y el código de la app no los lee ni persiste. Por
+  eso el borrado no llama al endpoint de revocación de Google ni a la API de
+  Graph. Si algún día se guardaran tokens (ej. para usar APIs de Google),
+  habría que revocarlos acá.
+- Scopes que pide hoy el login (leídos del redirect de `/auth/v1/authorize`):
+  Google `email profile`; Facebook `email` (más `public_profile`, que Facebook
+  Login incluye siempre). Nada más. No agregar scopes sin revisar la política
+  de privacidad ni la verificación de la app en Google/Meta.
+- Sin probar el borrado real (destructivo): se probó solo `verificar` y el
+  rechazo de `borrar` sin `confirmarEmail`. Probar con una cuenta descartable
+  antes de usarlo con un cliente.
+
+### 48 horas de gracia ante un cobro de renovación rechazado (migración 094)
+Política del coach: si falla la renovación de una suscripción, el acceso se
+mantiene 48 horas más desde el vencimiento y después se suspende si no se
+regularizó. **Mecánica elegida (cambio mínimo, sin tocar pantallas)**: al
+rechazarse el cobro, `pausarGolden(proveedor, subId, {pagoRechazado: true})`
+corre `profiles.premium_hasta` +2 días y guarda el vencimiento original en
+`suscripciones.gracia_premium_original`. Como TODA la app ya decide el acceso
+con `premium_hasta`, la gracia se respeta en todos lados sin cambios.
+- Solo para suscripciones **Golden y Mentoría Online** (`premium_origen` golden
+  o mentoria, no perpetuo): nunca trial, compra suelta ni Founder.
+- Solo si la suscripción estaba `activa` (o `pausada` sin gracia previa): una
+  `cancelada` no recibe gracia, y una sola vez por ciclo (la marca evita
+  extender de nuevo cuando MP/PayPal reintentan y rechazan otra vez).
+- Disparadores: Mercado Pago `authorized_payment.status = rejected` (Golden y
+  Mentoría) y PayPal `BILLING.SUBSCRIPTION.PAYMENT.FAILED`. Un `paused`/
+  `SUSPENDED` a secas (pausa manual) NO da gracia.
+- Si el cobro se regulariza (`acreditarCobroGolden`/`...MentoriaOnline`), el
+  período nuevo se cuenta desde el vencimiento ORIGINAL (no se regalan los 2
+  días) y se limpia la marca. Si la suscripción se cancela (`cancelarGolden`),
+  se vuelve al vencimiento original: las canceladas no tienen gracia. Si no
+  se regulariza, el acceso se corta solo cuando `premium_hasta` vence.
+- Robustez: la marca se guarda ANTES de mover `premium_hasta`, y las lecturas/
+  escrituras de la columna nueva van en consultas aparte, para que correr el
+  código antes que la migración 094 no rompa el dedupe de cobros ni la
+  acreditación real de pagos.
+- Sin probar contra eventos reales de MP/PayPal; revisar con la primera
+  renovación fallida que ocurra (sub pausada + `premium_hasta` +2 días).
+
+### Pop-up de cambio de precio (migración 095)
+Solo el MECANISMO; no cambia ningún precio real (eso se hace aparte en Mercado
+Pago/PayPal).
+- Tablas `avisos_precio` (`titulo, cuerpo, producto_slug, precio_nuevo, moneda,
+  vigente_desde, creado_at`; lectura para logueados, los crea el coach) y
+  `avisos_precio_confirmaciones` (`user_id, aviso_id, confirmado_at`; cada
+  usuario lee/inserta solo las suyas).
+- **Cómo crea un aviso el coach** (SQL Editor, un INSERT; el ejemplo completo
+  está en el encabezado de `migration_095_avisos_precio.sql`):
+  `insert into public.avisos_precio (titulo, cuerpo, producto_slug,
+  precio_nuevo, moneda, vigente_desde) values ('Cambio de precio de Golden
+  mensual', 'A partir del …', 'golden-mensual', 12000, 'ARS', '2026-12-01');`
+  `producto_slug`: `golden-mensual | golden-anual | mentoria-online-basic |
+  mentoria-online-vip`. Para retirarlo: `delete from avisos_precio where id = …`.
+- Al abrir la app, `layout.tsx` llama a `avisoPrecioPendiente()`
+  (`src/lib/aviso-precio.ts`): si el usuario tiene una suscripción
+  `activa`/`pausada` del producto afectado y no confirmó el primer aviso
+  pendiente, se monta `<AvisoPrecioModal />`: no se cierra sin "Leí y acepto el
+  nuevo precio" e incluye el link a `URL_BAJA`. No aparece en /login,
+  /registro, /aceptar-terminos ni recuperar contraseña. Cualquier error
+  (migración sin correr) → no hay modal, nunca bloquea el uso de la app.
+- `suscripciones.producto_slug` lo completan los webhooks al activarse la
+  suscripción (en un update aparte, tolerante a la migración sin correr). Las
+  suscripciones anteriores quedan en null y se infieren: Golden por
+  `frecuencia`; Mentoría Online sin saber Basic/VIP, así que le llega un aviso
+  de cualquiera de las dos.
+- Sin probar con una suscripción real: se verificó solo la UI del modal.
+
+### Coherencia entre la política de privacidad y la app (revisión 2026-10-08)
+La política vive en el sitio (`/privacidad`) y NO se cambia desde acá: estas
+son las diferencias encontradas para que el coach las ajuste allá.
+Lo que la política declara y la app cumple: obligatorios = email, contraseña
+(o Google/Facebook) y nombre (en el formulario de Datos personales solo
+`nombre` es `required`); opcionales = apellido, sexo, fecha de nacimiento,
+objetivo, actividad física, peso/medidas (incluye gemelos, muñeca y
+antebrazo) y fotos; guías alimenticias PDF para mentoría; pagos = estado,
+monto y email del comprador; proveedores = Supabase, Vercel, Resend (mails de
+recuperación vía SMTP de Supabase), Cloudflare (DNS), Mercado Pago, PayPal,
+Google y Facebook. Google Fonts se auto-hostea en el build (`next/font`): no
+hay llamadas a Google en tiempo de ejecución.
+
+**Diferencias a corregir en la política:**
+1. **IP y user agent** se guardan al aceptar Términos/Privacidad
+   (`aceptaciones_legales`, tarea del 2026-10-08) y no están declarados.
+2. **Metadatos de Google/Facebook en Supabase Auth**: además de email y
+   nombre llegan foto de perfil (URL), id del proveedor y `email_verified`.
+   La app no los usa ni los lee, pero quedan guardados hasta borrar la cuenta.
+3. **Registro de solicitudes de arrepentimiento/baja**
+   (`solicitudes_baja_arrepentimiento`: email/teléfono de contacto, fecha,
+   medio, código): se conserva por obligación legal AUNQUE se borre la cuenta;
+   la política solo menciona conservar "registro mínimo de pagos".
+4. **Almacenamiento en el dispositivo**: cookies de sesión de Supabase,
+   `localStorage`/`sessionStorage` (entrenamiento en curso, última pantalla,
+   borrador de "Crea tu rutina") y el service worker (`public/sw.js`), que
+   guarda copia de las páginas visitadas para uso offline -- incluye pantallas
+   con datos personales. La política no habla de cookies ni almacenamiento
+   local. (Los bytes de los PDF de planes están excluidos del cache.)
+5. **Pagos**: además de monto/estado/email se guarda el id de pago o de
+   suscripción del proveedor, el producto y la fecha del próximo cobro. Menor,
+   pero conviene decirlo ("datos de la transacción").
+6. **Pendiente según avance del agente de WhatsApp** (sesión aparte,
+   `src/app/api/webhooks/whatsapp`, sin commitear al 2026-10-08): procesaría
+   teléfonos y contenido de mensajes vía WhatsApp Cloud API (Meta) -- hoy el
+   webhook escribe el payload completo en los logs de Vercel --, y si el
+   agente usa Claude hay que declarar también a Anthropic como proveedor.
+- `/eliminar-datos` coincide con `borrarCuentaCompleta` (borra cuenta, perfil,
+  salud y entrenamiento, fotos, guías; conserva registro mínimo de pagos). Hoy
+  dice "si tenés una suscripción activa, indicalo": el borrado ahora la cancela
+  solo, así que ese aviso ya no es necesario.
+
+## Cobros: qué se probó con plata REAL en producción (registro, 2026-10-08)
+Este registro faltaba en el documento (las notas viejas decían que solo se
+había simulado); reconstruido desde el historial de las sesiones de
+septiembre. Todo en PRODUCCIÓN, con cuentas reales y montos mínimos:
+- **PayPal, pago único**: pago real de US$0.01 (producto `anti-flakardo` con
+  precio puesto temporalmente en 0.01 y restaurado a 29.99), transacción
+  `5S763367LG792763Y`, el webhook **Live** acreditó la compra en `compras`
+  (`proveedor='paypal'`, `estado='aprobado'`) y la app redirigió a "GRACIAS".
+  Webhook de PayPal creado en modo **Live** (no sandbox), con `PAYPAL_WEBHOOK_ID`
+  de Live cargado en Vercel junto con `PAYPAL_ENVIRONMENT=production`.
+  Eventos suscriptos en ese webhook Live: `PAYMENT.CAPTURE.COMPLETED`, los 6
+  `BILLING.SUBSCRIPTION.*` y `PAYMENT.SALE.COMPLETED`.
+- **Mercado Pago, pago único**: compra real de Anti-Flakardo (Rocío), con el
+  reclamo automático al registrarse con el mismo email: las 2 rutinas
+  quedaron desbloqueadas solas.
+- **Golden (suscripción)**: validado de punta a punta con 2 cuentas reales:
+  Mercado Pago (Rocío y Maximiliano) y PayPal (Maximiliano). El webhook sumó
+  el año y el badge quedó "Golden · renueva 11/09/2027".
+- **Mentoría Online**: Mercado Pago llegó hasta la pantalla de pago real de MP
+  (no se completó un cobro); PayPal solo contra la API sandbox. **No hay un
+  cobro real completo de Mentoría Online** todavía; los cobros recurrentes
+  siguen esperando su primera renovación real.
+- Verificado 2026-10-07 que el checkout de Golden por PayPal en producción
+  manda a `www.paypal.com` (no a sandbox); el `.env.local` local sí usa
+  credenciales de sandbox, no confundirlo con producción.
+- NO probado con plata real: cancelación y revocación desde
+  `/api/admin/solicitudes`, borrado de cuenta, las 48 h de gracia y el pop-up
+  de precio (todo de la tanda legal del 2026-10-08).
+- Decisión del coach 2026-10-08: el token personal de Supabase `claude-smtp`
+  NO se revoca (dice que nadie lo va a usar; vence solo el 2026-10-10). Si se
+  necesita tocar la configuración de Supabase, usar un token nuevo.
+
+## Rutina "Kraken Dorian" y registro de drop sets (2026-10-12, migraciones 096 y 097)
+
+**Kraken Dorian** (en honor a Dorian Yates) es la rutina personal del coach desde
+el 2026-10-12: privada, solo para `ezequiel.arce@outlook.com` (migración 097 le
+da acceso y la deja activa; para otra cuenta propia, un insert más en
+`profile_routine_access`, ejemplo al final de la migración). 5 días A-E (lunes A,
+martes B, jueves C, viernes D, sábado E; miércoles y domingo descanso: la app no
+modela días de la semana, solo A-E). Volumen bajo/moderado, **todas las series al
+fallo** (`RIR 0`), 2 a 3 series por ejercicio.
+
+- Texto de `series_reps`: `2-3 x al fallo (RIR 0)` (ejercicio común) y
+  `2 x al fallo (RIR 0) + 1-2 x drop set (2 bajadas)` (ejercicios con drop set:
+  elevación lateral, tríceps en polea bilateral, curl sentado, gemelos,
+  curl en polea, extensión de cuádriceps). El coach no dio rangos de repeticiones
+  (al fallo), así que el analizador usa el rango por defecto 8-12.
+- **Contradicción a confirmar con el coach**: pidió "máximo 3 series por
+  ejercicio" pero describió drop sets como "2 series normales + 1 o 2 con drop
+  set". Se cargó 2 normales + **1-2** drop sets; la app da el ejercicio por hecho
+  a las 3 series (objetivo = normales + mínimo de drop sets) y deja seguir.
+- Interpretaciones de nombres coloquiales: están listadas en el encabezado de
+  `migration_097_kraken_dorian.sql` (ej. "vuelo lateral" -> Elevación lateral con
+  mancuernas; "gemelos de pie" -> Elevación de talón en máquina Smith; "curl
+  sentado" -> Curl en banco inclinado; "circuito de abdominales" -> Abdominales en
+  banco declinado + Elevación de piernas colgado, 2 filas seguidas).
+
+### Cómo se registran los drop sets
+Un drop set es una serie al fallo seguida, SIN descanso, de N bajadas (se baja el
+peso y se sigue al fallo: 30 -> 25 -> 20 kg). Es UNA serie, no varias.
+- Esquema (migración 096, aditiva): `workout_logs.tipo_serie`
+  (`normal` | `dropset` = serie principal | `drop` = bajada) y `drop_de` (id de
+  la fila principal, `on delete cascade`: borrar la principal borra sus bajadas).
+  Las filas existentes quedan `normal`.
+- `src/lib/dropset.ts` (lógica pura, probada): `planDeSeries()` lee el texto de
+  `series_reps` (`+ N x drop`, `(N bajadas)`; default 2 bajadas),
+  `estadoDropset()` deriva de lo ya registrado hoy si hay una bajada pendiente y
+  qué modo corresponde (nada de estado local que se pierda al recargar; ventana de
+  10 min entre tramos), `pesoSugeridoBajada()` repite el salto de la bajada
+  anterior (30,25 -> 20; primera bajada: -20%).
+- UI (`exercise-card.tsx`): en ejercicios con `+ N x drop` aparece el selector
+  "Serie normal / Con drop set" (sugiere drop set cuando ya se hicieron las series
+  normales previstas). Al registrar la serie pesada la tarjeta pasa sola a
+  "Bajada 1 de 2 - sin descanso" con el peso sugerido y SIN cronómetro; el
+  descanso arranca recién tras la última bajada. "Terminar drop set" cierra antes
+  (menos bajadas que las previstas). La lista de "Hoy" muestra "Serie 3 · drop
+  set" y "↳ Bajada 1" indentada. No se pregunta RIR en las bajadas (se guarda 0).
+- **Las bajadas NO cuentan como series** (`contarSeriesPrincipales`) **ni entran
+  al top set / 1RM estimado / sugerencia de peso** (`.neq("tipo_serie", "drop")` en
+  `entrenamiento/[dia]/page.tsx` y `progreso/entrenamiento/page.tsx`): son más
+  livianas y con fatiga y contaminarían el progreso. Sí se ven en el día y en el
+  Historial. `parsearSeriesReps` suma las series con drop set a las comunes.
+- Solo para ejercicios bilaterales: los drop sets con alternancia de lado
+  (unilaterales) no están soportados (el selector no aparece si hay lado).
+- `registrarSets` valida en el servidor que una bajada cuelgue de una serie
+  principal del mismo usuario y ejercicio, y máximo 5 bajadas por serie. Las
+  series normales no mandan las columnas nuevas: registrar sigue funcionando aunque
+  la 096 no esté corrida, pero las pantallas que LEEN `tipo_serie` fallan sin ella.
+  **Correr la 096 antes de desplegar este código.**
+
+## Aplicar migraciones desde la terminal (HECHO 2026-10-12: `scripts/migrar.mjs`)
+
+**Estado actual**: el script existe y funciona. Uso:
+`node scripts/migrar.mjs supabase/migration_NNN_x.sql [--dry] [--permitir-destructivo] [--forzar] [--solo-registrar]`.
+Manda el archivo entero en una sola consulta (transacción implícita: todo o
+nada), hace backup antes y registra en `public.migraciones_aplicadas`. La 096 y
+la 097 ya están registradas (`--solo-registrar`). Lo que sigue es el diseño
+original (ya implementado; los puntos "Pendiente" quedaron resueltos).
+
+El coach quiere que Claude corra las migraciones en vez de pegarlas a mano en el
+SQL Editor. Estado al 2026-10-12:
+- **Hecho**: hay un token personal de Supabase de vida corta en `.env.local` como
+  `SUPABASE_ACCESS_TOKEN` (git lo ignora; NO copiarlo a ningún otro lado ni al
+  chat) y se verificó con una consulta de solo lectura contra
+  `https://api.supabase.com/v1/projects/<ref>/database/query` (`<ref>` sale de
+  `NEXT_PUBLIC_SUPABASE_URL`). Cuando venza, el coach crea otro en
+  `supabase.com/dashboard/account/tokens` y lo pega él en `.env.local`.
+- ~~**Pendiente**~~ (HECHO 2026-10-12, ya existe): crear `scripts/migrar.mjs`. La herramienta de seguridad bloqueó
+  la primera escritura del archivo (clasificador del modo automático, sin motivo);
+  no se esquivó. En la sesión nueva: pedir el archivo de nuevo y, si se vuelve a
+  bloquear, el coach tiene que agregar una regla de permiso para escribir
+  `scripts/migrar.mjs` desde la configuración de Claude Code.
+- **Diseño del script** (a respetar): acepta solo `supabase/migration_NNN_*.sql`
+  dentro de este repo; parte el SQL en sentencias (respetando comentarios,
+  strings y cuerpos `$$`), muestra qué tablas/sentencias toca y se niega a seguir
+  ante DROP TABLE/SCHEMA/COLUMN, TRUNCATE, DELETE o UPDATE sin WHERE salvo
+  `--permitir-destructivo`; `--dry` solo analiza; hace
+  `node scripts/backup-supabase.mjs --forzar` ANTES y si falla no migra; registra
+  cada migración en `public.migraciones_aplicadas` (nombre, huella, fecha; RLS sin
+  policies) y no la re-aplica salvo `--forzar`; `--solo-registrar` anota las que
+  el coach corrió a mano (096 y 097 ya están aplicadas en producción, anotarlas).
+- **Reglas de uso** una vez creado: Claude solo corre migraciones que armó en la
+  sesión y que el coach pidió; cualquier operación destructiva se confirma con él
+  antes; después de aplicar se verifica el resultado contra la base (como se hizo
+  con la 096/097).
+- **AUTORIZADO por el coach el 2026-10-12** ("quiero que vos corras las
+  migraciones"): esto REEMPLAZA la regla vieja de "No correr ninguna migración SQL
+  contra producción" de la sección "Qué NO hacer". El script NO es condición para
+  empezar: cuando el coach pide aplicar una migración, Claude la corre directo
+  contra la API con `SUPABASE_ACCESS_TOKEN` haciendo a mano las mismas
+  precauciones (backup con `node scripts/backup-supabase.mjs --forzar`, mostrar
+  qué toca, confirmar antes si hay algo destructivo, verificar después). Si la
+  herramienta de seguridad bloquea la ejecución, no esquivarla: avisarle al coach
+  que tiene que habilitar el permiso.
+
+## Convenciones de código a respetar
+
+- Español en nombres de variables/funciones/columnas de negocio, inglés
+  solo en lo genérico de React/Next.
+- Sin comentarios explicando "qué hace" el código -- solo comentarios que
+  expliquen un "por qué" no obvio.
+- Fechas: **siempre** en huso horario Argentina, usando los helpers de
+  `src/lib/fecha.ts` (`hoyISO`, `fechaISO`, `inicioDelDiaArgentinaUTC`,
+  `calcularEdad`) -- nunca `new Date().toISOString()` a secas, porque el
+  servidor corre en UTC.
+- No usar `<input type="date">` ni ningún `<select>` nativo del navegador
+  para nada visible al usuario -- usar `SelectNativo`
+  (`src/components/select-nativo.tsx`) para que se vea igual en iOS/Android.
+- Estado de navegación "dónde estaba el usuario" (sesión de entrenamiento
+  en curso, última pantalla de cada hub) se guarda en `sessionStorage` del
+  lado del cliente (`src/lib/sesion-entrenamiento.ts`,
+  `src/lib/ultima-pantalla.ts`), NO en la base de datos -- es conveniencia
+  de UI por dispositivo, no un dato que haya que persistir server-side.
+
+## Bug corregido: registro duplicado del mismo lado en ejercicios unilaterales
+
+**Síntoma (reportado 2026-09-19)**: en un ejercicio unilateral, el usuario
+cargaba el lado derecho dos veces seguidas (mismo peso/reps/RIR, ~2 minutos
+de diferencia) antes de que apareciera el izquierdo.
+
+**Causa real**: `descansoHasta`/`etiquetaDescanso` (el cronómetro de
+"Descanso entre lados") vivían solo en el estado de React de
+`entrenamiento-dia-cliente.tsx`, nunca se guardaban en `sessionStorage` via
+`sesion-entrenamiento.ts` -- a diferencia de `dia`/`activoId`/`lado`, que sí
+se restauran. Si la pestaña de la PWA se descarga o se cierra durante ese
+descanso (frecuente en Android en segundo plano) y el usuario vuelve, la
+sesión restaura el lado correcto ("derecho") pero el cronómetro se perdió
+-- así que en vez de mostrar el timer, `ExerciseCard` vuelve a mostrar el
+formulario de carga para ese mismo lado, y `avanzarLado()` nunca se llegó a
+disparar.
+
+**Fix aplicado**: `SesionGuardada` ahora también persiste `descansoHasta` y
+`etiquetaDescanso`. Al restaurar: si el descanso restaurado todavía no
+venció, se restaura el timer tal cual (es un timestamp absoluto, no una
+duración, así que sigue contando bien). Si ya venció mientras la app
+estaba cerrada, se trata como si hubiese terminado normalmente -- si era
+"Descanso entre lados" se avanza el lado igual, para no dejar la puerta
+abierta a repetir el mismo lado.
+
+**Segunda causa del mismo síntoma, encontrada 2026-09-23**: el bug de
+arriba no era la única forma de terminar cargando el mismo lado dos veces
+-- `DescansoTimer` (`src/components/descanso-timer.tsx`) tenía una carrera
+entre el cronómetro y el botón "Saltar descanso": ambos llaman al mismo
+`avanzarLado()` del padre (un simple toggle derecho↔izquierdo), pero solo
+el `setInterval` tenía el guard `terminadoRef` -- el botón no lo
+chequeaba. Si el usuario tocaba "Saltar" justo cuando el cronómetro
+llegaba a 0 (o lo tocaba dos veces rápido antes de que React desmonte el
+componente), los DOS disparaban `avanzarLado()` por separado -> dos
+toggles se cancelan entre sí -> el lado queda IGUAL que antes, y el
+usuario termina cargando el mismo lado otra vez sin darse cuenta (a veces
+con `series_reps`/RIR distinto, así que ni siquiera se ve como un
+duplicado exacto). Fix: el botón "Saltar descanso" ahora chequea y setea
+el mismo `terminadoRef` que el intervalo -- el que dispare primero gana,
+el otro se vuelve no-op.
+
+**Se encontraron y corrigieron 2 casos reales** en la cuenta de prueba del
+usuario (ezequiel.arce@outlook.com, ids de `workout_logs` 215/244/245,
+fecha 2026-09-22) -- confirmados comparando peso/reps entre pares
+consecutivos (el peso/reps se repite entre los dos lados de un mismo set,
+así que sirve para saber cuál era realmente el par correcto incluso
+cuando el RIR cargado difiere entre lados). Si en el futuro aparece un
+reclamo similar, la consulta para detectarlo en cualquier cuenta es: pedir
+por cada `exercise_definition_id`+`fecha`, ordenar por `created_at`, y
+buscar dos filas consecutivas con el mismo `lado` (`lag(lado) over
+(partition by exercise_definition_id, fecha order by created_at)`).
+
+**Tercera vez que reaparece (2026-10-07) -- rediseño de raíz, el lado ya
+no es un toggle sino un dato derivado.** El coach lo notó de nuevo y sospechó
+(con razón) que "el lado derecho/izquierdo está establecido por un tema de
+tiempo y no hay otro criterio que lo sostenga". Confirmado leyendo el
+código: `lado` era un `useState` que `avanzarLado()` volteaba al
+terminar/saltar el cronómetro de descanso, y que `seleccionar()`/`iniciar()`
+reseteaban a `"derecho"` SIEMPRE, sin mirar lo que ya estaba registrado. Los
+dos arreglos anteriores (persistir el cronómetro en sessionStorage, el guard
+de "Saltar") eran parches sobre ese mismo diseño frágil -- cualquier
+camino nuevo que desincronizara el toggle (app 5-10 min en segundo plano ->
+cronómetro congelado, pestaña descartada, sessionStorage perdido y el
+usuario vuelve a elegir el ejercicio -> "derecho" otra vez) dejaba el lado
+mal asignado en silencio y, como es un toggle, **invertido para todo el
+resto del ejercicio**. Caso real, 2026-10-06, Meadows Row (ids 647-650):
+quedó `D, D, I, D` (imposible) -- corregido a `D, I, D, I` (los 3 últimos
+estaban invertidos por un único desfase; pesos/reps idénticos, no se
+perdió ningún dato real).
+
+**Criterio nuevo (única fuente de verdad)**: `ladoPendiente(logs)` en
+`src/lib/lado-pendiente.ts` -- el lado que toca es `"izquierdo"` si hoy hay
+más registros derechos que izquierdos para ese ejercicio, `"derecho"` en
+cualquier otro caso. Se usa en DOS lugares con el mismo criterio y la misma
+ventana de "hoy" (`inicioDelDiaArgentinaUTC`, sin filtrar por `dia`, igual
+que `contarSeriesCompletas`):
+- **Cliente** (`entrenamiento-dia-cliente.tsx`): `lado` ya no es estado, se
+  calcula de `logsPorEjercicio` en cada render. El cronómetro
+  (`terminarDescanso`) solo apaga el descanso en pantalla, ya no decide el
+  lado. `lado` salió de `SesionGuardada` (sessionStorage): no hay nada
+  que restaurar ni que "adivinar" si el descanso venció.
+- **Servidor** (`registrarSets` en `entrenamiento/actions.ts`): ya NO confía
+  en el `lado` que manda el cliente -- lo asigna contando lo registrado hoy
+  (y alterna si en una misma llamada vienen varios sets). Si el cliente
+  quedó desactualizado la base igual queda siempre alternando.
+  Borrar/editar un set se autocorrige solo, porque el lado se recalcula de
+  los registros.
+Verificado en vivo con una build de producción local contra la cuenta de
+Mentoría de prueba (Estocadas, Día C): (1) registrar derecho, borrar la
+sesión y recargar, volver a iniciar el ejercicio -> ahora muestra "Lado
+izquierdo" (antes "derecho"); (2) pestaña desactualizada que mostraba
+"izquierdo" mientras otra ya lo había registrado -> el servidor guardó
+`derecho`, sin duplicar. Los registros de prueba se borraron después.
+**No volver a modelar el lado como estado/toggle.** Detección en cualquier
+cuenta (sigue valiendo): dos filas consecutivas con el mismo `lado` por
+`exercise_definition_id`+fecha, ordenadas por `created_at`.
+
+## Gráficos por fecha: escala monocromática de naranjas (2026-10-07)
+
+Los dos gráficos que comparan fechas (`grafico-volumen-ejercicios.tsx`,
+Progreso → Entrenamiento, y `progreso-medidas.tsx`, "Comparar mediciones")
+usaban una paleta multicolor fija (gris, blanco, naranja, celeste, verde,
+rosa, amarillo) asignada por posición y **repetida en ciclo** a partir de
+la 6ª-8ª fecha. El coach la vio en un video de la app y no le gustó
+("muy arcoíris"): en el Excel original todo era UN solo naranja en distintas
+tonalidades. Ahora `escalaNaranja(n)` (`src/lib/escala-naranja.ts`) genera
+`n` tonos del mismo naranja interpolando luminosidad (HSL, tono 24°): la
+fecha más vieja sale en el tono más claro (durazno, `#fbc9a7`) y la más
+reciente en el más intenso (`#f5680a`) -- el progreso se lee como "cada
+semana, más color", y funciona con cualquier cantidad de fechas sin repetir
+colores. **No volver a una lista fija de colores para series por fecha.**
+- Efecto colateral que importaba al cambiar a tonos: la leyenda y el
+  tooltip de Recharts 3 se ordenan **por texto** por defecto (`"05/10"`
+  antes que `"24/08"`), no por fecha -- con una escala donde el tono
+  significa "más reciente" eso confundía. Se fijó con `Legend
+  itemSorter={null}` y un `itemSorter` del tooltip por posición de la
+  fecha en la serie, en los dos gráficos.
+- **No se tocó a propósito**: el Comparador de rutinas (`analizador-cliente.tsx`,
+  3 colores) -- ahí cada color identifica una rutina DISTINTA, no una fecha;
+  y los colores semánticos de salud (`progreso-salud.tsx`, bueno/medio/malo).
+- Pendiente opcional (el coach no lo pidió todavía): el Excel tenía además un
+  leve resplandor/contorno claro alrededor de cada barra.
+
+## Analizador de rutinas y pentágono (2026-09-22)
+
+El pentágono dejó de ser solo parte del wizard de "Crea tu rutina" -- ahora
+también compara rutinas YA EXISTENTES entre sí, estilo comparador de
+jugadores de un videojuego de fútbol (varios polígonos superpuestos, cada
+uno con su color).
+
+- **`/entrenamiento/analizador`** (`src/components/analizador-cliente.tsx`):
+  el usuario elige hasta 3 rutinas de las que tiene adquiridas, se
+  superponen sus pentágonos (cada uno con su color: verde/celeste/naranja)
+  y debajo hay una tabla "series por semana, por grupo muscular" comparando
+  las rutinas lado a lado. **El número más alto de cada fila se pinta del
+  color de esa rutina** (empate = los dos quedan blancos) -- así se ve a
+  simple vista quién gana cada grupo sin comparar número por número.
+- **`src/lib/analisis-rutina.ts`** (`calcularAnalisisRutina`): función
+  compartida que arma el pentágono de una rutina EXISTENTE del coach
+  (Kraken Split, Torso-Pierna, etc.) leyendo `routine_exercises` real de la
+  base. Estas rutinas guardan `series_reps` como texto libre ("3 x 10-12
+  (RIR 1)"), no columnas numéricas -- se parsea con mejor esfuerzo
+  (`src/lib/parsear-series-reps.ts`, probado contra los ~50 formatos reales
+  que hay en la base) y cae a defaults razonables si el texto falla o no
+  existe. El grupo muscular de cada ejercicio sale siempre del catálogo
+  real, nunca del texto, así que ese dato es exacto sin importar qué tan
+  prolijo esté el `series_reps`.
+- **`src/lib/pentagono.ts` -- fórmulas actuales de los 5 ejes** (reescritas
+  varias veces, esto es lo que hay HOY -- ver también la sección "Volumen:
+  denominador fijo + trabajo indirecto de 3 niveles (2026-09-24)" más abajo
+  para la revisión más reciente):
+  - **Volumen**: cada grupo muscular tiene su propia banda MEV-MAV-MRV
+    (framework de Renaissance Periodization -- `src/lib/volumen-landmarks.ts`,
+    fuentes citadas ahí). Score piecewise por grupo: 0..MEV → 0..40,
+    MEV..MAV → 40..80, MAV..MRV → 80..100, ≥MRV → 100 tope (pasarse del
+    techo real de recuperación no suma más).
+    **Ojo, esto reemplaza un diseño intermedio que se probó y se
+    descartó**: un techo plano en MAV (0..MEV → 0..50, MEV..MAV → 50..100,
+    ≥MAV → 100 sin más tramos) parecía correcto en teoría (MRV es muy
+    individual, acercarse a él ya es sobreentrenamiento para la mayoría de
+    los naturales) pero en la práctica **igualaba cualquier rutina de
+    volumen "generoso" con cualquier volumen "excesivo"** -- rutinas de 3 y
+    6 días terminaban con scores de Volumen casi idénticos porque ambas
+    saturaban el techo (MAV) en la mayoría de sus grupos. El techo de 3
+    tramos con MRV como tope final recupera esa diferenciación sin volver a
+    premiar volumen basura sin límite.
+    **El promedio NO se calcula sobre los grupos que la rutina toca** -- se
+    calcula siempre sobre una lista FIJA de 10 "grupos núcleo"
+    (`GRUPOS_VOLUMEN_NUCLEO` en `pentagono.ts`: Pecho, Espalda, Hombros,
+    Cuádriceps, Isquiotibiales, Glúteos, Bíceps, Tríceps, Pantorrillas,
+    Abdominales), con 0 para el grupo que no se entrena. Motivo: promediar
+    solo lo que se toca dejaba que una rutina incompleta (ej. una Full Body
+    que nunca entrena bíceps/tríceps/pantorrillas/abdominales) "escondiera"
+    esa debilidad simplemente no promediándola, mientras una rutina completa
+    que sí entrena esos grupos (aunque sea un poco por debajo de su
+    landmark) veía esos números bajos arrastrando su promedio -- la rutina
+    incompleta terminaba compitiendo cabeza a cabeza con la completa.
+    Trapecio, Abductores, Antebrazos y Cuello quedan A PROPÓSITO fuera de
+    este promedio ("auxiliares") -- la mayoría de los programas serios no
+    los entrena de forma directa, no debería ser un defecto no hacerlo.
+  - **Frecuencia**: curva de 2 tramos con rendimientos decrecientes
+    (`scoreFrecuencia` en `pentagono.ts`), NO un mapeo lineal 1→4. El salto
+    1x→2x/semana vale mucho (evidencia: Schoenfeld et al., meta-análisis de
+    frecuencia), de 2x en adelante el beneficio marginal es chico. Un mapeo
+    lineal exageraba visualmente la diferencia entre rutinas de frecuencia 2
+    y 3 -- se veía como un tercio de la escala completa cuando en la
+    práctica esa diferencia es mucho menos relevante.
+  - **Recuperación**: los días de la rutina (Día A, B, C...) se reparten
+    parejo en una semana de 7 días (separación = 7/N) para convertir
+    "posición en la lista" en "días de descanso reales" -- sin esto,
+    cualquier Full Body daba 0 en este eje (interpretaba "todos los días de
+    la lista" como "todos los días de la semana sin descanso"). Mide la
+    distancia entre estímulos al MISMO grupo muscular -- **NO son días de
+    descanso totales en la semana**, eso lo mide Sostenibilidad por
+    separado, a propósito no se fusionan (ver el punto de Sostenibilidad).
+  - **Intensidad**: **solo RIR objetivo**, ya NO promedia con rango de
+    reps. Mezclar reps ahí confundía intensidad de ESFUERZO (RIR, lo que
+    maneja el estímulo de hipertrofia) con intensidad de CARGA (%1RM) --
+    reps bajas no dan más hipertrofia que reps altas a esfuerzo igual.
+    `repsMin`/`repsMax` se mantienen en el modelo de datos (se usan para
+    mostrar la rutina), solo dejaron de influir en este score.
+  - **Sostenibilidad**: sin cambios (días/semana + duración estimada). Mide
+    recuperación SISTÉMICA (días libres totales + duración de sesión), a
+    propósito distinto de Recuperación (que mide recuperación LOCAL por
+    músculo) -- fusionarlas haría que las dos puntas se muevan juntas por la
+    misma razón, perdiendo poder diagnóstico. Juntas cubren la idea
+    completa: una rutina de 6 días gana en Recuperación (buen espaciado por
+    músculo) pero pierde en Sostenibilidad (casi no tiene días libres).
+  - Cada grupo pesa según su posición en `grupos_musculares`: principal
+    (índice 0, crédito completo), secundario (índices 1 y 2, media serie) o
+    terciario (índice 3 en adelante, cuarto de serie) -- ver
+    `PESO_PRINCIPAL`/`PESO_SECUNDARIO`/`PESO_TERCIARIO` en `pentagono.ts`.
+    Nivel Terciario agregado 2026-09-24, ver sección de abajo.
+- **`src/components/pentagono-chart.tsx`**: acepta una LISTA de series
+  (`{label, color, scores}[]`), no un solo `scores` -- con una sola serie
+  se comporta como el pentágono clásico (sigla + valor en cada eje: V/F/R/
+  I/S, con la referencia completa abajo alineada a la izquierda); con dos o
+  más, solo la sigla (el valor no tiene sentido con varias rutinas
+  superpuestas) más una leyenda de colores debajo del gráfico.
+
+### Volumen: denominador fijo + trabajo indirecto de 3 niveles (2026-09-24)
+
+Testeando con rutinas reales (Anti-Flakardo Fullbody 3 días vs. Push Pull
+Legs 6 días) el usuario notó que el eje Volumen seguía casi empatando pese
+al fix de la curva de 3 tramos de arriba -- era ilógico que una rutina de 3
+días empatara con una de 6. Se investigó con los datos reales de Supabase
+(no a ojo del gráfico) y eran DOS causas distintas, ambas corregidas:
+
+1. **El denominador del promedio** -- ver "el promedio NO se calcula sobre
+   los grupos que la rutina toca" en la sección de arriba. Sin esto,
+   Anti-Flakardo Fullbody (que directamente no entrena Bíceps/Tríceps/
+   Pantorrillas/Abdominales) escondía esa debilidad del promedio.
+2. **Trapecio no estaba tageado en NINGÚN ejercicio compuesto** del catálogo
+   -- solo en los 4 encogimientos de hombros dedicados, pese a que
+   biomecánicamente remos/peso muerto/dominadas/face pull sí lo trabajan.
+   Además había una inconsistencia real: "Remo parado con barra agarre
+   cerrado" tenía `[Espalda, Bíceps]` pero "Remo con barra parado" (mismo
+   movimiento) tenía solo `[Espalda]`.
+
+**Se descartó explícitamente ir a un modelo fraccional continuo** (tipo
+"sentadilla = 0.7 cuádriceps / 0.1 glúteo / 0.15 isquiotibial", que el
+usuario propuso y él mismo dudó si era "ponerse demasiado fino") -- esos
+números no existen con respaldo real en ningún lado, sería precisión
+inventada con decimales falsos. En su lugar, se agregó un TERCER nivel
+categórico:
+
+- `PESO_PRINCIPAL = 1`, `PESO_SECUNDARIO = 0.5` (ya existían) +
+  `PESO_TERCIARIO = 0.25` (nuevo).
+- Por posición en el array `grupos_musculares`: índice 0 = principal,
+  índices 1 y 2 = secundario, índice 3 en adelante = terciario. Las
+  posiciones 1 y 2 comparten el nivel Secundario a propósito -- así no se
+  rompe el único ejercicio que ya usaba 3 grupos antes de este cambio (Peso
+  muerto: Isquiotibiales principal, Glúteos Y Espalda ambos secundarios,
+  como ya funcionaba).
+- **`migration_064_completar_grupos_secundarios.sql`**: 25 ejercicios
+  actualizados agregando Bíceps y/o Trapecio (y Antebrazos en Peso muerto)
+  donde faltaban -- remos horizontales, pulldowns, dominadas, face pull. Se
+  reclasificó también "Remo al mentón en polea" (era `[Hombros, Espalda]`,
+  pasó a `[Hombros, Trapecio]` -- es un upright row, el dorsal casi no
+  interviene ahí).
+- **A propósito NO se hizo una auditoría completa de los 179 ejercicios del
+  catálogo** buscando cualquier otro hueco similar (tríceps en cada press de
+  banco, aductores en cada sentadilla, etc.) -- esos grupos ya están bien
+  representados por ejercicios dedicados, agregar terciarios ahí no
+  cambiaría ningún score de forma perceptible. Si en el futuro se detecta
+  otro grupo sistemáticamente invisible como le pasó a Trapecio, corregirlo
+  puntualmente, no re-auditar todo el catálogo de nuevo "por las dudas".
+- **Nota de precisión, no bug**: por la regla de posición de arriba, el
+  Trapecio agregado a remos/dominadas/face pull en la migración 064 queda en
+  nivel Secundario (0.5, posición 2), no Terciario (0.25) como decía el
+  prompt original que se usó para armar esa migración -- es una discrepancia
+  de redacción, no de código. Se decidió dejarlo así a propósito: en esos
+  ejercicios el trapecio hace retracción escapular ACTIVA (dinámico, no solo
+  estabiliza), a diferencia de Peso muerto donde el trabajo es isométrico
+  (sostener la postura bajo carga) -- ahí sí se mantiene en Terciario. Esa
+  distinción (dinámico vs. isométrico) es el criterio para decidir el nivel
+  de un grupo agregado a futuro, no "cuánto se nota a ojo".
+- Trapecio quedó fuera del promedio de Volumen (grupo "auxiliar", ver
+  arriba) incluso después de este fix -- el usuario lo confirmó
+  explícitamente: aunque el dato ahora es mucho más representativo, la
+  mayoría de los programas igual no lo entrena de forma dedicada.
+
+### Desglose por grupo/día de los otros 4 ejes (2026-09-22/23)
+
+Solo Volumen tenía una tabla de soporte ("series por semana, por grupo
+muscular") -- el usuario notó que quedaba desbalanceado: "todo el resto no
+se analiza". Se agregaron desgloses equivalentes para los otros 4 ejes, en
+las 3 pantallas que muestran el pentágono (análisis individual, wizard de
+"Crea tu rutina", comparador):
+
+- **`src/lib/pentagono.ts`**: `calcularFrecuenciaPorGrupo`,
+  `calcularRecuperacionPorGrupo` (por grupo muscular, mismo eje que
+  Volumen/Frecuencia) y `calcularIntensidadPorDia`,
+  `calcularSostenibilidadPorDia` (por DÍA, no por grupo -- no hay un RIR ni
+  una duración por músculo, así que ahí el desglose que tiene sentido es
+  por día).
+- **`src/lib/formato-metricas.ts`** (nuevo): funciones puras
+  `filasFrecuencia`/`filasRecuperacion`/`filasIntensidad`/
+  `filasSostenibilidad` que convierten la salida cruda de `pentagono.ts` al
+  formato `{label, valor}[]` que espera `<TablaMetrica>` (nuevo,
+  `src/components/tabla-metrica.tsx`) -- mismo criterio de texto reusado en
+  las 3 pantallas.
+- **Comparador** (`analizador-cliente.tsx`): mismo componente
+  `TablaComparativa` que ya existía para Volumen, reusado para los 4 ejes
+  nuevos. Para Intensidad y Sostenibilidad se pasa **`resaltarGanador={false}`**
+  a propósito -- ahí "el número más alto" no es "mejor" (RIR más alto no es
+  más "ganador"; una sesión más larga no es más sostenible, es al revés),
+  así que resaltar el máximo como si fuera un ganador sería engañoso. Solo
+  Volumen/Frecuencia/Recuperación resaltan el máximo de cada fila con el
+  color de esa rutina (empate = blanco), igual que ya hacía Volumen.
+- El wizard de "Crea tu rutina" tenía un bug latente que quedó expuesto acá:
+  `DiaBorrador.dia` se armaba como `""` (string vacío) en vez de la letra
+  real del día -- no rompía nada antes porque nada mostraba el día por
+  nombre, pero las tablas nuevas de Intensidad/Sostenibilidad por día sí lo
+  necesitan. Se corrigió derivando `dia: String.fromCharCode(65 + i)` del
+  índice del día en el array (misma convención `LETRAS_DIA` que ya usa el
+  comparador).
+
+### Recuperación por grupo asume ciclo semanal, no "Nunca repite" (2026-09-23)
+
+`calcularRecuperacionPorGrupo` mostraba **"Nunca repite"** (`diasDescanso:
+null`) para cualquier grupo entrenado una sola vez en el ciclo (ej. Hombros
+en una rutina de 3 días donde solo se toca una vez). El usuario lo marcó
+como incorrecto: **todas las rutinas de la app se arman sobre un ciclo
+semanal de 7 días** -- ese grupo no "nunca" vuelve a entrenarse, vuelve
+cuando arranca la semana siguiente, a los 7 días. Esto además ya era el
+supuesto que usa `calcularRecuperacion` (el eje global del pentágono, no el
+desglose) con `separación = 7/N` -- el desglose por grupo simplemente no
+cerraba el ciclo de vuelta al día 1.
+
+**Fix**: se reemplazó el caso especial `null`/"Nunca repite" por un valor
+fijo `diasDescanso: 7` (constante `CICLO_DIAS`) para grupos con una sola
+aparición en el ciclo. El tipo de `recuperacionPorGrupo` pasó de
+`{diasDescanso: number | null}` a `{diasDescanso: number}` en las 3 capas
+que lo consumen (`pentagono.ts`, `analisis-rutina.ts`,
+`analizador-cliente.tsx`, `formato-metricas.ts`) -- ya no hay `null` que
+manejar en ningún lado.
+
+No se contempló la posibilidad de ciclos no semanales (rutinas que no se
+repiten cada 7 días): ningún otro lugar de la app soporta eso hoy (Frecuencia
+también asume semana de 7 días vía "vecesPorSemana", igual que
+`calcularRecuperacion` global) -- agregar esa flexibilidad sería
+inconsistente con el resto del modelo sin que nadie lo haya pedido.
+
+## Ejercicios repetidos en varios días de la misma rutina: salvaguarda preventiva (2026-09-23)
+
+El usuario preguntó si un ejercicio agendado en más de un día de la misma
+rutina (ej. "Fondo en paralelas" en Día A y Día B) podía mezclar su
+historial entre esos días de forma incorrecta -- puntualmente le
+preocupaba el caso de Anti-Flakardo, donde varios ejercicios se repiten en
+A/B/C. Se auditó el código real antes de tocar nada:
+
+- **A nivel de datos no hay riesgo**: cada set se guarda como fila
+  independiente en `workout_logs` con su propio `created_at` -- nunca se
+  sobreescribe. Los "sets ya cargados hoy" que se ven al registrar se
+  filtran por fecha real de HOY (`entrenamiento/[dia]/page.tsx`), así que
+  nunca se mezclan sets de sesiones de días distintos.
+- **Donde sí se mezcla, por diseño**: el histórico de progreso (gráfico de
+  1RM, PRs) y la sugerencia de peso (`ultimoTopSet`/`pesoSugerido`) juntan
+  TODAS las sesiones de un `exercise_definition_id`, sin importar en qué
+  día de la rutina estaba agendado -- porque `workout_logs` solo identifica
+  el ejercicio, no el día. Esto es intencional (arquitectura de
+  `exercise_definitions` canónicos, ver sección de arquitectura del plan:
+  "que el progreso de un movimiento no se corte"). Se verificó en las
+  migraciones reales (061, 062) que tanto Anti-Flakardo Fullbody (A/B/C)
+  como Torso Pierna (A=C, B=D) usan la **misma prescripción exacta**
+  (series/reps/RIR) en los días que se repiten -- ahí mezclar el histórico
+  es correcto, es el mismo estímulo entrenado varias veces por semana.
+- **El riesgo real es hipotético, no actual**: si algún día se carga una
+  rutina donde el mismo ejercicio se repite con una prescripción DISTINTA
+  según el día (ej. Día A fuerza 5x5, Día B hipertrofia 3x15), mezclar el
+  histórico sí daría una sugerencia de peso engañosa. El usuario pidió
+  explícitamente dejar esto resuelto de antemano aunque hoy no aplique.
+
+**Salvaguarda implementada (no cambia el comportamiento actual, solo lo
+protege hacia adelante)**:
+
+- **Migración 063**: `workout_logs.dia` (text, nullable, sin backfill --
+  los registros viejos quedan en `null` y siguen participando del
+  histórico combinado como siempre). Desde que existe la columna, cada set
+  nuevo guarda de qué día vino (`registrarSets(exerciseDefinitionId, sets,
+  dia)` en `entrenamiento/actions.ts`, con `dia` propagado desde
+  `EntrenamientoDiaCliente` → `ExerciseCard`).
+- **`src/lib/divergencia-dia.ts`** (`ejerciciosQueDivergenPorDia`): dado el
+  conjunto de instancias de `routine_exercises` de una rutina, devuelve el
+  set de `exercise_definition_id` que aparecen en más de un día con una
+  firma distinta (`series_reps` + `rir_objetivo`). Si todas las instancias
+  del ejercicio comparten la misma firma (caso de hoy), no diverge y nada
+  cambia.
+- **`entrenamiento/[dia]/page.tsx`**: la sugerencia de peso
+  (`sugerenciaPorEjercicio`) solo filtra `logsPrevios` por `dia === diaActual`
+  cuando el ejercicio diverge; si no diverge, sigue mezclando todos los
+  días como siempre.
+- **`progreso/entrenamiento/page.tsx` + `progreso-analitica.tsx` +
+  `grafico-volumen-ejercicios.tsx`**: `logsByExercise` pasó de
+  `Record<number, SetLog[]>` a `Record<string, SetLog[]>`, indexado por
+  `claveEjercicioDia(id, dia)` (`src/lib/clave-ejercicio-dia.ts`). Para
+  ejercicios que no divergen, todas sus claves (una por día que lo
+  agenda) apuntan al mismo historial combinado -- el usuario sigue viendo
+  exactamente lo mismo que antes bajo cada pestaña de día. Para
+  ejercicios que diverjan en el futuro, cada día queda con su propio
+  balde de logs.
+- **`entrenamiento/rutinas/[id]/[dia]/page.tsx`** (preview de rutina
+  ajena/no activa, sin registro real): solo necesitó recibir `dia` como
+  prop nueva de `<ExerciseCard>` porque el tipo lo exige ahora: no registra
+  sets, así que el valor es cosmético ahí.
+
+No se tocó `src/lib/analytics.ts` (`ultimoTopSet`, `pesoSugerido`,
+`calcularEstadisticasEjercicio`) -- esas funciones ya reciben `SetLog[]`
+pre-filtrado por el caller, así que la lógica de "cuándo separar por día"
+vive enteramente en las dos páginas server-side, no en el cálculo.
+
+### SUPERADO 2026-09-28: independencia estricta por día
+
+Todo lo de arriba (migración 063, `divergencia-dia.ts`, "mezclar cuando
+la prescripción es idéntica") quedó **revertido**. El usuario, usando la
+app en la práctica con Kraken Split (donde "Elevación de piernas
+colgado" y "Abdominales en banco declinado" se repiten en Día B y Día D
+con la misma prescripción exacta), vio que sus 3 sets cargados una sola
+vez (Día D) aparecían mezclados también en Día B, y pidió explícitamente
+revertir el criterio -- con un argumento de entrenamiento válido que no
+se había considerado antes:
+
+> Entrenar el mismo ejercicio con distinto descanso previo (ej. Día A
+> después de 2 días libres vs. Día C con menos descanso) da un
+> rendimiento distinto y **eso es justamente el dato que querés poder
+> ver** -- si levantás más en Día A, el descanso te está beneficiando;
+> si levantás más en Día C, es el volumen. Mezclar el historial de
+> ambos días tapa esa señal en vez de mostrarla.
+
+Es decir: aunque la prescripción sea idéntica, el contexto de descanso
+no lo es, así que NO es "el mismo estímulo" a fines de análisis --
+mezclar los sets fuerza a comparar por fecha a mano para desenredar qué
+pasó, exactamente lo que el análisis por día debería evitar.
+
+**Regla nueva, sin excepción**: cada día se analiza solo con sus propios
+sets (`workout_logs.dia === dia`), sin importar si el ejercicio se
+repite en otro día con la misma prescripción o no. Se borró
+`src/lib/divergencia-dia.ts` (quedó sin ningún uso) y se sacó el
+chequeo de "firma" de `progreso/entrenamiento/page.tsx` y
+`entrenamiento/[dia]/page.tsx` -- ambos filtran directo por `l.dia ===
+dia` ahora. `claveEjercicioDia(id, dia)` se mantiene (sigue haciendo
+falta una clave por día), pero ya no hay ningún caso donde dos días
+compartan el mismo balde de logs.
+
+**Ojo con `workout_logs.dia = null`** (sets viejos de antes de la
+migración 063, o algunos sets sueltos de fines de septiembre 2026 que
+quedaron sin día por el lío de cambiar de rutina varias veces -- ver
+sección de arriba, "Bug: historial 'desaparecido'..."): con la regla
+estricta, esos sets NO entran en ningún día (ni siquiera el que
+"debería" ser), porque no hay forma de saber a qué día pertenecían. Es
+el trade-off correcto dado lo que pidió el usuario -- mejor no mostrar
+un dato que mostrarlo en el día equivocado.
+
+## Volumen: curva de 3 tramos (MEV-MAV-MRV) y Frecuencia: curva de 2 tramos (2026-09-24)
+
+El usuario detectó, comparando rutinas reales en el comparador, que la
+Anti-Flakardo Fullbody (3 días) y la Push Pull Legs (6 días) quedaban casi
+empatadas en Volumen y que la brecha de Frecuencia se veía desproporcionada
+(un salto enorme, no un matiz). Llegó un prompt técnico detallado de otra
+sesión (mismo patrón que la corrección MEV-MAV original) con la fórmula
+exacta a implementar -- se implementó tal cual, sin re-litigar el criterio.
+
+- **Volumen** (`scorePorGrupo` en `pentagono.ts`): el techo plano en MAV
+  (cualquier cosa ≥MAV puntuaba 100 parejo) empataba una rutina que apenas
+  toca el MAV con una que lo triplica. Ahora es una curva de 3 tramos que
+  sigue diferenciando hasta el MRV real de cada grupo: 0..MEV → 0-40,
+  MEV..MAV → 40-80, MAV..MRV → 80-100, ≥MRV → 100 tope (ahí sí es volumen
+  basura franco, no debe seguir sumando). `calcularVolumenPorGrupo` ya
+  devolvía `mev`/`mav`/`mrv` juntos (no hizo falta tocar el tipo
+  `AnalisisRutina`); se agregaron `mevDeGrupo()`/`mavDeGrupo()` en
+  `volumen-landmarks.ts` junto al `mrvDeGrupo()` que ya existía, y el sort
+  de `calcularVolumenPorGrupo` pasó de `series/mav` a `series/mrv` para ser
+  consistente con la nueva referencia mostrada en UI.
+- **Frecuencia** (`scoreFrecuencia` en `pentagono.ts`): el mapeo lineal
+  1→4 le daba el mismo peso a cada salto de frecuencia. Reemplazado por
+  una curva de 2 tramos (1→20, 2→80, 4→100) que refleja que el salto que
+  de verdad importa es 1x→2x/semana (meta-análisis de Schoenfeld sobre
+  frecuencia) -- de 2x en adelante los rendimientos son marginales.
+- **UI**: los 3 lugares que muestran "series por grupo vs. referencia"
+  (`analizador-cliente.tsx`, `rutinas/[id]/analisis/page.tsx`,
+  `crear-rutina-cliente.tsx`) volvieron a referenciar **MRV** en vez de
+  MAV/MEV-MAV -- es de nuevo el número que define el 100 del eje con la
+  curva de 3 tramos. Los textos de referencia en `pentagono-chart.tsx`
+  (Volumen, Frecuencia, Recuperación) se actualizaron para explicar esto;
+  Intensidad y Sostenibilidad quedaron sin cambios de texto ni de fórmula.
+- **Intensidad, Recuperación, Sostenibilidad**: sin cambios de fórmula
+  (confirmado leyendo el código antes de tocar nada -- Intensidad ya era
+  solo-RIR desde la sesión anterior). Recuperación y Sostenibilidad miden
+  dos conceptos de recuperación distintos y complementarios a propósito
+  (local por músculo vs. sistémica/logística) -- fusionarlos duplicaría la
+  señal y perdería poder diagnóstico, no se tocan.
+- **Verificado con datos reales** (Anti-Flakardo Fullbody vs. Push Pull
+  Legs, las rutinas que expusieron el problema): Volumen 74→61 (Fullbody)
+  y 79→65 (PPL) -- PPL sigue arriba, ya no comprimido contra el techo.
+  Frecuencia 67→90 (Fullbody) y 36→81 (PPL) -- Fullbody sigue ganando pero
+  la brecha pasa de 31 a 9 puntos. Recuperación/Intensidad/Sostenibilidad
+  sin cambios (44/67 -- 67/73 -- 75/30). Coincide exacto con lo pedido en
+  el criterio de aceptación del prompt.
+- **Verificación de fuente pedida explícitamente antes de dar por buena la
+  tabla**: `help.rpstrength.com` está detrás de login de cliente, no se
+  pudo leer. Se verificó contra el blog público vigente
+  (`rpstrength.com/blogs/articles/{glute,ab,trap}-hypertrophy-training-tips`)
+  en su lugar -- documentado en `volumen-landmarks.ts`: Abdominales y
+  Trapecio calzan con el tier "Priority" de RP (no el estándar), Glúteos
+  queda más bajo que incluso el tier estándar vigente hoy (MRV=16 cargado
+  vs. 24-30 que publica el blog). No se tocó ningún MRV existente (pedido
+  explícito), pero Glúteos queda marcado como el candidato más probable a
+  revisar primero si se ajusta esta tabla más adelante.
+
+## Volumen: verificación en producción del denominador fijo + Terciario (2026-09-24)
+
+Ver la sección "Volumen: denominador fijo + trabajo indirecto de 3 niveles
+(2026-09-24)" más arriba para el fix completo (causa, código, migración
+064) -- esto es el resultado de verificarlo con datos reales después de
+desplegarlo, que vale la pena tener registrado aparte:
+
+- **Verificado con datos reales tras el deploy completo** (ojo: el primer
+  chequeo dio V=57 para Fullbody -- resultó ser el deploy de Vercel
+  todavía propagándose, no un bug; con más espera dio el valor correcto):
+  Volumen Fullbody 61→**43**, PPL 65→**71** -- la brecha pasa de 4 a 28
+  puntos, mucho más allá de lo pedido. Trapecio en PPL sube de 3 a
+  **14** series/semana (crédito terciario desde remos/peso
+  muerto/dominadas/face pull), sin mover el score de Volumen (queda fuera
+  del núcleo, como corresponde).
+- **Desvío real respecto a lo que predecía el criterio de aceptación,
+  vale la pena tenerlo anotado**: el prompt esperaba que la tabla de
+  Fullbody mostrara **0** en Bíceps (además de Tríceps/Pantorrillas/
+  Abdominales). Tríceps/Pantorrillas/Abdominales sí dan 0, pero **Bíceps
+  da 9**, no 0 -- porque dos de los 6 ejercicios de Fullbody ("Dorsales en
+  polea alta" y "Remo en máquina sentado") son justamente dos de los que
+  la migración 064 corrigió para sumarles Bíceps secundario. No es un bug:
+  es una consecuencia real y rastreable de que Fullbody y el fix de
+  catálogo comparten ejercicios -- el criterio de aceptación no lo había
+  anticipado porque se escribió sin cruzar qué ejercicios específicos usa
+  cada rutina.
+
+## Borrado de rutinas (2026-09-22)
+
+Solo se pueden borrar rutinas con `routines.creada_por_usuario = true` (las
+armadas por un usuario en "Crea tu rutina") -- las públicas del coach
+(Kraken Split, Full Body, Torso-Pierna, Push Pull Legs, etc.) y las de un
+plan comprado quedan fijas, sin botón de borrar. `src/app/entrenamiento/
+rutinas/actions.ts` (`borrarRutinaCreada`) revalida esto server-side
+(dueño vía `profile_routine_access`, no es la rutina activa del usuario) y
+borra con el admin client -- `routine_exercises`/`routine_dias`/
+`profile_routine_access` tienen `on delete cascade` sobre `routine_id`,
+`profiles.routine_id` y `profile_routine_history.routine_id` tienen `on
+delete set null` (no rompen, pero dejan al usuario sin rutina activa si
+borra la que tiene puesta -- por eso se bloquea ese caso explícitamente en
+vez de confiar en el `set null`). Botón en `src/components/borrar-rutina-
+boton.tsx`, mismo patrón de confirmación en dos pasos que `CambiarAEsta
+RutinaBoton`.
+
+**Antes de borrar CUALQUIER rutina "vieja"/sospechosa de estar vacía,
+chequear primero si está enganchada a un producto** (`producto_rutinas`) o
+tiene cuentas activas (`profiles.routine_id`) -- "Entreno 4 días" y "3 días
+- Fullbody" parecían basura (poca o ninguna `series_reps` cargada) pero
+las dos están enganchadas al producto real **KRAKEN Anti-Flakardo**
+(`producto_rutinas.producto_id` → slug `anti-flakardo`). El usuario no lo
+sabía hasta que se lo marcamos -- decidió dejarlas intactas (sin borrar, sin
+renombrar todavía) hasta confirmarlo él mismo. "5 días - hipertrofia" sí
+era genuinamente huérfana (0 cuentas, 0 productos) y se borró
+(`migration_060`... en realidad se borró antes, por SQL directo, no quedó
+en una migración archivada -- si hace falta reproducir: `delete from
+routines where nombre = '5 días - hipertrofia';`).
+
+## Total semanal en Sostenibilidad (2026-09-24)
+
+El usuario pidió agregar cuánto tiempo total de gimnasio pide una rutina
+por semana, no solo el desglose por día que ya había. `TablaMetrica`
+(`src/components/tabla-metrica.tsx`) ganó un prop opcional `total: {label,
+valor}` que se renderiza como fila destacada al pie de la tabla (borde
+separador, texto en negrita) -- no se mezcla con las filas por día porque
+responde una pregunta distinta. Helpers nuevos en `formato-metricas.ts`:
+`minutosTotalesSemana()` (suma) y `formatearMinutosSemana()` (formato
+"~X min (~Y h)"). Usado en las 3 pantallas que muestran Sostenibilidad por
+día (wizard, análisis individual, comparador) -- en el comparador,
+`TablaComparativa` no tiene un concepto de "total" nativo, así que se
+resolvió agregando "Total semanal" como una etiqueta más al final de
+`LETRAS_DIA_Y_TOTAL` (array separado de `LETRAS_DIA`, que Intensidad sigue
+usando sin el total -- sumar RIR entre días no tiene sentido) y
+calculándolo dentro de la misma función `filas` cuando la etiqueta
+coincide.
+
+## Revisión del catálogo músculo por músculo (2026-09-24, en curso)
+
+El usuario arrancó una revisión sistemática: por cada grupo muscular, pasa
+los nombres de archivo de la biblioteca de referencia (`D:\PROYECTO
+FITNESS\VIDEOS\RECURSOS\TECNICAS DE EJERCICIOS\EJERCICIOS\<GRUPO>\`) y hay
+que chequear cuáles ya están cargados en `exercise_definitions` y cuáles
+faltan. Empezó por Abdominales, sigue por el resto (el orden lo va
+marcando él, no asumir un orden fijo).
+
+- **Los nombres de archivo NO son descriptivos** (vienen de un banco de
+  GIFs de stock, ej. `05081301-Janda-Sit-up_Waist_720.gif`) -- no alcanza
+  con leer el nombre para saber qué ejercicio es ni para saber si ya está
+  cargado (los `imagen_url` en Storage tienen nombres en español, no
+  conservan el nombre original del archivo de la biblioteca). **Hay que
+  abrir el GIF con el tool Read y mirarlo** -- funciona bien, Read
+  renderiza el primer frame de un `.gif` como imagen. Comparar contra la
+  lista de `nombre` + `imagen_url` de ese grupo muscular (traída de
+  Supabase, no de memoria).
+- **Primera tanda (Abdominales)**: de 7 nombres pasados, 2 eran el mismo
+  ejercicio bajo 2 archivos distintos (elevación de piernas en banco
+  declinado), 1 se descartó por solapar con "Crunch abdominal"/"Crunch
+  básico" ya cargados (Elbow-to-Knee-Sit-up), y los otros 5 conceptos
+  (contando el duplicado como 1) se cargaron -- **migración 065**: Crunch
+  en polea de rodillas, Sit-up completo, Patada de tijera sentado,
+  Abdominales en banco plano, Elevación de piernas en banco declinado.
+  GIFs subidos al bucket `ejercicios` de Storage (mismo patrón kebab-case),
+  `como_hacerlo` redactado seguiendo el mismo template de las entradas
+  existentes (Paso inicial / Posición inicial / Movimiento / Contracción /
+  Regreso / Consejo como Entrenador). Inserción hecha por REST API
+  directo (POST a `exercise_definitions`) en vez de tipear el SQL en el
+  editor -- el texto largo con tildes y saltos de línea es propenso a
+  errores de tipeo en ese editor; la migración igual quedó archivada en
+  el repo con el mismo INSERT, por las dudas de necesitar reproducirlo.
+- **Auditoría de duplicados pedida explícitamente ("cualquier ejercicio",
+  no solo Abdominales)**: se re-corrió el mismo método de la auditoría
+  original (2026-09-21) -- hash MD5 de los 184 `imagen_url` del catálogo
+  completo (no solo el grupo que se está revisando), agrupar por hash
+  idéntico. Resultado: **un solo grupo de duplicado exacto**, ya conocido
+  y documentado desde la auditoría original -- `id 91` "Elevación de
+  piernas sentado con apoyo de manos" e `id 93` "Elevación de rodillas
+  sentado con apoyo de manos" comparten el mismo GIF (el de pierna recta).
+  Se buscó de nuevo en toda la carpeta ABDOMINALES (180 archivos) algo que
+  matchee la postura real de `id 93` (sentado en banco, apoyado de manos,
+  rodilla flexionada) -- lo más parecido encontrado
+  (`05701301-Leg-Pull-In-Flat-Bench`) es acostado, no sentado, no es un
+  match real. Sigue sin resolverse, igual que antes -- no inventar un
+  reemplazo que no sea el movimiento correcto.
+- **Repetir este método (hash MD5 sobre TODO el catálogo, no solo el grupo
+  nuevo) cada vez que se agreguen ejercicios nuevos** en esta revisión --
+  es rápido (~184 descargas en paralelo) y es la única forma confiable de
+  encontrar duplicados exactos entre grupos musculares distintos (ej. un
+  ejercicio que biomecánicamente pega en dos grupos y se cargó dos veces
+  con nombres distintos, uno por cada grupo).
+- **Segunda tanda (Bíceps, migración 066)**: 2 nombres pasados, los 2
+  eran ejercicios reales faltantes -- **Curl spider con barra EZ** (ya
+  existía "Curl spider con mancuernas", esta es la variante con barra EZ,
+  no un duplicado) y **Curl Scott a un brazo agarre invertido**. Este
+  último se clasificó `[Antebrazos, Bíceps]` (Antebrazos primero, no solo
+  Bíceps) -- el agarre pronado (reverse grip) le saca protagonismo al
+  bíceps braquial y se lo da al braquiorradial, y el propio archivo de la
+  biblioteca lo etiqueta `_Forearms_`, no `_Upper-Arms_` como el resto de
+  los de Bíceps -- señal a prestar atención cuando el nombre de archivo la
+  trae. Vuelto a correr el hash MD5 sobre el catálogo completo (186 en
+  este punto) después de agregar: sigue sin aparecer ningún duplicado
+  nuevo, solo el mismo de siempre (id 91/93).
+- **Tercera tanda (Cuádriceps, migración 067) -- la más grande hasta
+  ahora, 18 nombres**: acá el chequeo visual pagó fuerte --
+  - **4 duplicados exactos** (mismo GIF byte a byte, confirmado con
+    `md5sum`, no solo "se parecen"): Sled-Full-Hack-Squat = Hack Squat (id
+    81) ya cargado, Assisted-Pistol-Squat-with-Bed-Sheet = Sentadilla
+    pistol asistida (id 188), `bulgara.gif` = Estocada búlgara en el banco
+    (id 18), Prensa de piernas horizontal (GIF pack) = Prensa de piernas
+    horizontal (id 124).
+  - **1 mal ubicado, no se cargó**: Landmine-Romanian-Deadlift es
+    Isquiotibiales/Glúteos (bisagra de cadera, el GIF resalta esos
+    músculos), no Cuádriceps -- el usuario lo había pasado en la tanda de
+    Cuádriceps por error de carpeta. Va a cargarse cuando llegue el turno
+    de Isquiotibiales/Glúteos, no antes.
+  - **13 nuevos genuinos**: Estocada búlgara con barra, Salto de zancada
+    con mancuernas, Sentadilla con salto y mancuernas, Sentadilla con
+    mancuernas, Extensión de cuádriceps con banda sentado, Zancada lateral
+    con mancuerna, Estocada hacia atrás con landmine, Sentadilla frontal
+    con landmine, Farmer's Walk, Estocada búlgara sin peso, Extensión de
+    cuádriceps unilateral en máquina, Prensa de piernas 45° unilateral,
+    Sentadilla frontal con barra.
+  - Patrón de grupos musculares seguido (mirando cómo ya estaba tageado
+    el resto de Cuádriceps): estocadas/zancadas/sentadillas con
+    desplazamiento → `[Cuádriceps, Glúteos]` (secundario), extensiones y
+    ejercicios de máquina aislados → `[Cuádriceps]` solo.
+  - Hash MD5 sobre el catálogo completo (199 en este punto) después de
+    agregar: sin duplicados nuevos, solo el mismo de siempre.
+- **Cuarta tanda (Espalda, migración 068), 15 nombres**:
+  - **5 duplicados**, dos de ellos con dos archivos-fuente distintos
+    apuntando al mismo ejercicio ya cargado: Cable-seated-row y el GIF sin
+    nombre (`tumblr_...`) son los dos el mismo "Remo sentado agarre
+    cerrado" (id 66); Cable-one-arm-lat-pulldown = "Jalón lateral con
+    polea a un brazo" (id 30); `pull ups cerradas.gif` = "Dorsales en
+    polea alta agarre cerrado" (id 142) pese al nombre (es jalón en polea,
+    no dominada real); `tirage-vertical-poitrine-min.gif` (francés, "tiro
+    vertical al pecho") = "Dorsales en polea alta" (id 65).
+  - **10 nuevos genuinos**: Jalón cruzado en polea doble, Pullover en
+    polea sentado en banco inclinado, Remo invertido con correas, Remo
+    sentado a un brazo con banda y giro, Remo en máquina T con pecho
+    apoyado, Remo con barra en máquina Smith agarre invertido, Remo en
+    máquina sentado con placas, Remo horizontal a un brazo para deltoide
+    posterior, Jalón dorsal de rodillas con agarre paralelo, Remo landmine
+    con barra.
+  - **Remo horizontal a un brazo para deltoide posterior** se clasificó
+    `[Hombros, Espalda, Trapecio]` (Hombros primero, no Espalda) -- mismo
+    criterio que Face pull: el archivo lo etiqueta `_Shoulder_` y el
+    músculo resaltado en el GIF es el deltoide posterior, no la espalda
+    media.
+  - **Remo landmine con barra** vs. "Remo en máquina T landmine" (id 41)
+    ya existente: se evaluó como variante real, no duplicado -- agarre
+    directo de la barra (manos juntas) vs. agarre en T con manija, cambia
+    el énfasis dentro de la espalda. Es el caso más al límite de esta
+    tanda, avisar si el usuario prefiere fusionarlos.
+  - Hash MD5 sobre el catálogo completo (209 en este punto): sin
+    duplicados nuevos.
+- **Quinta tanda (Isquiotibiales, migración 069), 3 nombres + 1 arrastrado
+  de Cuádriceps**: Peso muerto sumo (`[Isquiotibiales, Glúteos,
+  Cuádriceps]` -- la postura sumo le suma cuádriceps de verdad, no es
+  solo isquios/glúteos como el peso muerto convencional), Hiperextensión
+  inversa en máquina (`[Glúteos, Isquiotibiales]`, Glúteos primero porque
+  es lo que resalta más el GIF -- distinto de "Hiperextensiones" normal,
+  ahí se mueve el torso con las piernas fijas, acá es al revés), y el
+  **Peso muerto rumano con landmine** que había quedado afuera de la
+  migración 067 por estar mal ubicado en Cuádriceps -- el usuario
+  confirmó explícitamente que la clasificación Isquiotibiales/Glúteos
+  estaba bien y pidió sumarlo acá. Un duplicado descartado ("Curl femoral
+  en camilla unilateral" = "Curl femoral tumbado unilateral" id 130 ya
+  cargado). Hash MD5 sobre el catálogo completo (212): sin duplicados
+  nuevos.
+- **Sexta tanda (Pantorrillas, migración 070), 3 nombres**: los 3 eran
+  ejercicios reales faltantes, ninguno duplicado -- Elevación de talón
+  tipo burro (donkey) en máquina, Elevación de talón en prensa de piernas
+  45°, Elevación de talón en prensa de piernas horizontal. Hash MD5 sobre
+  el catálogo completo (215): sin duplicados nuevos.
+  - **Hallazgo aparte, no relacionado a los 3 nombres pasados**: al
+    revisar la lista existente de Pantorrillas para comparar, aparecieron
+    dos entradas PREEXISTENTES con nombres casi idénticos -- id 10
+    "Elevación de talón en máquina Smith" e id 202 "Elevación de talón en
+    Smith". El hash MD5 no los detecta como duplicados (son dos
+    ilustraciones distintas, un hombre y una mujer, no el mismo archivo),
+    pero visualmente es el mismo ejercicio real. id 10 está en uso
+    (`routine_exercises` id 164, rutina 8, día D); id 202 no tiene
+    ninguna referencia (ni rutinas ni `workout_logs`). **Resuelto
+    2026-09-24 (migración 074)**: el usuario confirmó que es el mismo
+    ejercicio y pidió borrar el duplicado -- se borró id 202, queda solo
+    id 10. **Este tipo de hallazgo es la razón por la que el chequeo de
+    duplicados no puede ser solo hash MD5** -- el hash pesca copias
+    exactas del archivo, pero no pesca "mismo ejercicio, dos
+    ilustraciones distintas"; para eso hace falta mirar la lista completa
+    del grupo a ojo cada vez, no solo correr el script.
+- **Séptima tanda (Glúteos, migración 071), 4 nombres**: 2 duplicados
+  exactos (hash MD5 idéntico) descartados -- "Extensão de cadera 01" =
+  id 106 "Patada de glúteo con pierna extendida"; "Elevação pélvica
+  unilateral" = id 107 "Patada de glúteo cruzada Fire Hydrant". Los
+  otros 2 eran ejercicios reales faltantes
+  -- Patada de glúteo parada en banco, Patada de glúteo en máquina de
+  cuadrupedia. Hash MD5 sobre el catálogo completo (217): sin duplicados
+  nuevos (solo el ya conocido id91/id93 de Abdominales).
+  - **Hallazgo aparte sobre id 107, corregido 2026-09-24 (migración
+    074)**: en el momento de comparar contra "Elevação pélvica
+    unilateral" se notó que la imagen (GIF) de id 107 mostraba un puente
+    de glúteos unilateral, no un fire hydrant -- se sospechó nombre mal
+    puesto y se renombró a "Puente de glúteos unilateral". Al revisar
+    más a fondo se encontró que el `como_hacerlo` y el `video_url`
+    guardados para id 107 SÍ describen correctamente un fire hydrant en
+    cuadrupedia (texto técnico completo, consistente con el nombre
+    original) -- el error real no es el nombre, es que el archivo GIF
+    (`imagen_url`) está pisado/cambiado por el de otro ejercicio. Se
+    revirtió el nombre a "Patada de glúteo cruzada Fire Hydrant" (el
+    original). **RESUELTO 2026-10-13 (migración 098)**: el coach confirmó
+    que el GIF es un puente de glúteos con una pierna elevada (target
+    glúteo) y pidió renombrar a lo que muestra el GIF: ahora se llama
+    "Puente de glúteos con una pierna elevada" y su `como_hacerlo` describe
+    ese ejercicio. **Pendiente menor**: `video_url` de id 107 sigue siendo un
+    video de patada de glúteo en cuadrupedia con banda (no coincide con el
+    GIF) y ningún ejercicio hermano (194/195/197) tiene video para prestarle;
+    reemplazarlo cuando haya un video del puente con pierna elevada. Sin
+    ruteo en rutinas (0 usos). id 93 (Elevación de rodillas sentado): el coach
+    confirmó que está bien, ya no es pendiente.
+- **Octava tanda (Hombros, migración 072), 7 nombres**: los 7 eran
+  ejercicios reales faltantes (aparatos/variantes distintos a los ya
+  cargados), ninguno duplicado -- Elevación frontal acostada en polea,
+  Remo con mancuernas sentado inclinado para deltoide posterior, Remo en
+  polea de rodillas con cuerda para deltoide posterior, Elevación
+  lateral en máquina con agarre, Elevación lateral con landmine, Press
+  de hombro en máquina agarre martillo, Elevación lateral con banda
+  elástica. Hash MD5 sobre el catálogo completo (224): sin duplicados
+  nuevos (solo el ya conocido id91/id93 de Abdominales).
+- **Novena tanda (Hombros, segunda parte, migración 073), 9 nombres**:
+  8 eran ejercicios reales faltantes -- Apertura con banda para
+  deltoide posterior, Press de hombro detrás de nuca con banda, Remo al
+  mentón con banda, Remo de pie con banda para deltoide posterior,
+  Flexión en parada de manos (Handstand Push-Up), Vuelo posterior con
+  mancuernas sentado inclinado, Elevación frontal en banco inclinado
+  con mancuerna, Remo al mentón con barra. 1 quedó afuera por
+  near-duplicate preexistente (no hash-idéntico, misma posición/equipo/
+  músculo real): "Dumbbell-Incline-Rear-Lateral-Raise" = id 8
+  "Deltoides posteriores en banco inclinado con mancuernas" -- mismo
+  patrón que el caso id10/id202 de la migración 070. Nota aparte: "Vuelo
+  posterior con mancuernas sentado inclinado" (nuevo) parte de una
+  postura muy similar a "Remo con mancuernas sentado inclinado para
+  deltoide posterior" (id 250, migración 072) -- se mantuvieron
+  separados por diferencia real de técnica (vuelo con codo fijo vs remo
+  con el codo liderando), documentado por si el usuario prefiere
+  fusionarlos. Hash MD5 sobre el catálogo completo (232): sin
+  duplicados nuevos (solo el ya conocido id91/id93 de Abdominales).
+- **Correcciones confirmadas por el usuario (migración 074)**: se borró
+  id 202 "Elevación de talón en Smith" (duplicado exacto de id 10, sin
+  referencias -- ver hallazgo de la migración 070). Sobre id 107
+  "Patada de glúteo cruzada Fire Hydrant" (hallazgo de la migración
+  071): se había renombrado por error a "Puente de glúteos unilateral"
+  sospechando que el nombre estaba mal puesto por la imagen -- se
+  revirtió al notar que el `como_hacerlo` y el `video_url` ya cargados
+  sí describen correctamente un fire hydrant; el bug real es que el
+  GIF (`imagen_url`) tiene el archivo equivocado, pendiente de
+  reemplazo.
+- **Décima tanda (Pecho, migración 075), 14 nombres**: 2 duplicados
+  exactos (hash MD5 idéntico) descartados -- "Supien máquina máquina
+  Smith" = id 72 "Press banca en Smith"; "oie_Vrzmr9YBX68H" (dumbbell
+  bench press) = id 33 "Press de banco con mancuernas". 2
+  near-duplicates preexistentes (mismo ejercicio real, distinta
+  ilustración, mismo patrón que id10/id202) señalados en su momento:
+  "00471301-Barbell-Incline-Bench-Press" ~ id 155 "Press banco
+  inclinado con barra" (sigue sin agregar, pendiente de revisión si el
+  usuario quiere confirmarlo); "00301301-Barbell-Close-Grip-Bench-Press"
+  ~ id 162 "Press de banca agarre cerrado supino" -- **el usuario
+  corrigió esto (migración 078)**: el ancho de agarre (cerrado vs.
+  amplio) es en sí mismo lo que distingue variantes de press de banca,
+  no corresponde tratarlo como duplicado -- se agregó como "Press de
+  banca agarre cerrado con barra recta" (id 283). Los otros 10 eran
+  ejercicios reales faltantes
+  -- Flexión de brazos con agarres (parallettes), Flexión de brazos
+  abierta (agarre ancho), Flexión de brazos declinada (pies elevados),
+  Press de banca agarre cerrado con barra EZ, Flexión de brazos cerrada
+  (diamante), Press banco plano con barra agarre ancho, Press de banco
+  declinado con mancuernas, Press de banca con barra (pies en el
+  banco), Floor press con mancuernas, Aperturas con mancuernas en el
+  piso con rodillo (rango extendido). Hash MD5 sobre el catálogo
+  completo (241): sin duplicados nuevos (solo el ya conocido id91/id93
+  de Abdominales).
+- **Oncena tanda (Trapecio, migración 076), 2 nombres**: los 2 eran
+  ejercicios reales faltantes -- Encogimiento de hombros acostado en
+  polea, Encogimiento de hombros con banda elástica (posición/equipo
+  distintos a los 4 encogimientos ya cargados: barra, mancuernas, polea
+  de pie, banco inclinado), ninguno duplicado. Hash MD5 sobre el
+  catálogo completo (243): sin duplicados nuevos (solo el ya conocido
+  id91/id93 de Abdominales).
+- **Doceava tanda (Tríceps, migración 077), 13 nombres -- última tanda,
+  cierra la revisión músculo por músculo**: la de mayor densidad de
+  duplicados hasta ahora, incluyendo duplicados ENTRE los propios
+  nombres que pasó el usuario (confirmó su propia advertencia: "puede
+  que incluso entre lo que yo mismo te pasé existan duplicaciones").
+  1 duplicado EXACTO (hash MD5 idéntico): "oie_vIZuHJIrxzsP" (fondos
+  entre dos bancos) = id 27 "Fondos en banco". 5 near-duplicates (mismo
+  ejercicio real, distinta ilustración o redacción) NO agregados --
+  **confirmado por el usuario, quedan afuera definitivamente, no
+  pendiente**: "triceps polea.gif", "12271301-Cable-Standing-One-Arm-
+  Tricep-Pushdown-Overhand-Grip" y "Tríceps pulley pronado" -- los 3
+  apuntan al mismo ejercicio real que id 22 "Tríceps en polea alta a un
+  brazo" (duplicados también entre sí); "17241301-Cable-Rope-High-
+  Pulley-Overhead-Tricep-Extension" ~ id 77 "Extensión de tríceps sobre
+  la cabeza en polea" (su texto ya describe cuerda + polea alta + a dos
+  manos); "16061301-Cable-Reverse-Grip-Triceps-Pushdown-SZ-bar" ~ id 163
+  "Tríceps agarre supino en polea alta a un brazo". Los otros 7 eran
+  ejercicios reales faltantes --
+  Extensión de tríceps sobre la cabeza en polea a un brazo, Extensión de
+  tríceps en polea cruzada (cross), Extensión de tríceps en polea
+  lateral a un brazo, Extensión de tríceps con polea por detrás (Rear
+  Drive), Extensión de tríceps acostado en polea (press francés en
+  polea acostado), Press francés unilateral sentado con mancuerna,
+  Press francés unilateral en polea cruzada (cross). Hash MD5 sobre el
+  catálogo completo (250): sin duplicados nuevos (solo el ya conocido
+  id91/id93 de Abdominales).
+
+## Edición de rutinas creadas por el usuario (2026-09-24)
+
+Hasta ahora solo se podían borrar las rutinas de "Crea tu rutina", no
+editarlas -- para cambiar un ejercicio había que borrar todo y rearmarlo de
+cero. Se agregó edición, mismo criterio de ownership que el borrado
+(`routines.creada_por_usuario = true` + fila propia en
+`profile_routine_access`, revalidado server-side, nunca confiar en que la
+UI no muestre el link):
+
+- **`/entrenamiento/rutinas/[id]/editar`** (Server Component): valida
+  ownership, carga `routine_dias` + `routine_exercises` (join
+  `exercise_definitions`) de la rutina real, reconstruye el estado del
+  wizard con `parsearSeriesReps()` (el mismo parser que ya usa el
+  comparador para rutinas del coach) para sacar series/reps del texto de
+  `series_reps` -- el RIR sale directo de la columna `rir_objetivo`, no del
+  texto, porque las rutinas armadas por este wizard nunca lo embeben ahí.
+- **`CrearRutinaCliente`** (`src/components/crear-rutina-cliente.tsx`) gana
+  un prop opcional `rutinaExistente: {id, nombre, dias}`. Si está presente:
+  arranca directo en el paso "dias" (salta "cantidad" -- **la cantidad de
+  días de una rutina no se puede cambiar editando, por ahora**, solo
+  agregar/quitar ejercicios dentro de los días que ya tiene) con el
+  contenido real precargado, y **no lee ni escribe el borrador de
+  localStorage** (evita choque con un borrador de "crear" sin relación,
+  cada edición es una sesión corta y autocontenida). Botón final dice
+  "Guardar cambios" en vez de "Guardar y usar", y al guardar vuelve a
+  `/entrenamiento/rutinas/[id]` (la rutina editada), no a `/entrenamiento`.
+- **`actualizarRutinaCreada()`** (`src/app/entrenamiento/crear-rutina/
+  actions.ts`, junto a `guardarRutinaCreada`): reemplaza TODO el contenido
+  (borra y recarga `routine_exercises`/`routine_dias`) en vez de diffear
+  fila por fila -- mucho más simple, y sin riesgo para el historial de
+  progreso: `workout_logs` apunta a `exercise_definition_id`, nunca a
+  `routine_exercises.id`, así que borrar y recrear las filas de scheduling
+  no corta el progreso de ningún ejercicio ya registrado.
+- Link "Editar" agregado junto al de "Borrar" en `/entrenamiento/rutinas`
+  (lista) y en `/entrenamiento/rutinas/[id]` (detalle), mismo condicional
+  `creada_por_usuario`.
+- Verificado en producción de punta a punta con una rutina real: cargó el
+  contenido exacto (grupos musculares + 5 ejercicios por día con sus
+  series/reps/RIR reales), un cambio de series (3→4) se guardó y quedó
+  confirmado en la base tras volver a consultarla.
+
+## Rutinas nuevas: Torso-Pierna y Push Pull Legs (migración 060)
+
+Dos rutinas públicas armadas por Claude a pedido explícito del usuario
+("las tres más famosas, a tu consideración") para completar el catálogo
+junto con Full Body y Kraken Split. Todos los ejercicios son los ya
+existentes en `exercise_definitions` (no se creó ninguno nuevo).
+`series_reps` con rango + RIR recomendado en el mismo texto (mismo estilo
+que Kraken Split) y también en la columna `rir_objetivo`.
+
+- **Torso-Pierna** (4 días): A/C = torso (empuje horizontal+tracción
+  vertical / empuje vertical+tracción horizontal), B/D = pierna
+  (cuádriceps dominante / isquios-glúteo dominante).
+- **Push Pull Legs** (6 días): A/D = push (énfasis pecho / énfasis
+  hombro), B/E = pull (énfasis espalda ancho / espalda grosor+trapecio),
+  C/F = legs (piernas completo / glúteo-isquios+pantorrilla), doble
+  frecuencia por grupo en la semana.
+
+## Anti-Flakardo: nombres reales y corrección del Torso Pierna (2026-09-22)
+
+El usuario confirmó que **"3 días - Fullbody" y "Entreno 4 días" son las
+dos rutinas reales del producto Anti-Flakardo** (ver hallazgo de
+`producto_rutinas` más arriba) -- se renombraron a **"Anti-Flakardo
+Fullbody"** y **"Anti-Flakardo Torso Pierna"** (SQL directo, no quedó en
+una migración archivada -- si hace falta reproducir:
+`update routines set nombre = '...' where nombre = '...';`).
+
+Además, "Entreno 4 días" (ahora "Anti-Flakardo Torso Pierna") tenía
+cargado un split genérico Push/Pull/Piernas/Full que **no correspondía al
+protocolo real** -- el usuario mandó capturas del PDF (2 plantillas: "Día
+Torso" y "Día Piernas") y confirmó la estructura de la semana: **A=Torso,
+B=Piernas, C=Torso (repite A), D=Piernas (repite B)**. Corregido en
+`migration_061_anti_flakardo_torso_pierna_correccion.sql` -- delete +
+reinsert de los `routine_exercises` de esa rutina (no toca `workout_logs`,
+esos apuntan a `exercise_definitions` directo, no a `routine_exercises`).
+Series/reps/RIR no estaban en las capturas del PDF -- el usuario pidió
+usar criterio propio, igual que con Torso-Pierna/Push Pull Legs de la
+migración 060.
+
+"Anti-Flakardo Fullbody" (antes "3 días - Fullbody") tenía el mismo
+problema -- cada uno de sus 3 días tenía una selección distinta y
+genérica (nada que ver entre sí), no el template real. El usuario mandó
+la captura del PDF: UN solo template de 6 ejercicios (Sentadillas, Peso
+muerto, Press militar, Press de banca plano, Dominadas en polea, Remo en
+polea) que se repite en los 3 días. Corregido en
+`migration_062_anti_flakardo_fullbody_correccion.sql`, mismo patrón
+delete+reinsert. A diferencia de la carga vieja, esta versión NO agrega
+ejercicios de abs por criterio propio -- son los 6 exactos del PDF, sin
+más ni menos (el PDF de Fullbody no muestra abs, a diferencia del de
+Torso Pierna).
+
+**Regla para el futuro: antes de tocar/confiar en el contenido de
+cualquier rutina vieja del catálogo, no asumir que está bien armada solo
+porque existe** -- ya van tres casos esta sesión (Volumen/Recuperación mal
+calculados, "Entreno 4 días" con un split que no correspondía al
+producto, y "3 días - Fullbody" con 3 días completamente distintos entre
+sí en vez de un template repetido). Si algo se ve raro (0 `series_reps`,
+nombre genérico sin marca, días sin relación aparente entre sí), vale la
+pena preguntar antes de asumir que es el contenido real de un producto
+que se vende.
+
+**Causa raíz identificada por el usuario, 2026-09-22**: estas dos rutinas
+de Anti-Flakardo se cargaron en su momento interpretando el PDF de
+marketing/venta del producto directamente (diseño visual, capturas de
+pantalla) en vez de a partir de un texto plano sin ambigüedad -- interpretar
+un PDF visual es justamente lo que produjo estos errores.
+
+**Regla nueva para productos autoguiados futuros**: cuando el usuario dé de
+alta un producto autoguiado nuevo, va a dejar un bloc de notas (texto
+plano) con la rutina escrita explícitamente dentro de la carpeta del
+producto, pensado para que Claude la cargue sin margen de interpretación.
+**Cuando ese archivo exista, es la fuente autoritativa para dar de alta la
+rutina -- no el PDF de venta/marketing del producto**, aunque el PDF
+también esté disponible. Si en algún momento solo está el PDF (sin el bloc
+de notas), tratar cualquier ejercicio que no esté 100% claro (ej. qué
+máquina exacta, con o sin abs, cuántos días repite cada template) como una
+pregunta para el usuario, no como una inferencia a completar solo -- así
+no vuelve a pasar esto.
+
+## Vista de coach, solo lectura (2026-09-26, migración 079)
+
+El usuario entrena a varios clientes por mentoría y no tenía forma de ver
+qué le muestra la app a cada uno (rutina asignada, GIFs, texto de "cómo
+hacerlo") sin pedirle el celular -- así fue como detectó a mano que había
+GIFs mal asignados. Se agregó una vista de coach de **solo lectura**
+(sin edición de sets, sin registrar nada) en vez de un panel completo,
+para resolver esto rápido; un panel editable queda como posible fase 2.
+
+- **`profiles.role`** existía desde `schema.sql` (`'client'|'coach'`)
+  pero no se usaba en ningún lado del código -- esta es la primera vez
+  que se lee. Se marcó `role = 'coach'` únicamente en la cuenta
+  `ezequiel.arce@outlook.com` (no en `ar.cs@hotmail.es`, que sigue
+  siendo un cliente normal). El usuario pidió explícitamente que esto no
+  le saque su propio uso normal de la app como cliente -- confirmado:
+  `role` no se leía en ningún otro lado, así que su `routine_id`/
+  `workout_logs`/historial siguen intactos y accesibles como siempre.
+- **Migración 079** agregó una policy RLS adicional (permissive) en
+  `profiles` para que un `role='coach'` pueda hacer `select` de
+  cualquier fila, no solo la propia -- **pero tenía un bug grave**: el
+  `using` de la policy hacía un subquery a `public.profiles` DENTRO de
+  una policy de `public.profiles`. Postgres evalúa esa subconsulta
+  pasando otra vez por la misma policy (recursión), y el resultado fue
+  que CUALQUIER select simple a `profiles` empezó a fallar para TODOS
+  los usuarios -- no solo el coach -- incluido el chequeo de Golden/
+  premium que corre en el middleware en cada request. Efecto visible:
+  el propio founder (`golden_perpetuo=true`) vio el muro de pago
+  "Kraken Golden" apenas entró. **Fix en migración 080**: se dropeó esa
+  policy y se reemplazó por una que usa una función
+  `public.es_coach() security definer` -- al correr con los privilegios
+  de quien la creó (no del usuario que hace el select), esa función
+  corta el ciclo de recursión. Es el patrón que la propia documentación
+  de Supabase recomienda para "¿este usuario tiene tal rol?" dentro de
+  una policy de la misma tabla que se está protegiendo. **Lección: nunca
+  hacer un subquery directo a la misma tabla dentro de su propia policy
+  RLS -- siempre pasar por una función `security definer`.**
+- **Migración 081, segundo hallazgo (mismo despliegue)**: con 079/080 ya
+  arreglado, la lista de clientes en `/coach` mostraba "sin rutina
+  asignada" para clientes que sí tenían `routine_id` (ej. Rocío Pace,
+  Lorena Tobares, Santiago Pelotti). Causa: sus rutinas son **privadas**
+  (`routines.es_privada = true`, ver migración 035) -- armadas a mano
+  para esa mentoría puntual -- y la policy de `routines` (y la espejo de
+  `routine_exercises`) solo dejaba pasar una rutina privada a quien
+  tuviera una fila explícita en `profile_routine_access`. El coach no la
+  tenía para las rutinas de sus clientes, así que quedaba bloqueado
+  igual que cualquier otro usuario ajeno -- justo para las rutinas que
+  más necesita poder inspeccionar, porque son las que arma él mismo y
+  las más propensas a un error humano. Fix: se agregó `or
+  public.es_coach()` a ambas policies (`routines` y
+  `routine_exercises`), reutilizando la misma función de la migración
+  080.
+- **`src/lib/auth/coach.ts`**: helper `requireCoach()` -- redirige a
+  `/login` si no hay sesión, y a `/entrenamiento` si el perfil no es
+  `role='coach'`. Se llama al principio de cada página de `/coach/*`.
+- **Rutas nuevas**: `/coach` (lista de clientes, filtra
+  `profiles.role='client'`) → `/coach/[clientId]` (elige día según
+  `routines.dias`) → `/coach/[clientId]/[dia]` (misma query de
+  `routine_exercises` + `exercise_definitions` que usa el cliente real
+  en `entrenamiento/[dia]`, pero sin nada de `workout_logs` ni registro
+  de sets -- clonado del patrón de solo-lectura que ya existía en
+  `entrenamiento/rutinas/[id]/[dia]/page.tsx`).
+- **`ExerciseCard` en la vista de coach NO fuerza "¿Cómo hacerlo?"/
+  "Alternativa"** (2026-09-29, corregido tras el primer uso real): la
+  primera versión agregó un prop `forzarInfo` para que esos botones
+  aparecieran siempre en la vista de coach, sin sesión activa. Bug
+  real encontrado por el usuario probándolo con la rutina de Lorena
+  Tobares: al expandir "¿Cómo hacerlo?" (video + texto) dentro de la
+  grilla `grid-cols-2` de la vista compacta, la tarjeta que se expande
+  queda mucho más alta que la de al lado, y el layout de 2 columnas se
+  rompe visualmente (columnas desalineadas). El usuario prefirió no
+  rediseñar el grid para acomodar contenido de altura dinámica --
+  **decisión: la vista de coach vuelve a ser una preview pura (GIF +
+  nombre + series/reps, sin ningún toggle)**, igual que ya funcionaba
+  en `entrenamiento/rutinas/[id]/[dia]/page.tsx`. El prop `forzarInfo`
+  se sacó de `ExerciseCard` por completo (quedaba sin ningún uso). Si
+  en el futuro hace falta que el coach vea el texto de "cómo hacerlo"
+  para detectar errores, la solución tiene que ser una grilla de 1
+  columna (no 2) para esa vista, o un modal aparte -- no reforzar el
+  toggle dentro del grid de 2 columnas.
+- `/coach` se agregó a `PATHS_SIN_PREMIUM` en `middleware.ts` (si algún
+  día hay más de una cuenta coach, que no dependa de tener Golden/prueba
+  vigente para entrar) -- la seguridad real la da `requireCoach()`, no
+  el muro de pago.
+- Acceso visible: un link "Vista de coach" en `/entrenamiento`, que solo
+  aparece si `profile.role === 'coach'`.
+
+## Bug: historial "desaparecido" al reactivar la misma rutina (2026-09-27)
+
+El usuario reportó que en su propia cuenta (`ezequiel.arce`) había días
+completos con sets cargados (peso/reps/RIR) que no aparecían en
+Progreso → Entrenamiento, y que el análisis por ejercicio se veía vacío
+para la mayoría de sus ejercicios pese a haber entrenado.
+
+**Causa raíz encontrada con datos reales** (no a ojo): `progreso/
+entrenamiento/page.tsx` y `entrenamiento/[dia]/page.tsx` (sugerencia de
+"última vez"/peso sugerido) scopeaban el análisis al **último período
+abierto** de `profile_routine_history` (`fecha_fin is null`), con el
+comentario "el análisis es sobre esta rutina activa, no sobre toda la
+vida del ejercicio" -- razonable para no mezclar historial de una
+rutina DISTINTA que comparte un `exercise_definition_id`, pero con un
+agujero: si el usuario se cambia a otra rutina un par de días y **vuelve
+a la misma rutina de antes**, eso abre un período NUEVO en
+`profile_routine_history` con `fecha_inicio` de hoy -- y todo lo
+cargado en períodos anteriores de ESA MISMA rutina quedaba excluido del
+análisis, aunque sea literalmente la misma rutina y los mismos
+ejercicios. Es lo que le pasó al usuario: probó "Crea tu rutina", tocó
+"Guardar y utilizar" sin querer (activó una rutina nueva, "PPL + UL",
+del 23 al 25/09), y al volver a "Kraken Split" (su rutina de siempre)
+el 25/09, todo lo cargado entre el 21 y el 23/09 en esa misma rutina
+quedó fuera del análisis -- 68 de sus 120 sets reales.
+
+**Fix**: nuevo helper `src/lib/periodos-rutina.ts`
+(`ventanasDeRutina`/`dentroDeVentanas`/`inicioMasAntiguo`) que junta
+TODOS los períodos de `profile_routine_history` donde
+`routine_id = profile.routine_id` (no solo el que tiene `fecha_fin is
+null`) y arma una lista de ventanas de tiempo; un log cuenta si cae
+dentro de CUALQUIERA de esas ventanas. Reemplaza la lógica de "un solo
+`gte(fecha_inicio del período abierto)`" en ambos archivos. El
+`progreso/historial/[id]/page.tsx` (detalle de un período puntual del
+historial) NO se tocó -- ahí SÍ es correcto mostrar solo lo cargado en
+ESE período específico, es su propósito.
+
+**A nivel de datos no se perdió nada** -- cada set sigue en
+`workout_logs` con su `created_at` real, esto era pura lógica de
+lectura/filtrado. No hizo falta ninguna migración SQL ni tocar datos.
+
+## Ajustes a Kraken Split pedidos por el usuario (2026-09-28, migración 082)
+
+El usuario pidió una tanda de cambios puntuales a su propia rutina
+privada (id 7, "Kraken Split") después de usarla unas semanas. Resumen
+del criterio usado para cada uno (por si se repite el patrón con otros
+clientes):
+
+- **Preferencia por bilaterales**: "Tríceps en polea alta a un brazo" →
+  bilateral con barra V, explícitamente por practicidad/tiempo (ya
+  tiene bien seteados los descansos de unilaterales, pero prefiere
+  menos fricción en este ejercicio puntual). Se creó
+  "Tríceps en polea alta con barra V" (id 284) porque no existía ningún
+  pushdown bilateral simple en el catálogo -- todo lo que había era
+  unilateral, con reverse grip, rope, cross, etc.
+- **Equipamiento nuevo en casa**: Día B suma "Sentadilla sissy" (id 45,
+  ya existía) porque compró una máquina de sentadilla sissy.
+- **Molestia de codo identificada por el usuario**: el "Press francés
+  con barra EZ" le molestaba el codo en unilateral/con barra recta --
+  encontró que con banco inclinado + polea + bilateral no le duele.
+  Matcheó exacto con un ejercicio YA EXISTENTE ("Extensión de tríceps
+  inclinada en polea baja", id 24) -- no hizo falta crear nada.
+  **Lección**: antes de crear un ejercicio nuevo por un pedido de rutina,
+  buscar primero si ya existe algo que matchee la descripción exacta del
+  usuario (equipo + posición + agarre), no asumir que hace falta un GIF
+  nuevo.
+- **"Jalón lateral con polea a un brazo" → "Dominadas cerradas con
+  agarre neutro"**: mismo patrón de tracción (dorsal ancho, jalón
+  vertical), pero el usuario lo hace con el propio peso corporal en
+  barra de dominadas en vez de máquina/polea -- se creó un ejercicio
+  nuevo (id 287) porque no había ninguna dominada de agarre NEUTRO en el
+  catálogo (había "Chin up agarre cerrado" pero es agarre PRONO, no
+  neutro -- verificado por texto e imagen, no alcanza con el nombre).
+- **Hallazgo durante la tanda**: al crear "Hip thrust con barra" para
+  reemplazar "Patada de glúteo en polea", el hash-audit lo detectó como
+  duplicado EXACTO de "Empuje de caderas" (id 64) ya existente -- mismo
+  ejercicio, nombre distinto. Se borró la fila nueva y se usó id 64. Es
+  el mismo tipo de hallazgo que otros de la revisión músculo por
+  músculo: correr el hash-audit después de cada alta, sin excepción,
+  incluso para altas puntuales de una rutina privada (no solo en las
+  tandas de revisión de catálogo).
+- **Bug de catálogo reportado por el usuario, no pedido de cambio**: id
+  77 "Extensión de tríceps sobre la cabeza en polea" -- el usuario notó
+  que el GIF mostraba un movimiento unilateral pese a que el ejercicio
+  está marcado bilateral. Confirmado visualmente: el texto (`como_hacerlo`)
+  y `unilateral=false` ya eran correctos (describen "ambas manos" con
+  cuerda), pero la imagen cargada mostraba una sola mano -- mismo patrón
+  que el caso de `id 107` (Fire Hydrant) de la revisión de Glúteos:
+  texto correcto, imagen equivocada. A diferencia de aquel caso, acá SÍ
+  había un GIF de reemplazo correcto ya identificado en la biblioteca de
+  referencia (de la propia revisión de Tríceps, migración 077 --
+  `17241301-Cable-Rope-High-Pulley-Overhead-Tricep-Extension`, que en su
+  momento se había descartado como "near-duplicate" de id 77 por el
+  texto, sin volver a mirar la imagen). Se reemplazó el `imagen_url`.
+
+Ningún dato de `workout_logs` se tocó ni se borró -- los sets viejos de
+los ejercicios reemplazados (ej. "Patada de glúteo en polea") siguen en
+la base, simplemente ya no aparecen en la vista de Entrenamiento/Análisis
+porque `routine_exercises` ya no los referencia. No hizo falta ningún
+"reset" explícito de historial (el usuario había ofrecido reiniciar todo
+si hacía falta, pero no fue necesario).
+
+## Rutinas estandarizadas (proceso durable, 2026-09-28)
+
+El coach pidió explícitamente dejar de armar una rutina desde cero para
+cada cliente nuevo de mentoría/presencial: quiere un set de rutinas
+**estandarizadas** ("Kraken Standard M" es la primera) que simplemente
+se le asignan a quien corresponda, sin tener que "renegar" ni repasar
+la lista de ejercicios cada vez. Esto es un proceso permanente, no algo
+puntual de esta sesión -- aplica a toda mentoría privada (presencial y
+online) de acá en adelante.
+
+**Regla dura, sin excepciones: una rutina estandarizada NUNCA se edita
+in-place.** Si un cliente puntual necesita un cambio (lesión,
+equipamiento, preferencia -- como el caso de Guillermo más abajo), se
+le crea una **copia privada** con su propio nombre
+(`"<Nombre Estándar> - <Cliente>"`), se le aplican SOLO los cambios que
+hacen falta, y la rutina estándar original queda intacta para todos los
+demás que la usan. Confirmado explícitamente por el usuario 2026-09-28:
+"el estándar no se modifica... no demos vuelta con este asunto".
+
+**Dónde vive cada rutina estandarizada**: carpeta `rutinas-estandarizadas/`
+en la raíz del repo (a diferencia de `clientes/`, esta carpeta SÍ se
+commitea -- no tiene datos personales, es la plantilla reutilizable).
+Cada archivo (`kraken-standard-m.json`, etc.) tiene el mismo formato que
+el bloque de rutina de `clientes/EJEMPLO.json` (`nombre_rutina`,
+`descripcion_rutina`, `dias`, `ejercicios`, `rutina_exercises`), sin
+ningún dato de cliente.
+
+**Cómo asignarle una rutina estandarizada a un cliente nuevo**: en el
+JSON del cliente (`clientes/nombre-cliente.json`), en vez de repetir
+`rutina_exercises` a mano, agregar:
+```json
+"rutina_estandarizada": "../rutinas-estandarizadas/kraken-standard-m.json"
+```
+`alta-cliente.js` (sección "0. RUTINA ESTANDARIZADA", agregada
+2026-09-28) carga `nombre_rutina`/`descripcion_rutina`/`dias`/
+`ejercicios`/`rutina_exercises` desde ese archivo automáticamente --
+el JSON del cliente solo necesita `email` + la referencia +
+`premium`/`guia_pdf_local_path`. Sigue funcionando igual que antes
+(definición inline) si no se usa este campo.
+
+**Cómo crear una rutina estandarizada nueva**: escribir el archivo en
+`rutinas-estandarizadas/`, y darle de alta al primer cliente con la
+definición inline completa (`nombre_rutina`/`dias`/`rutina_exercises`
+en su propio JSON, sin `rutina_estandarizada` todavía) para que quede
+creada en la base -- de ahí en más, cualquier cliente nuevo que la use
+solo necesita la referencia al archivo.
+
+**Rutinas estandarizadas existentes:**
+- `rutinas-estandarizadas/kraken-standard-m.json` -- "Kraken Standard
+  M", 3 días (A/B presenciales, C auto-entrenamiento en casa con banda
+  elástica). Ver detalle completo abajo.
+
+### "Kraken Standard M" -- primera rutina estandarizada (migración de datos vía alta-cliente.js)
+
+El coach armó una rutina estándar de 3 días para asignarle a la mayoría
+de sus clientes varones de mentoría, en vez de armar una rutina
+distinta para cada uno. Es la primera vez que una MISMA fila de
+`routines` se comparte entre varios clientes de mentoría (antes cada
+uno tenía la suya, ej. Kraken Split, Rocío Pace, Lorena Tobares) --
+mismo patrón que ya usan las rutinas públicas del catálogo
+(Anti-Flakardo, etc.), solo que esta es `es_privada = true` y el acceso
+se da a mano por
+`profile_routine_access`, cliente por cliente.
+
+- **Clientes con esta rutina**: Rahim Alkashash, Henry Ventura, Mica
+  (Micaela) Pelotti, y Fabio Bringas (pendiente, todavía no registrado
+  en la app con ningún email conocido -- volver a correr
+  `alta-cliente.js` cuando se registre). Guillermo Carcacha la tuvo
+  activa al principio pero pasó a una copia privada adaptada -- ver el
+  hallazgo de su cirugía lumbar más abajo.
+- **Mica Pelotti es un caso a propósito, no un error**: es la única
+  clienta mujer en este lote y en teoría "las mujeres van a tener su
+  propia rutina estándar" (como Vane/Lorena) -- pero el coach confirmó
+  explícitamente asignarle esta rutina de todos modos por ahora ("ella
+  es un caso particular"), no fue un descuido.
+- **Guillermo Carcacha tiene antecedente de cirugía lumbosacra L5-S1 +
+  cirugía de rodilla (corte de ligamentos) + escoliosis leve** (dato
+  del formulario, no mencionado por el coach al pedir la carga) --
+  señalado en el chat y en su guía alimenticia. **Resuelto 2026-09-28**:
+  el coach confirmó y pidió adaptarle 2 ejercicios. Se creó
+  `routines.id = 24` "Kraken Standard M - Guillermo" (`es_privada =
+  true`, copia exacta de la rutina 23 con estas 2 sustituciones, resto
+  100% igual):
+  - Día A #1: "Sentadilla con barra" -> "Prensa de piernas 45°" (id 111)
+    -- saca la carga axial de la barra en la espalda.
+  - Día B #1: "Peso muerto" -> "Puente de glúteos" (id 195) -- **no**
+    "Hip thrust" (el coach lo descartó explícitamente: con la espalda
+    elevada en un banco, un error de técnica bajo carga puede
+    hiperextender la zona lumbar; con la espalda apoyada plana en el
+    piso el recorrido queda naturalmente limitado, no se puede
+    hiperextender). También se descartó antes "Hiperextensión inversa
+    en máquina" (el coach no tiene esa máquina en su gym -- ver
+    [[trainer_private_gym_equipment]]) y "Curl femoral sentado" (mismo
+    motivo, no tiene esa variante del banco).
+  - Se le migró el acceso (`profile_routine_access`), se cerró su stint
+    de la rutina 23 en `profile_routine_history` y se activó la 24
+    (`profiles.routine_id`). Sigue teniendo acceso a la 23 también (no
+    se le sacó), pero la activa ahora es la 24.
+  - La rutina 23 "Kraken Standard M" (la compartida) se verificó
+    intacta después de este cambio -- Rahim, Henry y Mica la siguen
+    usando sin ninguna modificación.
+- **Bug real encontrado en el momento, ya corregido**: `alta-cliente.js`
+  nombraba el archivo de la guía en Storage a partir de
+  `nombre_rutina` (`kraken-standard-m.pdf`) -- con una rutina
+  COMPARTIDA entre clientes, subir la guía del segundo cliente (Rahim)
+  pisó en Storage la del primero (Guillermo), y las dos filas de
+  `guias_alimenticias` quedaron apuntando al mismo archivo. Se
+  corrigió para que el nombre del archivo salga del `userId` (único
+  por cliente siempre, nunca depende de si comparte rutina) y se
+  re-procesaron ambas altas antes de seguir con el resto. **Lección**:
+  cualquier dato por-cliente en Storage tiene que nombrarse por el
+  cliente (o su id), nunca por algo que dos clientes puedan compartir.
+- **3 ejercicios nuevos en el catálogo** (migración de datos, sin
+  archivo SQL -- son puro alta vía REST, igual que toda la revisión de
+  catálogo de esta sesión): "Remo inclinado con banda (barra curva)
+  para deltoide posterior" (distinto del "Remo de pie con banda para
+  deltoide posterior" ya existente -- éste es inclinado con una barra
+  rígida curva, no solo la banda a mano), "Curl de bíceps con banda
+  elástica", "Press francés con banda elástica por encima de la
+  cabeza". Los 3 vinieron de archivos en portugués
+  (`EJERCICIOS EXPLICATIVOS\FUNCIONAL - HIIT`), traducidos antes de
+  nombrarlos.
+- **Alternativa agregada**: "Sentadilla con barra" (id 123) ganó
+  `alternativa_id` -> "Prensa de piernas 45°" (id 111) -- antes estaba
+  en null. Esto es un campo GLOBAL del ejercicio (no por rutina), así
+  que aplica para cualquier cliente que use "Sentadilla con barra" de
+  ahora en más, no solo Kraken Standard M.
+- **Descanso por día/rutina: NO es configurable hoy** (confirmado con
+  el coach, sección aparte). El pedido original era recortar a un
+  tercio los descansos SOLO del Día C de esta rutina puntual -- no se
+  hizo porque `src/lib/descanso.ts` define el descanso por
+  `tipo_esfuerzo` (compuesto/aislado) de forma GLOBAL para toda la app,
+  no por rutina ni por día. Cambiarlo ahí afectaría a todos los demás
+  clientes. Queda pendiente como una posible feature futura (columna de
+  descanso override en `routine_exercises` + tocar el timer) si el
+  coach la pide explícitamente -- no se construyó sin que la pidiera.
+
+## Qué NO hacer sin preguntarle antes al usuario
+
+- (Actualizado 2026-10-12) Las migraciones SQL contra producción SÍ las corre
+  Claude cuando el coach lo pide, **siempre con `scripts/migrar.mjs`** (primero
+  `--dry`; no pegar SQL suelto a la API); nunca por iniciativa propia, y
+  `--permitir-destructivo` solo después de confirmar con el coach.
+- No tocar `.env.local` ni pedir la `SUPABASE_SERVICE_ROLE_KEY` por chat.
+- No hacer `git push --force`, no reescribir historial.
+- No sacar ni modificar ningún disclaimer legal (Alimentación, Medidas).
+- No retomar rutinas multi-día nuevas sin que el usuario lo pida él mismo.
+
+## Análisis de lo ejecutado (PENDIENTE, fuera del despliegue desde 2026-10-14)
+
+Se construyó una capa de análisis de lo ejecutado (todas las series, RIR, bajadas de
+drop sets, volumen real, semana real por grupo muscular, cumplimiento, estado de
+progresión). **El coach decidió NO publicarla**: la vista global no le gustó y el
+análisis completo se va a rediseñar. El código NO está en `main`: quedó guardado en la
+rama local `analisis-ejecutado-pendiente` (commit `5ae7fe4`); para recuperarlo,
+`git revert` del commit de reversión o `git checkout analisis-ejecutado-pendiente --
+<archivos>`. El análisis viejo (top set por día, `lib/analytics.ts`) sigue igual en
+producción. Notas útiles para cuando se retome: serie efectiva = RIR <= 2, las bajadas
+suman volumen pero no series ni 1RM, y para ver la pantalla con datos reales se usó la
+cuenta de prueba kraken.test.qa2 (hay dos muros: aceptar términos y premium vencido;
+restaurar todo al terminar: logs sembrados por id, la fila de `aceptaciones_legales`
+del día y `premium_hasta` original 2026-10-10).
+
+## Cumplimiento y compras: diagnóstico del sitio + adenda legal (tanda del 2026-10-13)
+
+Origen: el chat del sitio web (fit.krakenbrand.com) pasó dos documentos
+(`PROMPT-chat-app-diagnostico-compras.md` y `PROMPT-chat-app-legal-adenda.md`, en
+el escritorio) más un pedido de consentimiento de transferencia internacional.
+El coach (Ezequiel) los confirmó en persona en este chat, con estas condiciones:
+trabajar de forma autónoma, correr las migraciones con las precauciones de
+siempre, **todo en commit local, sin push ni deploy**, y revisar el resumen
+antes de publicar. Todo billing sigue en el sitio web: la app no cobra nada.
+
+### Qué quedó hecho (todo en commits locales de `main`)
+
+| # | Pedido | Estado |
+|---|---|---|
+| 1 | Emails con mayúsculas rompían el desbloqueo | **Hecho** (migración 099). Backfill: 0 casos |
+| 2 | Recuperar una compra con email distinto | **Hecho**: código por email + acción admin |
+| 3 | Página de gracias por tipo de compra | **Hecho** (`?tipo=mentoria\|plan\|golden`) |
+| 4 | Aviso al coach (compra, suscripción, baja, rechazo) | **Hecho**, idempotente; falta configurar el envío (ver "Emails") |
+| 5 | Formulario de ingreso de mentoría | **Hecho** (`/perfil/ingreso`) |
+| 6 | "PDF para siempre" vs 3 meses de acceso | **Resuelto**: el PDF se lee siempre; los 3 meses dan acceso a la app (ver abajo) |
+| 7 | Verificar lo que prometen los términos | **Verificado** (tabla abajo) |
+| 8 | Checklist de activación de los 4 planes | **Documentado** (abajo) |
+| 9 | Dominio de la app | **Verificado/documentado** (abajo) |
+| A | Registro de solicitudes completo | **Hecho** (migración 100) |
+| B | Endpoint público de arrepentimiento/baja | **Hecho** (contrato abajo) |
+| C | Consentimiento de datos de salud | **Hecho** (versionado, en `aceptaciones_legales`) |
+| D | Comprobante de compra por email | **Hecho** (+ versión de términos guardada por compra) |
+| E | Calendario de conservación | **Propuesto** (tabla abajo) y borrado de cuenta ampliado |
+| F | Auditoría de proveedores | **Hecha** (tabla abajo) |
+| G | Revisión de copy | **Hecha** (abajo) |
+| + | Casilla "mayor de 18" y consentimiento de transferencia internacional | **Hecho** (registro + pantalla bloqueante para existentes) |
+| + | Cambio de precio: rechazar / silencio | **Hecho** (decisión abajo) |
+
+**Migraciones corridas en producción hoy** (cada una con backup previo vía
+`scripts/migrar.mjs`, probada antes en una transacción que se deshacía):
+- `098` corregir ejercicio 107 (puente de glúteos con una pierna elevada).
+- `099_emails_normalizados`: `lower(trim())` en `buscar_usuario_por_email` y
+  `handle_new_user`, trigger que normaliza `compras.email_comprador`.
+- `100_base_cumplimiento_y_compras`: tablas `emails_salientes`, `tareas_reembolso`,
+  `reclamos_compra`, `formularios_ingreso`, `limites_publicos`; columnas nuevas en
+  `solicitudes_baja_arrepentimiento` (compra/suscripción asociada, verificación,
+  constancia, responsable, datos del reembolso, medio `web`), en `compras`
+  (`terminos_version`, `plazo_legal_vence` +10 d, `plazo_comercial_vence` +14 d,
+  reembolso) y en `avisos_precio*` (`decision`, `sin_aceptar_procesado_at`).
+- `101_coach_lee_formularios_ingreso`: policy para que el coach lea los formularios.
+Ninguna fue destructiva. La tabla `solicitudes_baja_arrepentimiento` estaba vacía:
+se hicieron pruebas reales del endpoint y se borraron, reiniciando el contador para
+que el registro empiece limpio en `ARR/BAJ-2026-000001`.
+
+### Emails (todo pasa por `src/lib/email.ts`)
+- Cada email se guarda en `emails_salientes` (evidencia + cola idempotente por
+  `tipo`+`ref`). Se envía con la API de Resend; si no está configurada queda
+  `pendiente` y se reenvía con `POST /api/admin/solicitudes {"accion":"reintentar_emails"}`.
+- **Variables de entorno que faltan cargar (en Vercel Y en `.env.local`)**:
+  `RESEND_API_KEY`, `MAIL_FROM` (ej. `KRAKEN <no-reply@krakenbrand.com>`; Supabase Auth
+  ya envía desde ese remitente por `smtp.resend.com`, así que el dominio ya está
+  verificado en Resend) y `COACH_EMAIL` (dónde llegan los avisos). Hasta que estén,
+  nada se pierde: los avisos quedan `pendiente`. **No se copió ningún secreto**:
+  la clave la pega el coach.
+- Plantillas en `src/lib/emails-plantillas.ts`; datos del proveedor (CUIT
+  20-37449501-2, Aliau 3458, Rosario) en `src/lib/proveedor.ts`. El WhatsApp sale de
+  la constante única `WHATSAPP_COACH_NUMERO` (`src/lib/contacto.ts`), que otro chat
+  cambió a 3417211050 (commit 9143d33) mientras se hacía esta tanda: los emails y la
+  página de gracias usan la constante, no hay ningún número hardcodeado.
+- Qué se manda: comprobante de compra/cobro (producto, importe, fecha, medio,
+  operación, renovación si es suscripción, plazos 10/14, links y versión de términos),
+  constancia de arrepentimiento/baja con código, aviso de cobro rechazado con fecha
+  exacta de suspensión, reembolso realizado, código de recuperación de compra, aviso
+  de suscripción cancelada por precio no aceptado. Al coach: compra, suscripción
+  nueva, renovación, baja, pago rechazado, solicitud web, devolución a hacer, compra
+  recuperada, formulario de ingreso completado. Nunca se manda ningún dato de salud
+  por email.
+
+### Endpoint público de arrepentimiento y baja (para el formulario del sitio)
+- `POST https://<dominio-de-la-app>/api/publico/solicitud` (hoy `https://appfit.krakenbrand.com`).
+- Cuerpo JSON: `{ "tipo": "arrepentimiento" | "baja", "email": "<email de la compra>",
+  "producto"?: "<slug o texto>", "numeroOperacion"?: "<n° de operación>", "website": "" }`.
+  `website` es el **honeypot**: el formulario lo tiene que mandar vacío y oculto.
+  `producto` acepta un slug (`anti-flakardo`, `golden-mensual`, `golden-anual`,
+  `mentoria-online-basic`, `mentoria-online-vip`) o texto libre.
+- **CORS solo `https://fit.krakenbrand.com`**: `OPTIONS` responde 204 con
+  `Access-Control-Allow-Origin` solo para ese origen y un `POST` con otro origen (o sin
+  `Origin`) recibe **403**. El sitio tiene que agregar el dominio de la app a
+  `connect-src` en la CSP de `vercel.json`.
+- Respuestas: `200 { ok:true, codigo, recibidaAt, tipo, constanciaEnviadaPorEmail,
+  verificada }` (mostrar `codigo` en pantalla); `400 { ok:false, error }` datos
+  inválidos; `403` origen no permitido; `429` demasiados intentos (máx. 5 por IP por
+  hora y 3 por email por día); `500` error al registrar.
+- Qué hace: valida, aplica límites, busca compra/suscripción por el email (verificación
+  razonable, sin login ni motivo), **registra** con código `ARR-2026-000123` /
+  `BAJ-2026-000123` (sin email ni datos de salud adentro), manda la **constancia por
+  email al instante**, avisa al coach y devuelve el código para mostrarlo. Si el email
+  no coincide con ninguna compra igual se registra (la norma no permite exigir
+  trámites previos) y queda `no_verificada` para revisar a mano. Con un `website`
+  completo (bot) responde 200 con código `SIN-REGISTRO` y no registra nada.
+- **Ejecutar la solicitud** (la app no corta nada sola, ver decisión): `POST
+  /api/admin/solicitudes` con `Authorization: Bearer <ADMIN_API_SECRET>` y
+  `{"accion":"procesar","codigo":"BAJ-2026-000123"}` -> cancela la suscripción
+  (acceso hasta fin del período) o revoca la compra y crea la tarea de reembolso.
+  Después de reembolsar a mano: `{"accion":"reembolso_hecho","codigo":...,"importe":...,
+  "moneda":"ARS","referencia":"..."}` (cierra la tarea y avisa a la persona).
+  `{"accion":"pendientes"}` lista solicitudes sin procesar, reembolsos pendientes y
+  emails sin enviar.
+- Opcional, apagado: `SOLICITUDES_AUTOPROCESAR_BAJA=1` ejecuta solas las bajas
+  verificadas. Queda apagado porque cualquiera que conozca un email podría cortar la
+  renovación de otra persona.
+
+### Decisiones que tomé por mi cuenta (la opción más conservadora y simple)
+1. **Reclamar una compra con otro email**: código de 6 dígitos enviado al email de la
+   compra (vence en 30 min, 5 intentos, solo se guarda el hash, no se manda email si
+   no hay compra y la respuesta es siempre igual para no revelar si existe). Se eligió
+   código y no link porque no lo consume un preview automático del correo. Camino de
+   respaldo: acción admin `vincular_compra`.
+2. **Precio nuevo sin aceptar**: el silencio NO es aceptación. Si la persona toca "No
+   acepto" o llega la vigencia sin responder, **se cancela la renovación** en el
+   proveedor y conserva el acceso hasta fin del período pagado (email + aviso al
+   coach). La acción admin `avisos_precio_vencidos` (con `ejecutar:true`) procesa a los
+   que no respondieron; **hay que correrla ANTES de que rija el precio nuevo** (el
+   precio real lo sigue cambiando el coach en MP/PayPal). Criterio estricto: no cancela
+   suscripciones de mentoría sin `producto_slug` (no se sabe si Basic o VIP).
+3. **Calendario de conservación** (tabla abajo) y backups mensuales limitados a 12
+   meses (antes "para siempre").
+4. **Texto del consentimiento de salud** (versión `2026-10`, en
+   `src/lib/consentimiento-salud.ts`): qué datos, para qué, quién accede, cuánto se
+   conservan, derechos, sin uso publicitario; casilla separada, antes de cargar
+   peso/medidas/fotos/lesiones y del formulario de ingreso. Se exige también del lado
+   servidor al guardar mediciones y fotos.
+5. **Formulario de ingreso** (decisión de campos): obligatorios solo objetivo, días por
+   semana y lugar de entrenamiento; opcionales experiencia, minutos por sesión,
+   equipamiento, disponibilidad, limitaciones relevantes para entrenar ("no hace falta
+   un diagnóstico completo"), hábitos y comentarios. El coach lo ve en la vista de
+   coach del cliente. Fotos: se usa "Mi evolución" ya existente, no se duplica.
+6. **Aceptaciones**: tres casillas separadas y sin tildar (Términos y Privacidad, "soy
+   mayor de 18" y autorización de tratamiento fuera de Argentina), cada una en
+   `aceptaciones_legales` con versión (`aceptacion-legal-version.ts`), fecha, IP y user
+   agent. Las cuentas existentes ven `/aceptar-terminos` en su próximo ingreso con
+   **solo las casillas que les faltan** (es la pantalla bloqueante). Cambiar una
+   versión obliga a todos a volver a aceptar.
+7. **Reembolsos**: siguen siendo manuales (no hay API de reembolso). Se agrega la
+   tabla `tareas_reembolso` y la detección de "se cobró una renovación después de una
+   baja recibida a tiempo" (últimos 35 días, o la suscripción figuraba cancelada) para
+   generar la devolución proactiva y avisar al coach.
+8. **Excepción del art. 3 inc. b (ya usó o consumió)**: NO se invoca. Reembolso total
+   dentro de 14 días para todos los planes, sin excepciones, como pidió el coach.
+9. **Titular en comprobantes**: "KRAKEN · Ezequiel Arce · CUIT 20-37449501-2" (el
+   portfolio de Meta ya figura como "Ezequiel Arce"). Si la razón social es otra,
+   cambiarla en `src/lib/proveedor.ts`.
+
+### Verificación de lo que prometen los términos publicados (punto 7)
+| Promesa | Estado |
+|---|---|
+| Arrepentimiento 14 días corridos (10 legales) -> reembolso 100% + revocar acceso | `revocarCompra` + `procesar`; plazos guardados por compra (`plazo_legal_vence`, `plazo_comercial_vence`). El reembolso es manual. |
+| Baja: frena renovación, acceso hasta fin del período | `cancelarSuscripcion` (acceso hasta `premium_hasta`). |
+| Cobro rechazado: 48 h de gracia + aviso | Gracia ya existía (094). Nuevo: email con la fecha exacta de suspensión y franja en la app. Si regulariza, el webhook limpia la gracia sin doble cobro. |
+| Cambio de precio: pop-up + aceptación expresa | Pop-up existía (095). Nuevo: botón "No acepto", y silencio = no se cobra el precio nuevo (cancelación). |
+| Registro de aceptación con versión y fecha | Existía (092); ahora incluye mayor de 18 y transferencia. |
+| Código de identificación en 24 h | Endpoint público lo devuelve en pantalla y por email en el acto. |
+| Borrado de cuenta: tokens, Storage, datos | `borrarCuentaCompleta` ampliado (emails, límites, reembolsos pendientes bloquean el borrado). Tokens de Google/Facebook: la app no guarda `provider_token`, no hay nada que revocar. |
+
+**Lo que sigue sin automatizar y lo hace el coach**: ejecutar la solicitud con
+`procesar`, devolver la plata en el panel del proveedor y correr
+`avisos_precio_vencidos` antes de un aumento.
+
+### PDF comprado vs 3 meses de acceso (punto 6, RESUELTO el 2026-10-13)
+Decisión del coach: el PDF queda cargado **solo en la app y solo en modo lectura**
+(sin descarga, ya resuelto con el visor `/perfil/recursos/[producto]/leer`). Los 3
+meses (`MESES_ACCESO_POR_COMPRA`) le dan acceso a la **app**: mientras estén vigentes
+usa la app con las restricciones de su plan. **El PDF comprado se puede leer siempre**,
+aunque no renueve ni pase a Golden: el acceso al PDF lo da la compra aprobada
+(`productoPdfConAcceso`, `tienePdfComprado` en `src/lib/pdf-acceso.ts`), no
+`premium_hasta`. Cambios hechos: se sacó el chequeo `permisos().misPdfs` del visor y de
+la ruta que entrega los bytes, y Mis PDFs (y su ícono en Perfil) se habilita si hay un
+PDF comprado aunque el acceso a la app haya vencido. Si la compra se revoca
+(arrepentimiento) el PDF deja de verse. Las rutinas del plan y el resto de las funciones
+siguen atadas a los 3 meses (no se tocó). Una cuenta con el acceso vencido igual puede
+entrar a `/perfil` (el proxy lo permite) y de ahí a Mis PDFs.
+
+### Calendario de conservación propuesto (punto E)
+| Categoría | Plazo | Base | Qué pasa después |
+|---|---|---|---|
+| Cuenta y perfil | Mientras la cuenta esté activa | Ejecución del servicio | Se borra al eliminar la cuenta |
+| Datos de salud (medidas, peso, fotos, formulario de ingreso) | Mientras la cuenta esté activa | Consentimiento específico; finalidad | Se borran al eliminar la cuenta o retirar el consentimiento |
+| Registros de entrenamiento y cardio | Mientras la cuenta esté activa | Ejecución del servicio | Se borran con la cuenta |
+| Guías y PDFs entregados | Mientras la cuenta esté activa | Ejecución del servicio | Se borran con la cuenta |
+| Pagos (monto, moneda, fecha, estado) | 10 años | Obligación contable/fiscal | Se anonimiza el email y el usuario al borrar la cuenta; queda el monto |
+| Solicitudes de arrepentimiento/baja | 3 años desde la resolución (prescripción art. 50, Ley 24.240) | Obligación legal (Disp. 954/2025) | Anonimizar; las constancias enviadas se anonimizan al borrar la cuenta |
+| Aceptaciones legales | Mientras la cuenta esté activa; `compras.terminos_version` queda como evidencia | Prueba del consentimiento | Se borran con la cuenta |
+| Emails enviados (`emails_salientes`) | 12 meses | Evidencia de constancias/comprobantes | Borrar; constancias y reembolsos anonimizados al borrar la cuenta |
+| Logs y límites técnicos (`limites_publicos`) | 30 días (limpiar a mano o con una tarea) | Seguridad | Borrar |
+| Backups diarios | 30 días | Continuidad | Se borran solos (`scripts/backup-supabase.mjs`) |
+| Backups mensuales | **12 meses** (antes "para siempre") | Continuidad | Se borran solos; una cuenta borrada puede seguir hasta 12 meses en un backup |
+| Mentoría finalizada | Los datos de salud se borran a los 12 meses de terminada, salvo pedido antes | Finalidad cumplida | Pendiente de automatizar |
+Plazos de 10 y 3 años: criterio conservador, sin asesoramiento de abogado (el coach lo
+aprobó así). Pendientes de automatizar: limpieza periódica de `limites_publicos` y
+`emails_salientes` viejos, y el borrado por mentoría finalizada.
+
+### Auditoría de proveedores y transferencias (punto F)
+| Proveedor | Para qué | Dónde (verificado) | Qué datos recibe |
+|---|---|---|---|
+| Supabase | Base de datos, Auth, Storage, backups propios | Proyecto en **us-east-1 (N. Virginia, EE.UU.)**: base, Storage y backups | Todo: cuenta, perfil, entrenamiento, medidas, fotos y PDFs (buckets privados `progress-photos`, `guias-alimenticias`, `AntiFlakardo`, `productos`) |
+| Vercel | Hosting de la app y funciones | Por defecto región `iad1` (Washington, EE.UU.); **confirmar en Project Settings > Functions**, no hay `vercel.json` | Todo lo que pasa por la app (solicitudes, sesiones) |
+| Resend | Emails (Auth de Supabase por SMTP y, al configurar `RESEND_API_KEY`, comprobantes y constancias) | EE.UU. | Email del destinatario y contenido (comprobantes, constancias, códigos). Sin datos de salud |
+| Cloudflare | La app no lo usa en el código; si el sitio/DNS lo usa, ver el repo del sitio | EE.UU./global | Solo tráfico/DNS del dominio |
+| Google Drive | Copia de seguridad diaria (`G:\Mi unidad\KRAKEN BACKUPS APP`) | EE.UU. | **Todo**, incluido datos de salud, fotos y emails: es una transferencia que hay que declarar |
+| Mercado Pago | Cobros (ARS) | Argentina/Latam | Email y datos de pago que ingresa la persona en su checkout; a la app llega id de pago, monto y email |
+| PayPal | Cobros (USD) | EE.UU. | Email y datos de pago en su checkout; a la app llega id, monto y email |
+| Google / Meta | Login social | EE.UU. | Email y perfil básico (la app no guarda tokens del proveedor) |
+**DPA / cláusulas modelo** (verificados el 2026-10-13, existen y mencionan Standard
+Contractual Clauses): Supabase https://supabase.com/legal/dpa · Vercel
+https://vercel.com/legal/dpa · Resend https://resend.com/legal/dpa · Cloudflare
+https://www.cloudflare.com/cloudflare-customer-dpa/ . Ojo: son las SCC de la UE, no
+las cláusulas modelo de la AAIP (Disp. 60-E/2016, Res. 198/2023); por eso la vía
+principal es el **consentimiento expreso** (casilla separada) y las cláusulas modelo
+AAIP quedan como refuerzo a firmar con cada proveedor si el coach lo decide.
+
+### Revisión de copy (punto G)
+La app no tenía ningún texto sobre reembolsos, "PDF para siempre" ni cancelaciones
+fuera de lo agregado hoy. Se agregó la nota legal de `/golden` (renovación automática,
+baja sin penalidad ni preaviso, arrepentimiento 10/14 días con links) y el texto de
+arrepentimiento en la página de gracias, todo con los mismos plazos del sitio.
+
+### Checklist para activar los 4 planes autoguiados (punto 8, NO activar todavía)
+Planes: `grasa-sub-cero`, `hibrido`, `en-casa`, `minimalista` (hoy `activo=false`, sin
+PDF, checkouts devuelven 404 a propósito). Por plan:
+1. Subir el PDF al bucket privado `productos` y cargar `productos.pdf_storage_path`.
+2. Rutinas del plan con `es_privada = true` y enlazadas en `producto_rutinas`.
+3. Todos los ejercicios con `imagen_url` y `video_url` (regla: nunca null; usar un
+   hermano cercano si falta).
+4. Cargar `precio_ars`/`precio_usd` y, para PayPal, `paypal_plan_id` si corresponde.
+5. Probar compra de punta a punta en Mercado Pago y PayPal con una cuenta de prueba:
+   comprobante por email, aviso al coach, desbloqueo, lectura del PDF sin descarga,
+   arrepentimiento (`procesar`) y restauración.
+6. Recién entonces `activo = true`.
+
+### Dominio de la app (punto 9)
+Verificado el 2026-10-13: `https://appfit.krakenbrand.com` y
+`https://kraken-entrena-app.vercel.app` responden lo mismo (misma app).
+Supabase Auth: `site_url = https://appfit.krakenbrand.com`; `uri_allow_list` incluye
+`/auth/callback` y `/restablecer-password` de los dos dominios y de localhost; Google y
+Facebook habilitados. Webhook de PayPal **sandbox** registrado en
+`https://kraken-entrena-app.vercel.app/api/webhooks/paypal` (1 evento): sigue
+funcionando porque los dos dominios sirven la misma app; no se pudo verificar el de
+producción ni el de Mercado Pago (están en sus paneles). El chat del sitio puede
+cambiar los 9 links a `appfit.krakenbrand.com`.
+
+### Antes de publicar (hace el coach)
+1. **Cargar en Vercel** `ADMIN_API_SECRET` (el valor está en `.env.local`),
+   `RESEND_API_KEY`, `MAIL_FROM`, `COACH_EMAIL`. Sin `ADMIN_API_SECRET` las rutas
+   `/api/admin/*` quedan cerradas (503).
+2. Cuando cargue las claves de email: `POST /api/admin/solicitudes
+   {"accion":"reintentar_emails"}` para enviar lo que quedó pendiente.
+3. Dar el OK al resumen de decisiones de arriba.
+4. Avisar al chat del sitio: URL del endpoint, contrato y CORS (arriba) para el
+   formulario y la CSP.
+5. Hacer el `git push` y el deploy (todo está en commits locales).
+6. Antes de un cambio de precio: correr `avisos_precio_vencidos` con `ejecutar:true`.
+7. Al desplegar, todas las cuentas existentes ven `/aceptar-terminos` en su próximo
+   ingreso (mayor de 18 y transferencia; los Términos ya aceptados no se repiten).
+
+## Diagnóstico de seguridad y correcciones (2026-10-15)
+
+Diagnóstico completo de la app (tipos, lint, build, dependencias, RLS, Storage, datos,
+producción). Sin errores de código ni datos huérfanos. Se corrigió:
+- **`routine_exercises` leíble por cualquier cuenta** (migración 102): había dos policies
+  SELECT, la abierta `using (true)` anulaba a la estricta (las policies se SUMAN con OR),
+  así que cualquier usuario logueado leía series/repeticiones de los planes de pago y de
+  las mentorías privadas. Se borró la abierta tras simular con las 23 cuentas reales (cada
+  una ve exactamente las filas de las rutinas que ya le corresponden). **Regla para el
+  futuro: nunca dejar una policy `using (true)` al lado de una estricta en la misma tabla
+  y comando.** `routine_dias` sigue con `using (true)` (solo grupos musculares por día).
+- **Subida al bucket público `ejercicios`** (migración 102): cualquier cuenta podía
+  subir archivos; ahora solo el coach (`es_coach()`). Los scripts usan la service role.
+- **Next.js 16.3.4 -> 16.4.1** (vulnerabilidad crítica en `next/og`, que la app no usa) y
+  `npm audit fix` para dos avisos transitivos: `npm audit --omit=dev` da 0.
+- **Encabezados de seguridad** en `next.config.ts`: `X-Frame-Options: DENY`,
+  `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy` y `Permissions-Policy` (sin
+  micrófono ni ubicación). No hay CSP completa a propósito (rompería Next/checkouts sin
+  poder probarla en todos los dispositivos).
+- Nota de build: si `next build` falla con tipos de una ruta que ya no existe, borrar la
+  carpeta `.next` (tipos generados viejos del servidor de desarrollo).
+- Informativo, sin acción: 214 de 259 ejercicios no tienen `video_url` (todos tienen GIF).
+
+## Cámara: análisis de movimiento en tiempo real (PROTOTIPO, 2026-10-16)
+
+Idea del coach: que al entrenar la persona use la cámara y la app detecte en vivo si el
+movimiento está bien, con el esqueleto dibujado en verde / amarillo / rojo y contador de
+repeticiones. **Reglas del coach: NO se graba nada, todo en tiempo real.**
+- **Cómo**: MediaPipe Pose (`@mediapipe/tasks-vision` 1.1.1, modelo `pose_landmarker_lite`)
+  corre en el navegador del teléfono por WebAssembly con GPU (fallback CPU). Modelo y wasm
+  se sirven desde `public/mediapipe/` (autoalojados, ~32 MB: `pose_landmarker_lite.task` bajado de
+  `storage.googleapis.com/mediapipe-models/...`, y `wasm/` copiado de node_modules). Los
+  fotogramas se procesan y se descartan: no hay MediaRecorder ni se exporta el canvas ni se
+  envía video; no requiere consentimiento de transferencia. Hay un cartel "no se graba".
+- **Piezas**: `src/lib/pose/geometria.ts` (ángulos, suavizado), `src/lib/pose/sentadilla.ts`
+  (analizador: ángulo de rodilla, inclinación del torso, contador de repeticiones por
+  máquina de estados, calificación de profundidad, filtro de cuadros glitch),
+  `src/components/camara-sentadilla.tsx` (cámara, bucle de detección, dibujo) y la página
+  `/entrenamiento/camara-prueba`, visible SOLO para las cuentas de `src/lib/prototipos.ts`
+  (hoy ezequiel.arce@outlook.com): aparece como "Cámara prueba" en Inicio y las demás cuentas
+  que abran la dirección vuelven al inicio. Cuando se publique para todos, sacar esa restricción.
+- **Motor v2 (2026-10-16, tras la primera prueba del coach en el A22)**: primera versión solo
+  medía de costado en 2D y se quedaba corta. Feedback del coach: líneas verdes intermitentes,
+  cabeza sin marcar, rodillas hacia adentro sin reacción, repeticiones rápidas o malas sin
+  contar, alerta poco notoria y falta de una corrección al final. Cambios: (1) ángulos en 3D con
+  `worldLandmarks` de MediaPipe (en metros, y positivo hacia abajo, ejes de la cámara), así
+  funciona de frente, de costado o en diagonal; (2) mide torso, cabeza (oreja-hombro-cadera),
+  rodillas hacia adentro y ancho de pies (estas dos solo de frente, con histéresis de
+  vista) y profundidad; (3) cuenta TODAS las repeticiones por giros del movimiento (también
+  cortas, rápidas o con rebote), marcando las malas en rojo; (4) todos los segmentos
+  evaluados siempre con color, borde parpadeante, mensaje grande y vibración ante rojo;
+  (5) botón "Terminar serie" con resumen y consejos por problema. Parado, todo va en verde
+  (solo se evalúa en movimiento). La profundidad se mide con el ángulo SIN suavizar (el
+  suavizado la subestimaba en repeticiones rápidas).
+- **Umbrales (provisorios; el coach los ajusta)** en `UMBRALES_SENTADILLA`: rodilla <= 100 verde
+  (muslo paralelo o más), <= 120 amarillo, > 120 rojo; torso <= 50 / <= 65; cabeza (ángulo
+  oreja-hombro-cadera) >= 125 verde, >= 105 amarillo; rodillas hacia adentro (fracción del
+  muslo) <= 0.08 / <= 0.16; pies (tobillos / hombros) 0.75-1.8 verde, 0.55-2.2 amarillo.
+  Calibrados con el modelo sobre un video real de sentadilla del catálogo: la cabeza
+  "neutra" mide 135-150 grados (la profundidad 3D de la oreja es ruidosa) y el ancho de pies
+  parado no es confiable. La línea de diagnóstico de la pantalla muestra torso, cabeza,
+  rodillas y pies en vivo para ajustar con datos de personas reales.
+- **Diseño para escalar**: cada ejercicio es un analizador con sus reglas; el plan es
+  convertirlo en "fichas" de datos (articulaciones, rangos verde/amarillo/rojo, cómo contar
+  una repetición) para sumar ejercicios sin programar de cero. Los límites de precisión son
+  conocidos por el coach (ayuda, no reemplaza a un profesional).
+- **Probado**: motor con secuencias sintéticas (conteo, profundidad, torso, ruido, rebotes,
+  visibilidad baja) y el circuito completo (modelo + wasm + GPU + dibujo) en Chrome con un
+  video de sentadilla del catálogo (61 fps en escritorio). Falta probar con la cámara real en
+  el teléfono del coach (Samsung A22).
+- Detalles técnicos: `/mediapipe/` está excluido del matcher del proxy (archivos públicos,
+  sin control de sesión) y del cache del service worker; el filtro de seguridad no bloquea
+  la cámara (`Permissions-Policy` solo bloquea micrófono y ubicación). `OrientationGuard` tapa
+  la pantalla en horizontal: la prueba es en vertical.
+- **Pendiente para la versión final de la cámara (pedido del coach 2026-10-16)**: que el permiso
+  de cámara se acepte UNA sola vez y después se active con un solo botón (o directo al abrir
+  la pantalla). Plan: consultar `navigator.permissions.query({ name: "camera" })`; si el
+  estado es `granted`, iniciar solo; si es `prompt`, mostrar un botón "Activar cámara" con una
+  explicación previa; si es `denied`, indicar cómo habilitarla en los permisos. En Android el
+  aviso ofrece "Mientras se usa la app" / "Solo esta vez": hay que elegir la primera para que
+  quede guardado. Otros pendientes: avisos por voz (para poder usar la cámara trasera sin ver
+  la pantalla) y guía en pantalla de distancia/encuadre.
+
+## Pagos fuera de la app (decisión del coach, 2026-10-17)
+
+Decisión: **la app no cobra ni muestra precios**; todo el cobro pasa por el sitio web
+(fit.krakenbrand.com). Motivo: las reglas de Apple y Google para publicar en tiendas.
+- **Verificado 2026-10-17 (revisar de nuevo antes de publicar; las reglas cambian)**:
+  - Apple 3.1.1: funciones o suscripciones digitales desbloqueadas dentro de la app deben usar
+    la compra de Apple (15%-30%). 3.1.3(f): una app GRATIS que acompaña a un servicio web de pago
+    queda exenta solo si no vende nada adentro y NO hay llamados a comprar afuera; sus ejemplos
+    son VoIP, almacenamiento, email y hosting (una app de entrenamiento es criterio del revisor).
+    "Reader apps" = revistas, diarios, libros, audio, música, video. Fuera de EE.UU., botones,
+    links o textos que lleven a comprar por otro medio exigen el permiso "StoreKit External
+    Purchase Link" (no se encontró ninguno que incluya Argentina) => tratarlo como prohibido.
+    EE.UU.: hoy se permiten esos links sin comisión (Epic v. Apple) pero la Corte Suprema lo
+    revisa y Apple propuso en agosto 2026 cobrar 5%-15%. 3.1.3(d): entrenamiento personal en vivo
+    1 a 1 puede usar otro medio de pago, pero igual no se puede invitar a comprar desde la app.
+  - Google Play: suscripciones de fitness vendidas adentro exigen su facturación. Apps de solo
+    consumo (iniciar sesión y acceder a lo comprado afuera) están permitidas y pueden MENCIONAR
+    otras formas de comprar sin links directos; el entrenamiento personal 1 a 1 no repetible
+    está exento; links a páginas de administración de la cuenta se permiten.
+  - La app instalada desde el sitio (PWA) NO está sujeta a las reglas de las tiendas.
+- **Qué se hizo**: la pantalla `/golden` pasó a ser **"Tu acceso"**, informativa (sin precios ni
+  botones de pago; se conserva la ruta porque el proxy manda ahí al acceso vencido y el cobro la
+  usa de retorno). El banner de prueba gratis solo informa. Inicio ya no tiene la tarjeta de
+  Golden. "Conocer Golden" se reemplazó por "Ver mi acceso". Se borraron
+  `selector-plan-golden.tsx` y `nota-legal-suscripcion.tsx`. Las rutas
+  `/api/checkout/*` (incluidas las de Golden) SE CONSERVAN: el sitio las usa como destino de
+  sus botones de compra.
+- **Interruptor `MODO_TIENDA`** (`src/lib/modo-tienda.ts`, variable `NEXT_PUBLIC_MODO_TIENDA=1`):
+  para la versión de tienda esconde TODO enlace que lleve a comprar (Inicio: planes, mentorías y
+  "Sitio web"; Tu acceso; Mis PDFs; aviso de cobro rechazado queda solo texto). Apagado (web/PWA)
+  mantiene un enlace al sitio para quien necesite conseguir o renovar su acceso. En la versión
+  de tienda además: sin login con Google/Facebook en iPhone (o agregar Sign in with Apple), con
+  borrado de cuenta dentro de la app, y revisar la regla 4.2 (web envuelta). El aviso de cambio de
+  precio a suscriptores existentes y los botones legales de arrepentimiento/baja (Disp. 954/2025)
+  se mantienen: son consultas para Apple (ver borrador abajo).
+- **Golden pasa a venderse SOLO en el sitio**: se le pidió al chat del sitio una página con
+  los botones a `/api/checkout/golden/{mercadopago|paypal}?frecuencia=mensual|anual`, los precios
+  (mensual ARS 19.500 / USD 12,99; anual ARS 150.000 / USD 99) y la nota legal de renovación, baja y
+  arrepentimiento. **No subir este cambio de la app hasta que esa página esté publicada** (si no,
+  Golden queda sin forma de comprarse).
+- **Consulta a App Review**: borrador listo en el escritorio (`CONSULTA-APP-REVIEW-borrador.md`).
+  Se envía desde App Store Connect con cuenta del Apple Developer Program (de pago anual); no se
+  envió porque no hay cuenta y hay que gastar lo mínimo hasta decidir publicar en iPhone.
+- **"Tu acceso" (2026-10-19, maqueta aprobada por el coach)**: con acceso vencido (ej. terminó la
+  prueba gratis) la pantalla `/golden` muestra el texto ("Tu prueba gratis terminó." o "Tu acceso
+  terminó."), un botón principal grande "Elegir mi plan en el sitio web" (a `URL_PLANES`), tres
+  accesos directos (Golden -> `URL_GOLDEN`, Mentoría -> `URL_MENTORIAS`, Planes autoguiados ->
+  `URL_PLANES`) y debajo "¿Ya compraste y no ves tu plan?", "Ir a mi perfil" y "Ayuda con mi
+  acceso". SIN "Entrar a la app" (el proxy lo devolvía a la misma pantalla en círculo). Con acceso
+  vigente sí hay "Entrar a la app". En `MODO_TIENDA` no hay botón ni accesos a comprar.
+  **Pendiente**: página particular del sitio web para quien llega desde la app, con un botón
+  propio (el coach la va a describir).
+
+## Modalidad de carga por ejercicio (migración 103, en construcción 2026-10-19)
+
+- `exercise_definitions.modalidad_carga`: `con_peso` | `peso_corporal` | `banda` | `tiempo`. Define qué campos pide la tarjeta de registro (`components/exercise-card.tsx`) y qué columnas guarda `registrarSets` (la modalidad se lee de la base en el servidor, nunca del cliente).
+- `workout_logs`: `lastre` (kg extra, solo peso corporal; el campo siempre se muestra vacío y es opcional), `segundos` (tiempo), `peso_corporal_ref` (peso de Medidas al registrar). En peso corporal, banda y tiempo `peso` queda null.
+- `lib/carga.ts`: modalidades, `FACTOR_PESO_CORPORAL` (flexiones por Ebben 2011: 0,64 común / 0,49 rodillas / 0,70 pies elevados; dominadas, fondos y ejercicios a una pierna 1,0 = estimación; abdominales, hiperextensiones, etc. sin factor a propósito), `cargaEfectiva`, `textoSerie`.
+- Análisis ("Tu progreso", `lib/progreso-simple.ts` → `adaptarPesoCorporal`): sin lastre se compara por repeticiones; con lastre, base fija de cuerpo (peso corporal más reciente) + lastre, así variar de peso no cuenta como progresar. Las frases hablan solo del lastre.
+- Orden de despliegue: aplicar la migración 103 ANTES del push (las páginas seleccionan las columnas nuevas). La limpieza de registros viejos (108 filas de ejercicios de peso corporal con el peso del cuerpo cargado como `peso`) es aparte y requiere OK del dueño caso por caso.
+- Pendiente: ejercicios por tiempo sin asignar (plancha/isométricas siguen en repeticiones hasta decidir); analizador viejo (`lib/analytics.ts`) aún ignora estas modalidades.
+
+## Contador universal de repeticiones con cámara (prototipo, 2026-10-20)
+
+- `lib/pose/picos.ts` + `contador.ts` + `components/contador-camara.tsx`: botón de cámara en cada ficha (solo `esUsuarioDePrototipos`). Sin calibrar por ejercicio: se muestrean 11 señales a 10 Hz (codos, rodillas, cadera, brazos, altura, y cada lado por separado), se cuentan los picos y valles con prominencia relativa al rango de cada señal (la corrida más larga de picos parejos) y se elige el número en el que más señales coinciden (±1); lados alternados se suman, lados juntos no.
+- Se validó repitiendo series REALES guardadas en `pose_sesiones_prueba` (migración 104: solo números, sin video) contra lo que el usuario dejó como final: error absoluto 5 en 5 series (el contador por umbrales fijos anterior: 6). Pendiente: seguir ajustando con más series (`scratchpad/replay2.cjs` baja las series y las repite).
+- Lección: probar SIEMPRE con movimientos no-ejercicio (acomodar el celular, agacharse una vez, caminar, gesticular), no solo con series limpias. Caminar (el torso se desplaza) se descarta; una corrida corta (<7) solo vale si es muy pareja. Simulación de 40 s de movimiento aleatorio brusco: ~21 % produce algún conteo falso.
+- Flujo: se arma solo con 1 s de buen encuadre (evaluarEncuadre: ancho de hombros, bordes), canta las repeticiones, avisa fin de serie (3 s sin picos o 2,2 intervalos) y congela el conteo (botón "Seguir contando"). Al terminar: RIR estimado por enlentecimiento (prueba), rango y tempo informativos, dictado de peso/RIR por voz (reconocimiento del navegador: Chrome envía el audio a su servicio; por eso `microphone=(self)` en next.config y solo en prototipos), modelo precargado al entrar al día (`landmarker-cache.ts`), abre sola en ejercicios donde se usó, se apaga a los 3 min sin actividad.
+- Limitaciones: series de menos de 4 repeticiones no se validan solas (+1/−1); hace falta el torso en cuadro.
+
+## Panel global de progreso (prototipo, 2026-10-20)
+
+- `/progreso/prueba` (solo cuentas de prototipos; `?demo=1` = 16 semanas de datos de demostración): `lib/progreso-global.ts` + `components/progreso-global.tsx` + `lib/estandares-fuerza.ts`. Dos pantallas deslizables: (1) veredicto + fuerza total (índice encadenado semana a semana, base 100) + "Mis levantamientos" (3 con más historial, con nivel) + récords del mes + resumen de la última semana; (2) calendario de constancia (12 semanas), equilibrio empuje/tracción y arriba/abajo, medidas y botón "Compartir mi progreso" (imagen PNG dibujada en el teléfono).
+- Niveles: tablas de StrengthLog (kg por peso corporal y sexo; principiante 5 %, novicio 25 %, intermedio 50 %, avanzado 75 %, élite 95 % de sus levantadores) para banca (32/269/271), sentadilla (123), peso muerto (59/241) y press militar con barra (169); interpolación lineal por peso corporal. Hace falta `profiles.sexo` y un peso en Medidas.
+- NO hay curva "esperable por antigüedad" porque no encontré una publicada con números confiables; en su lugar se muestra el ritmo propio (últimos 2 meses vs. antes).
+- Pendiente: reemplazar la pestaña "Global" de /progreso/entrenamiento por este panel, línea de tiempo con fotos de evolución, tarjeta de resumen semanal como notificación.
+
+## Diagnóstico de velocidad y seguridad (2026-10-22)
+
+- **Seguridad (migración 109):** `buscar_usuario_por_email` ya no es ejecutable por anon/authenticated (permitía enumerar correos registrados con la clave pública); solo service_role. Funciones de trigger sin permiso público y con `search_path` fijo. `es_coach()` queda ejecutable (lo usan las políticas RLS). `npm audit fix` (follow-redirects). Pendiente en el panel de Supabase: activar protección contra contraseñas filtradas (Auth). Avisos que quedan a propósito: 10 tablas con RLS y sin políticas (solo service role).
+- **Imágenes de ejercicios (migración 110):** los 259 GIF pasaron a WebP animado de 480 px (165 MB -> 27 MB) en `ejercicios/webp/<id>-<hash>.webp` con caché de 1 año; los GIF originales siguen en el bucket y `supabase/rollback_110_imagenes_gif.sql` revierte las URLs. Al agregar un ejercicio nuevo, subir WebP (no GIF) con `cacheControl: "31536000"` y nombre con hash.
+- **Caché de estáticos:** `next.config.ts` cachea `/mediapipe` (inmutable) y `/section-icons`, `/icons` (1 día + revalidación en segundo plano). `loading="lazy"` en las imágenes de las fichas.
+- **RLS (migración 111):** 39 políticas con `(select auth.uid())` / `(select public.es_coach())` (se evalúan una vez por consulta) + 18 índices en claves foráneas. Verificado: mismos conteos por usuario antes/después. Sin tocar: 10 políticas permisivas duplicadas en `profiles` y `formularios_ingreso`.
+- **Sesión sin red:** `lib/supabase/usuario.ts` (`obtenerUsuario`, usa `getClaims()` con las claves ES256 del proyecto) en el proxy, el layout y las páginas; `auth.getUser()` (con viaje a Supabase) se mantiene en server actions, rutas de API y webhooks. Medido: getClaims 1 ms vs getUser 2-11 s desde una PC en Argentina. Consecuencia aceptada: una cuenta eliminada o bloqueada conserva lectura hasta que vence el token (~1 h). El proxy hace en paralelo la consulta de aceptaciones y la de perfil.
+
+## Potencial muscular estimado (2026-10-26)
+
+- **Ubicación (2026-10-26, a pedido del coach): solo en Análisis > Medidas**, con dos pestañas ("Comparar" y "Potencial muscular", `components/medidas-analisis.tsx`); `/medidas/potencial` redirige a `/progreso/medidas?tab=potencial` y ya NO hay acceso desde Perfil > Mis medidas. Antes: `/medidas/potencial` (para todos los usuarios): `lib/potencial-muscular.ts` + `components/potencial-muscular-cliente.tsx`. Modelo de Casey Butt (4.ª edición): masa magra máxima = altura(in) × (muñeca/7,2546 + tobillo/5,9772) × (grasa/450 + 1); peso = masa magra / (100 − grasa) × 100; perímetros máximos (cuello, pecho, bíceps, antebrazo, muslo, pantorrilla) con multiplicadores por muñeca o tobillo y la grasa, con rangos.
+- Las constantes salen de una implementación pública (bonytobeastly.com/maximum-muscular-potential-calculator), NO se cotejaron contra el libro. Control: el ejemplo de esa página (6'2", muñeca 6,75 in) da bíceps ≈ 16 in. Si alguien consigue el libro, verificar las constantes.
+- Todo se calcula en el teléfono; el tobillo se recuerda solo en localStorage (no hay columna `tobillo` en `body_measurements`; sí `muneca` y `altura`). Siempre muestra que es una estimación (modelo con datos de varones de élite, no un techo; una cifra más exacta requiere DEXA). Holway (relación músculo/hueso, 5:1 en hombres, 4:1 en mujeres) necesita DEXA y no se implementó.
+
+- **Tres métodos (2026-10-26):** en la pestaña "Potencial muscular" de Análisis > Medidas hay botones abajo para elegir: Casey Butt (altura, muñeca, tobillo, grasa objetivo), FFMI de Kouri 1995 (FFMI = masa magra/altura² + 6,1×(1,8−altura); referencia 25; necesita peso y % de grasa actual) y regla de Berkhan (altura−100 kg en definición extrema, +2,3 a 4,5 kg para todos los días). Cada uno muestra "cómo se calcula" y el aviso de que son estimaciones. Holway (relación músculo/hueso por fraccionación antropométrica de Kerr y Ross: diámetros óseos, pliegues y perímetros con constantes del Phantom) NO se implementó: solo se consiguieron constantes parciales y ambiguas; hace falta el artículo de Kerr 1988 o la planilla de Holway.
+
+## Diagnóstico general, catálogo duplicado y "Crea tu rutina" (2026-10-30, migración 112)
+
+El coach pidió un diagnóstico de toda la app, sobre todo de "Crea tu rutina", y avisó que había GIF repetidos con nombres distintos.
+
+### Catálogo: ejercicios duplicados (tercera ronda, migración 112)
+
+- **Método** (el MD5 solo no alcanza, ya lo había dicho la ronda de la migración 056): `node scripts/detectar-ejercicios-duplicados.mjs [--umbral N] [--candidato archivo.gif]`. Calcula un hash perceptual (dHash de 64 bits) de 4 cuadros de cada imagen del catálogo y la distancia promedio entre pares (0 = misma animación, ≤ 2 casi seguro lo mismo, 3 a 6 hay que mirar a ojo; los de banda elástica dan falsos positivos por el fondo). Después se miró cada par a ojo (hoja de contacto con 3 cuadros por ejercicio) y se rastreó de qué archivo de la biblioteca salió cada imagen: **251 de los 259 `imagen_url` son copias exactas (sha1) de un archivo de `D:\PROYECTO FITNESS\VIDEOS\RECURSOS\TECNICAS DE EJERCICIOS\EJERCICIOS\`**, así se sabe con qué nombre lo guardó el coach y si hay otro archivo sin usar.
+- **REGLA DE PROCESO (la misma de la 056, ahora con herramienta): ANTES de cargar cualquier ejercicio nuevo, correr `--candidato` con su GIF contra todo el catálogo y leer a ojo la lista completa de nombres del grupo.** Los duplicados volvieron a entrar porque cada tanda solo se comparó con MD5.
+- **Fusionados (11; catálogo 259 -> 248; APLICADA el 2026-10-31 con backup previo, verificada: 1148 series, 0 referencias en NULL)**, todo en `supabase/migration_112_fusionar_ejercicios_duplicados.sql`, con respaldo en `public.ejercicios_fusion_112` y rollback en `supabase/rollback_112_fusion_ejercicios.sql` (probados en transacción revertida: la migración deja las 1148 series y las 555 filas de rutinas intactas, y migración + rollback devuelve las tablas idénticas). Duplicado -> el que queda:
+  276 -> 292 (Tríceps katana, ahora «Tríceps katana (extensión sobre la cabeza en polea a un brazo)»; mismo archivo de la biblioteca), 86 -> 85 (Crunch básico = Crunch abdominal; el video de 86 pasó a 85), 143 -> 136 (Dorsales en polea alta agarre supino = Jalón al pecho ... agarre supino), 145 -> 30 (Pulldown a un brazo en polea alta = Jalón lateral con polea a un brazo), 168 -> 34 (el que queda se llama «Press militar en máquina Smith», el nombre que ve Anti-Flakardo), 146 -> 240 (Remo parado con barra agarre cerrado = Remo landmine con barra: dos ilustraciones del mismo ejercicio), 273 -> 73 (la imagen de «Aperturas ... en el piso con rodillo» era la misma animación de las aperturas con mancuernas y no mostraba rodillo), 2 -> 111 (Cuádriceps en prensa = Prensa de piernas 45°: 5 series y 4 filas de rutinas pasaron a 111, que hereda `alternativa_id` = 81), 88 -> 96 (Elevación de cadera con rodillas flexionadas = Crunch inverso; el video de 88 pasó a 96), 93 y 214 -> 91 (la tríada de abdominales con la misma animación, confirmada por el coach: queda «Elevación de rodillas sentado con apoyo de manos» con el texto del 93; 21 series y 7 filas de rutinas pasaron al 91; se actualizó el nombre en `clientes/*.json` y `rutinas-estandarizadas/`).
+- **Imagen corregida, no fusionado:** 271 «Press de banca con barra (pies en el banco)» tenía la MISMA animación que 32 (press de banca común). Se le puso la correcta de la biblioteca (`PECTORALES/BENCH-PRESS-FEET-UP/Bench-press-feet-up (GIF pack).gif`, convertida a WebP de 480 px como las demás: `ejercicios/webp/271-dc749fdd.webp`). También la errata «Elevacion» -> «Elevación lateral con mancuernas» (14).
+- **A propósito NO se fusionó (decisiones previas del coach o variantes reales; no volver a proponerlo sin un motivo nuevo):** 162/283 (el coach corrigió en la 078: el ancho de agarre distingue variantes de press de banca), 41 frente a 240/146 (manija en T frente a barra directa, evaluado en la 068), 190/44 (la pelota es un implemento: regla "agarre o implemento distinto SIEMPRE es un ejercicio separado"), 22/278 (el coach dio «polea lateral a un brazo» por ejercicio genuino en la 077), 25/238, 157/158, 1/180 y los pares unilateral/bilateral (20/228, 6/130, 111/229) aunque la imagen se parezca.
+- **Otros hallazgos sin tocar:** 104 «Activación de glúteo de rodillas con banda» muestra una elevación lateral de pie; 73 «Aperturas con mancuernas» muestra un banco declinado.
+- **Cómo fusionar en el futuro (así se hizo):** (1) mapa duplicado -> canónico; (2) respaldar; (3) **re-apuntar `routine_exercises`, `workout_logs`, `pose_sesiones_prueba` y `alternativa_id` ANTES de borrar**: las claves foráneas hacia `exercise_definitions` son `ON DELETE SET NULL`, borrar primero deja el historial sin ejercicio; (4) borrar; (5) verificar conteos y que no quede ninguna referencia en NULL; (6) agregar el id viejo a `src/lib/ejercicios-fusionados.ts` (lo usan `registrarSets`, `guardarSesionPose` y el borrador de "Crea tu rutina" para no romper pestañas abiertas, PWA en caché ni borradores guardados; solo se aplica cuando el id viejo YA NO existe); (7) si el nombre que desaparece está en `clientes/*.json` o `rutinas-estandarizadas/`, actualizarlo ahí. `exercise_definitions.id` es columna de identidad: para recrear un id hace falta `OVERRIDING SYSTEM VALUE` (lo usa el rollback).
+
+### "Crea tu rutina": lo que se arregló
+
+- **Validación única** (`src/lib/validar-rutina.ts`, usada en la pantalla y en el servidor): nombre de 1 a 60 letras; 1 a 7 días; grupos musculares válidos; 1 a 20 ejercicios por día; sin ejercicios repetidos en el mismo día (el historial se indexa por ejercicio y día, `lib/clave-ejercicio-dia.ts`: dos tarjetas del mismo ejercicio compartirían los registros); series 1 a 10; repeticiones 1 a 100 con mínimo <= máximo; RIR 0 a 5 en pasos de 0,5. Antes un POST directo podía guardar 0 series, negativos, decimales o cientos de ejercicios.
+- **Servidor** (`crear-rutina/actions.ts`): comprueba que los ejercicios existan antes de crear nada; si algo falla a mitad de la creación **borra la rutina** (antes quedaba una rutina a medio armar que nadie veía); la **edición guarda una copia de lo que había y la restaura** si falla (antes borraba todo y reinsertaba: un error dejaba la rutina vacía); tope de 50 rutinas propias por usuario; los errores de la base ya no se muestran crudos (van al log del servidor). Devuelve `ResultadoGuardado`: si la rutina quedó guardada pero no se pudo activar, `activada: false` y la pantalla abre su detalle (reintentar creaba una copia).
+- **Pantalla** (`crear-rutina-cliente.tsx`): `CampoNumero` (texto con teclado numérico: se puede vaciar el campo sin que pase a 0, el mínimo de repeticiones arrastra al máximo y al revés, se ajusta al rango al salir, el RIR acepta coma); búsqueda sin tildes y por varias palabras (`lib/buscar-ejercicios.ts`: «triceps» encuentra «Tríceps»); el ejercicio ya agregado queda marcado con ✓ y deshabilitado; imágenes del selector con `loading="lazy"` (sin eso bajaba hasta ~10 MB de una vez al elegir 3 grupos); el borrador de localStorage ahora es **por usuario** (`kraken-crear-rutina-borrador:<id>`; la clave vieja, común a todo el teléfono, se rescata una vez y se descarta) y se **sanea contra el catálogo de hoy** (`lib/borrador-rutina.ts`: ids fusionados, ejercicios que ya no existen, números fuera de rango).
+- **Pruebas** (no están en el repo; repetirlas si se toca esto): la lógica pura con TypeScript transpilado y la pantalla real en jsdom con las acciones del servidor simuladas (152 + 78 comprobaciones). El navegador integrado no llega al servidor de desarrollo de esta carpeta cuando lo tiene otro chat, por eso se usó jsdom.
+
+### Resto del diagnóstico
+
+- **Lint:** `eslint.config.mjs` ahora ignora `public/**` (el WASM de MediaPipe, código de terceros, daba 10 errores y unos 500 avisos que tapaban los del código propio) y `.claude/**`; quedan 0 errores y solo avisos de `<img>`. Se sacó una variable sin usar de `contador-camara.tsx`. `tsc --noEmit` limpio.
+- **Datos:** 0 filas de rutinas o de series sin ejercicio; las rutinas armadas por usuarios (17, 21, 29) tienen días, `routine_dias` y acceso coherentes; 24 filas de `routine_exercises` con `routine_id` null son del primer import del Excel (nadie las usa, se dejaron). La rutina 13 (Rocío Pace), día C, tiene «Abducción de cadera en polea» (id 76) dos veces a propósito del coach (activación al empezar y 3 x 15 al final): como el historial se indexa por ejercicio y día, las dos tarjetas comparten el registro de series de ese día. "Crea tu rutina" no permite repetirlo; una rutina del coach sí.
+- **Riesgo latente sin tocar:** `workout_logs.exercise_id` tiene clave foránea a `routine_exercises(id)` con `ON DELETE CASCADE`; la columna está vacía (0 de 1148 y nada la escribe), pero si algún día se usara, editar una rutina (que borra y recrea `routine_exercises`) borraría esas series.
+- **Avisos de Supabase** sin cambios respecto del 2026-10-22: `es_coach` ejecutable por anon/authenticated (la usan las políticas), protección contra contraseñas filtradas (se activa en el panel de Auth), 10 políticas permisivas duplicadas, índices sin uso.
+
+## Rutina "KRAKEN DEFINITIVA" y bloques de ejercicios / biseries (2026-11-02, migración 113)
+
+- **Rutina** `routines.id = 31`, privada, con acceso solo para `ezequiel.arce@outlook.com` y SIN activar (sigue activa Kraken Split, id 7). Push/Pull/Legs de 6 días: A=Push A, B=Pull A, C=Legs A, D=Push B, E=Pull B, F=Legs B (lunes a sábado; la app no modela días de la semana). 37 ejercicios; series y repeticiones puestas con criterio propio (el coach no las dio): se ajustan desde la rutina. Interpretaciones: gemelos de pie = Elevación de talón en máquina Smith (10), sentado = en máquina (79), curl femoral tumbado = 6, tríceps unilateral en polea = 22, remo unilateral en polea = 42, curl predicador unilateral = 5 (polea), jalón al pecho en máquina = Dorsales en máquina (9). Ejercicio nuevo: «Aperturas de pecho en anillas» (GIF `CALISTENIA/Crucifixo com TRX.gif`, WebP `webp/aperturas-anillas-fe2c9bc0.webp`).
+- **Drop set de Pull A -> biserie** (decisión del coach): dominadas lastradas + jalón en máquina; la fase de dominadas sin lastre se registra en las lastradas con lastre 0. NO se tocó el sistema de drop sets (Kraken Dorian sigue igual). Pull A y Pull B llevan el circuito de abdominales de siempre (banco declinado + elevación de piernas colgado) como biserie.
+- **Bloques** (aditivo, nullable): `routine_exercises.bloque` (número dentro del día), `bloque_titulo`, `bloque_descanso_entre_s`, `bloque_descanso_final_s`. Filas consecutivas del mismo día con el mismo `bloque` forman una ronda (un bloque de un solo ejercicio no cuenta). Descansos usados: gemelos 75 s entre ejercicios y 90 s al cerrar la ronda; dominadas + jalón 20 s y 150 s; abdominales 20 s y 60 s.
+- **Código:** `src/lib/bloques.ts` (puro: `infoDeBloques`, `agruparBloques`, `transicionBloque`), `entrenamiento/[dia]/page.tsx` pasa `bloque` a cada ejercicio y `entrenamiento-dia-cliente.tsx` los muestra juntos bajo «BISERIE n — TÍTULO» (con el orden y los descansos) y, al guardar una serie, pasa solo al ejercicio siguiente con el descanso corto; al cerrar la ronda vuelve al primero con el descanso de cierre; en la última ronda queda el descanso común. Cada ejercicio conserva sus propias series, historial y progreso (workout_logs no cambia). Los bloques solo funcionan con ejercicios bilaterales. Pendiente: la vista previa de rutinas (`rutinas/[id]/[dia]`) y la vista de coach todavía muestran los ejercicios de un bloque sin agrupar.
+- **Orden de despliegue:** la página del día lee las columnas nuevas, así que la migración tiene que estar aplicada ANTES de subir ese código.
