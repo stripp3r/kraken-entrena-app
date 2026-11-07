@@ -369,3 +369,10 @@ SQL Editor. Estado al 2026-10-12:
 - Potencial muscular estimado (2026-10-26)
 - Diagnóstico general, catálogo duplicado y "Crea tu rutina" (2026-10-30, migración 112)
 - Rutina "KRAKEN DEFINITIVA" y bloques de ejercicios / biseries (2026-11-02, migración 113)
+
+## Seguridad de `profiles` (migración 114, aplicada 2026-11-07)
+- `authenticated`/`anon` NO pueden editar por la API: `role`, `premium_hasta`, `golden_perpetuo`, `premium_origen`, `modalidad_mentoria`, `id`, `created_at`. Tampoco INSERT/DELETE/TRUNCATE sobre `profiles`. Esos campos solo los cambian service_role (`createAdminClient()`), postgres (SQL Editor) y funciones SECURITY DEFINER.
+- Es una lista blanca de columnas (nombre, apellido, sexo, edad, objetivo, actividad_fisica, fecha_nacimiento, routine_id, updated_at, disclaimers, tiene_rutinas_nuevas, tiene_pdfs_nuevos). **Columna nueva en `profiles` que el usuario deba editar con su sesión:** `grant update (columna) on public.profiles to authenticated;` — si no, falla con "permission denied".
+- Nunca escribir campos de plan/rol con el cliente de sesión del usuario: usar el admin client.
+- Verificación: `supabase/verificacion_114_profiles_permisos.sql` (termina en ROLLBACK). Rollback: `supabase/rollback_114_profiles_permisos.sql` (reabre el agujero).
+- `scripts/migrar.mjs` marca como "destructiva" una migración que contiene `REVOKE ... TRUNCATE` (falso positivo); se confirma con `--permitir-destructivo`.
