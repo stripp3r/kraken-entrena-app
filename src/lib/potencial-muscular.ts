@@ -9,7 +9,7 @@
 // Es una ESTIMACIÓN: el modelo se armó con datos de atletas masculinos de élite del siglo pasado, es un promedio
 // de lo que logran personas bien dotadas y no un techo, y no contempla genética muscular, hormonas ni años de
 // entrenamiento. Una cifra más exacta requiere más análisis (composición corporal por DEXA, antropometría
-// completa; el modelo de Fran Holway de relación músculo/hueso, por ejemplo, necesita DEXA).
+// completa; el modelo de Fran Holway de relación músculo/hueso está más abajo y pide dos diámetros óseos medidos con calibre).
 // Funciones puras, en unidades métricas (cm / kg); internamente se trabaja en pulgadas y libras como el original.
 
 const CM_POR_PULGADA = 2.54;
@@ -131,4 +131,34 @@ export type ResultadoBerkhan = {
 export function berkhan(alturaCm: number): ResultadoBerkhan {
   const base = alturaCm - 100;
   return { pesoDefinicionKg: redondear(base), pesoCotidianoMinKg: redondear(base + 2.3), pesoCotidianoMaxKg: redondear(base + 4.5) };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Modelo de Fran Holway: relación músculo/hueso.
+// Idea (Holway, 2011): las inserciones de los tendones limitan cuánto músculo puede sostener un hueso, y en la práctica los
+// atletas varones que buscan el máximo de músculo se estancan en una relación músculo/hueso de ~5,0 (~4,2 en mujeres).
+// Es experiencia de campo, no un estudio controlado. La masa ósea se estima con la ecuación de Rocha (1975, modificación de
+// Von Döbeln), que necesita la altura y dos diámetros óseos (muñeca biestiloideo y fémur biepicondíleo), todos en metros:
+//   masa ósea (kg) = 3,02 × (altura² × diámetro de muñeca × diámetro de fémur × 400)^0,712
+// Las constantes salen de fuentes secundarias (resúmenes del artículo de PeerJ 17506 y del artículo de Holway de 2011);
+// NO se pudieron cotejar contra el paper original. La masa muscular máxima = relación × masa ósea.
+// ---------------------------------------------------------------------------------------------------------------
+export const RELACION_MUSCULO_HUESO = { masculino: 5.0, femenino: 4.2 } as const;
+
+export type EntradaHolway = { alturaCm: number; munecaOseaCm: number; femurOseoCm: number; sexo: "masculino" | "femenino" };
+export type ResultadoHolway = { masaOseaKg: number; relacion: number; masaMuscularMaxKg: number };
+
+export function datosHolwayValidos(e: EntradaHolway): boolean {
+  return (
+    Number.isFinite(e.alturaCm) && e.alturaCm > 120 && e.alturaCm < 230 &&
+    Number.isFinite(e.munecaOseaCm) && e.munecaOseaCm >= 4 && e.munecaOseaCm <= 8 &&
+    Number.isFinite(e.femurOseoCm) && e.femurOseoCm >= 7 && e.femurOseoCm <= 12
+  );
+}
+
+export function holway(e: EntradaHolway): ResultadoHolway {
+  const h = e.alturaCm / 100;
+  const masaOsea = 3.02 * Math.pow(h * h * (e.munecaOseaCm / 100) * (e.femurOseoCm / 100) * 400, 0.712);
+  const relacion = RELACION_MUSCULO_HUESO[e.sexo];
+  return { masaOseaKg: redondear(masaOsea), relacion, masaMuscularMaxKg: redondear(masaOsea * relacion) };
 }

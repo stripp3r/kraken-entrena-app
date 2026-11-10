@@ -381,3 +381,8 @@ SQL Editor. Estado al 2026-10-12:
 - Rutina privada (id 32) para el gimnasio comercial, copia de KRAKEN DEFINITIVA con Legs A (C) y Legs B (F) rehechos con máquinas (belt squat en Legs B, no en A: ya hay demasiado cuádriceps); biserie de gemelos (10 + 79) conservada. Sin activar. Push/Pull (A, B, D, E) sin cambios hasta que el coach pase las máquinas del gimnasio.
 - Ejercicios nuevos: "Sentadilla pendular" (id 295; animación de 2 posiciones armada con 2 imágenes del coach, `webp/sentadilla-pendular-599f3757.webp`) y "Belt squat" (id 296; GIF del coach en `webp/belt-squat-8dd6e3ed.webp`). La pendular se puede reemplazar por video real grabado en el gimnasio. Legs A: pendular, hack, extensión, hip thrust (id 64); Legs B: belt squat, hiperextensiones (id 29), sin peso muerto.
 - Pendiente: hip thrust en máquina (hoy Legs B usa "Empuje de caderas" con barra, id 64) y rehacer Push/Pull con las máquinas reales.
+
+## Potencial muscular: método Holway (2026-11-10)
+- 4.º método en Análisis → Potencial muscular (`src/lib/potencial-muscular.ts` → `holway()`, UI en `potencial-muscular-cliente.tsx`). Relación músculo/hueso de Fran Holway: masa ósea por ecuación de Rocha (3,02 × (altura² × diám. muñeca × diám. fémur × 400)^0,712, en metros) × 5,0 (varones) o 4,2 (mujeres) = masa muscular máxima.
+- Pide DIÁMETROS óseos (muñeca biestiloideo 4–8 cm, fémur biepicondíleo 7–12 cm) medidos con calibre; se guardan solo en localStorage, igual que tobillo y % de grasa. Constantes de fuentes secundarias, NO cotejadas con el paper original (está dicho en la pantalla).
+- No da % de potencial alcanzado: requeriría saber la masa muscular actual (antropometría completa o DEXA).

@@ -5,9 +5,11 @@ import { aNumero, limpiarDecimal } from "@/lib/numero";
 import {
   berkhan,
   datosFfmiValidos,
+  datosHolwayValidos,
   datosValidos,
   FFMI_REFERENCIA,
   ffmiPotencial,
+  holway,
   porcentajeAlcanzado,
   potencialMuscular,
   type Rango,
@@ -32,15 +34,22 @@ export type UltimaMedida = {
   gemelos: number | null;
 };
 
-type Metodo = "butt" | "ffmi" | "berkhan";
+type Metodo = "butt" | "ffmi" | "berkhan" | "holway";
 
 const METODOS: { id: Metodo; nombre: string; detalle: string }[] = [
   { id: "butt", nombre: "Casey Butt", detalle: "Estructura ósea" },
   { id: "ffmi", nombre: "FFMI", detalle: "Masa libre de grasa" },
   { id: "berkhan", nombre: "Berkhan", detalle: "Regla de la altura" },
+  { id: "holway", nombre: "Holway", detalle: "Relación músculo/hueso" },
 ];
 
-const CLAVES = { tobillo: "kraken_potencial_tobillo", grasaObj: "kraken_potencial_grasa", grasaActual: "kraken_potencial_grasa_actual" };
+const CLAVES = {
+  tobillo: "kraken_potencial_tobillo",
+  grasaObj: "kraken_potencial_grasa",
+  grasaActual: "kraken_potencial_grasa_actual",
+  munecaOsea: "kraken_potencial_muneca_osea",
+  femurOseo: "kraken_potencial_femur_oseo",
+};
 // Siempre con un decimal como máximo (evita colas como 70,69999999999999 por el punto flotante).
 const num = (n: number) => String(Math.round(n * 10) / 10).replace(".", ",");
 const campo = "w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500";
@@ -131,6 +140,8 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
   const [tobillo, setTobillo] = useState("");
   const [grasaObj, setGrasaObj] = useState("10");
   const [grasaActual, setGrasaActual] = useState("");
+  const [munecaOsea, setMunecaOsea] = useState("");
+  const [femurOseo, setFemurOseo] = useState("");
   const [editando, setEditando] = useState(false);
 
   useEffect(() => {
@@ -138,10 +149,14 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
       const t = window.localStorage.getItem(CLAVES.tobillo);
       const g = window.localStorage.getItem(CLAVES.grasaObj);
       const ga = window.localStorage.getItem(CLAVES.grasaActual);
+      const mo = window.localStorage.getItem(CLAVES.munecaOsea);
+      const fo = window.localStorage.getItem(CLAVES.femurOseo);
       /* eslint-disable react-hooks/set-state-in-effect */
       if (t) setTobillo(t);
       if (g) setGrasaObj(g);
       if (ga) setGrasaActual(ga);
+      if (mo) setMunecaOsea(mo);
+      if (fo) setFemurOseo(fo);
       /* eslint-enable react-hooks/set-state-in-effect */
     } catch {
       /* sin almacenamiento: se escribe a mano */
@@ -166,14 +181,20 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
   const butt = useMemo(() => ({ alturaCm, munecaCm: aNumero(muneca), tobilloCm: aNumero(tobillo), grasaPct: aNumero(grasaObj) }), [alturaCm, muneca, tobillo, grasaObj]);
   const ffmiEntrada = useMemo(() => ({ alturaCm, pesoKg, grasaPct: aNumero(grasaActual) }), [alturaCm, pesoKg, grasaActual]);
 
+  const holwayEntrada = useMemo(
+    () => ({ alturaCm, munecaOseaCm: aNumero(munecaOsea), femurOseoCm: aNumero(femurOseo), sexo: sexo ?? ("masculino" as const) }),
+    [alturaCm, munecaOsea, femurOseo, sexo],
+  );
   const validoButt = datosValidos(butt);
   const validoFfmi = datosFfmiValidos(ffmiEntrada);
+  const validoHolway = datosHolwayValidos(holwayEntrada);
   const validoBerkhan = Number.isFinite(alturaCm) && alturaCm > 120 && alturaCm < 230;
-  const valido = metodo === "butt" ? validoButt : metodo === "ffmi" ? validoFfmi : validoBerkhan;
+  const valido = metodo === "butt" ? validoButt : metodo === "ffmi" ? validoFfmi : metodo === "holway" ? validoHolway : validoBerkhan;
 
   const rButt = validoButt ? potencialMuscular(butt) : null;
   const rFfmi = validoFfmi ? ffmiPotencial(ffmiEntrada) : null;
   const rBerkhan = validoBerkhan ? berkhan(alturaCm) : null;
+  const rHolway = validoHolway ? holway(holwayEntrada) : null;
   const grasaFueraDeRango = validoButt && (butt.grasaPct < 4 || butt.grasaPct > 12);
 
   const filasButt = rButt
@@ -195,14 +216,16 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
       ? `${num(butt.alturaCm)} cm · muñeca ${num(butt.munecaCm)} · tobillo ${num(butt.tobilloCm)} · ${num(butt.grasaPct)} % de grasa`
       : metodo === "ffmi"
         ? `${num(alturaCm)} cm · ${num(pesoKg)} kg · ${num(ffmiEntrada.grasaPct)} % de grasa actual`
-        : `${num(alturaCm)} cm`;
+        : metodo === "holway"
+          ? `${num(alturaCm)} cm · muñeca ósea ${num(holwayEntrada.munecaOseaCm)} cm · fémur óseo ${num(holwayEntrada.femurOseoCm)} cm`
+          : `${num(alturaCm)} cm`;
   const mostrarCampos = !valido || editando;
 
   return (
     <div>
       {/* Elegir el método (arriba de todo) */}
       <p className="mb-2 text-sm font-semibold text-white">Elegí con qué método querés calcularlo</p>
-      <div className="mb-4 grid grid-cols-3 gap-2">
+      <div className="mb-4 grid grid-cols-2 gap-2 min-[400px]:grid-cols-4">
         {METODOS.map((m) => (
           <button
             key={m.id}
@@ -277,6 +300,18 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
                   </div>
                 </>
               )}
+              {metodo === "holway" && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-[11px] text-gray-500">Diámetro de muñeca (cm)</label>
+                    <input className={campo} inputMode="decimal" value={munecaOsea} onChange={campoGuardado(setMunecaOsea, CLAVES.munecaOsea)} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] text-gray-500">Diámetro de fémur (cm)</label>
+                    <input className={campo} inputMode="decimal" value={femurOseo} onChange={campoGuardado(setFemurOseo, CLAVES.femurOseo)} />
+                  </div>
+                </>
+              )}
               {metodo === "berkhan" && (
                 <div>
                   <label className="mb-1 block text-[11px] text-gray-500">Peso actual (kg, opcional)</label>
@@ -288,6 +323,13 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
               <p className="mt-2 text-[11px] leading-snug text-gray-500">
                 Muñeca: entre la mano y el hueso saliente de la muñeca, con la mano abierta. Tobillo: en la parte más angosta, justo encima del hueso saliente.
                 Cinta ajustada, sin apretar. Este método es válido para 4 % a 12 % de grasa.
+              </p>
+            )}
+            {metodo === "holway" && (
+              <p className="mt-2 text-[11px] leading-snug text-gray-500">
+                Son <b>diámetros</b> del hueso (no perímetros) y se miden con un calibre o paquímetro: muñeca = ancho entre los dos huesos salientes (biestiloideo);
+                fémur = ancho de la rodilla entre los dos huesos salientes de los costados, sentado con la rodilla a 90° (biepicondíleo). Lo ideal es que los mida un
+                antropometrista.
               </p>
             )}
             {metodo === "ffmi" && (
@@ -306,6 +348,7 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
           {metodo === "butt" && "Completá altura, muñeca, tobillo y % de grasa para ver tu estimación."}
           {metodo === "ffmi" && "Completá altura, peso y % de grasa actual para ver tu estimación."}
           {metodo === "berkhan" && "Completá tu altura para ver tu estimación."}
+          {metodo === "holway" && "Completá altura, diámetro de muñeca y diámetro de fémur (medidos con calibre) para ver tu estimación."}
         </p>
       ) : metodo === "butt" && rButt ? (
         <>
@@ -347,6 +390,22 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
             Se han reportado valores de FFMI mayores a 25 en personas naturales: tomalo como una referencia, no como un tope.
           </p>
         </>
+      ) : metodo === "holway" && rHolway ? (
+        <>
+          <div className="mt-4 rounded-xl border border-emerald-800 bg-gradient-to-b from-emerald-950/70 to-bg-card p-4">
+            <p className="text-[11px] uppercase tracking-wider text-gray-400">Masa muscular máxima estimada</p>
+            <p className="text-3xl font-semibold leading-tight text-emerald-300">{num(rHolway.masaMuscularMaxKg)} kg</p>
+            <p className="text-[11px] text-gray-500">{num(rHolway.relacion)} kg de músculo por cada kg de hueso</p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <Tarjeta titulo="Masa ósea estimada" valor={`${num(rHolway.masaOseaKg)} kg`} nota="ecuación de Rocha" />
+            <Tarjeta titulo="Relación músculo/hueso" valor={num(rHolway.relacion)} nota={sexo === "femenino" ? "referencia para mujeres" : "referencia para varones"} />
+          </div>
+          <p className="mt-3 text-[11px] leading-snug text-gray-500">
+            Es solo músculo (no incluye hueso, órganos ni grasa), así que no se compara con tu peso ni con tu masa magra. Para saber cuánto músculo tenés hoy hace
+            falta una medición profesional (antropometría completa o DEXA).
+          </p>
+        </>
       ) : metodo === "berkhan" && rBerkhan ? (
         <>
           <Resumen
@@ -386,10 +445,15 @@ export function PotencialMuscularCliente({ sexo, ultima }: { sexo: "masculino" |
             composición corporal.
           </p>
         )}
-        <p className="mt-2">
-          Otros enfoques, como el de relación músculo/hueso de Fran Holway, se basan en una fraccionación antropométrica completa (diámetros óseos, pliegues y
-          perímetros medidos por un profesional) y no se pueden calcular acá. Tus datos se calculan en tu teléfono y no se guardan.
-        </p>
+        {metodo === "holway" && (
+          <p className="mt-2">
+            Modelo de Fran Holway (relación músculo/hueso): las inserciones de los tendones limitan cuánto músculo sostiene un hueso, y los atletas varones que buscan
+            el máximo suelen estancarse en unos 5 kg de músculo por kg de hueso (unos 4,2 en mujeres). Es experiencia de campo, no un estudio controlado. La masa ósea
+            se estima con la ecuación de Rocha: 3,02 × (altura² × diámetro de muñeca × diámetro de fémur × 400)<sup>0,712</sup>, todo en metros. Las constantes salen
+            de fuentes secundarias y no se pudieron cotejar contra el paper original.
+          </p>
+        )}
+        <p className="mt-2">Tus datos se calculan en tu teléfono y no se guardan.</p>
       </details>
     </div>
   );
