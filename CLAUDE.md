@@ -379,5 +379,5 @@ SQL Editor. Estado al 2026-10-12:
 
 ## Rutina KRAKEN GYM (migraciones 115 y 116, 2026-11-10)
 - Rutina privada (id 32) para el gimnasio comercial, copia de KRAKEN DEFINITIVA con Legs A (C) y Legs B (F) rehechos con máquinas (belt squat en Legs B, no en A: ya hay demasiado cuádriceps); biserie de gemelos (10 + 79) conservada. Sin activar. Push/Pull (A, B, D, E) sin cambios hasta que el coach pase las máquinas del gimnasio.
-- Ejercicios nuevos: "Sentadilla pendular" (id 295, usa el GIF de Hack Squat) y "Belt squat" (id 296, ilustración 3D estática en `ejercicios/webp/belt-squat-a3c8e22a.webp`). Imágenes PROVISORIAS: reemplazar por GIF/video propio grabado en el gimnasio.
+- Ejercicios nuevos: "Sentadilla pendular" (id 295; animación de 2 posiciones armada con 2 imágenes del coach, `webp/sentadilla-pendular-599f3757.webp`) y "Belt squat" (id 296; GIF del coach en `webp/belt-squat-8dd6e3ed.webp`). La pendular se puede reemplazar por video real grabado en el gimnasio. Legs A: pendular, hack, extensión, hip thrust (id 64); Legs B: belt squat, hiperextensiones (id 29), sin peso muerto.
 - Pendiente: hip thrust en máquina (hoy Legs B usa "Empuje de caderas" con barra, id 64) y rehacer Push/Pull con las máquinas reales.
