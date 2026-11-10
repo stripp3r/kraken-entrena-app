@@ -376,3 +376,8 @@ SQL Editor. Estado al 2026-10-12:
 - Nunca escribir campos de plan/rol con el cliente de sesión del usuario: usar el admin client.
 - Verificación: `supabase/verificacion_114_profiles_permisos.sql` (termina en ROLLBACK). Rollback: `supabase/rollback_114_profiles_permisos.sql` (reabre el agujero).
 - `scripts/migrar.mjs` marca como "destructiva" una migración que contiene `REVOKE ... TRUNCATE` (falso positivo); se confirma con `--permitir-destructivo`.
+
+## Rutina KRAKEN GYM (migraciones 115 y 116, 2026-11-10)
+- Rutina privada (id 32) para el gimnasio comercial, copia de KRAKEN DEFINITIVA con Legs A (C) y Legs B (F) rehechos con máquinas; biserie de gemelos (10 + 79) conservada. Sin activar. Push/Pull (A, B, D, E) sin cambios hasta que el coach pase las máquinas del gimnasio.
+- Ejercicios nuevos: "Sentadilla pendular" (id 295, usa el GIF de Hack Squat) y "Belt squat" (id 296, ilustración 3D estática en `ejercicios/webp/belt-squat-a3c8e22a.webp`). Imágenes PROVISORIAS: reemplazar por GIF/video propio grabado en el gimnasio.
+- Pendiente: hip thrust en máquina (hoy Legs B usa "Empuje de caderas" con barra, id 64) y rehacer Push/Pull con las máquinas reales.
